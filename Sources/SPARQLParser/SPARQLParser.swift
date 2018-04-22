@@ -173,7 +173,7 @@ extension SPARQLToken: Equatable {
 }
 
 extension SPARQLToken {
-    var sparql: String {
+    public var sparql: String {
         switch self {
         case .ws:
             return " "

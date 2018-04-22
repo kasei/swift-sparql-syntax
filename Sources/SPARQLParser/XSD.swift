@@ -14,7 +14,7 @@ public enum NumericValue: CustomStringConvertible {
     case float(mantissa: Double, exponent: Int)
     case double(mantissa: Double, exponent: Int)
     
-    var value: Double {
+    public var value: Double {
         switch self {
         case .integer(let value):
             return Double(value)
@@ -82,7 +82,7 @@ public enum NumericValue: CustomStringConvertible {
         }
     }
     
-    var term: Term {
+    public var term: Term {
         switch self {
         case .integer(let value):
             return Term(integer: value)

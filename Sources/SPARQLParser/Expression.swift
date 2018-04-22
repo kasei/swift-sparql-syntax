@@ -113,7 +113,7 @@ public indirect enum Expression: CustomStringConvertible {
     case call(String, [Expression])
     case exists(Algebra)
     
-    var hasAggregation: Bool {
+    public var hasAggregation: Bool {
         switch self {
         case .aggregate(_):
             return true
@@ -201,7 +201,7 @@ public indirect enum Expression: CustomStringConvertible {
         }
     }
     
-    var isNumeric: Bool {
+    public var isNumeric: Bool {
         switch self {
         case .node(.bound(let term)) where term.isNumeric:
             return true

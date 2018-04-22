@@ -9,7 +9,7 @@ public enum TermType {
 
 extension TermType {
     // swiftlint:disable:next variable_name
-    func resultType(for op: String, withOperandType rhs: TermType) -> TermType? {
+    public func resultType(for op: String, withOperandType rhs: TermType) -> TermType? {
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
         let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
         let float   = TermType.datatype("http://www.w3.org/2001/XMLSchema#float")
@@ -137,11 +137,11 @@ public struct Term: CustomStringConvertible {
         }
     }
     
-    static func rdf(_ local: String) -> Term {
+    public static func rdf(_ local: String) -> Term {
         return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
     }
     
-    static func xsd(_ local: String) -> Term {
+    public static func xsd(_ local: String) -> Term {
         return Term(value: "http://www.w3.org/2001/XMLSchema#\(local)", type: .iri)
     }
     
@@ -272,8 +272,8 @@ public struct Term: CustomStringConvertible {
         }
     }
     
-    static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
-    static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+    public static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+    public static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
 }
 
 extension Term: Comparable {
