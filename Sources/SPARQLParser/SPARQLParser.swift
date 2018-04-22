@@ -2127,8 +2127,8 @@ public struct SPARQLParser {
         
         // push paths to the end
         propertyObjects.sort { (l, r) in if case .path(_) = l { return false } else { return true } }
-        let algebra: Algebra = propertyObjects.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
-        propertyObjects = [algebra]
+//        let algebra: Algebra = propertyObjects.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+//        propertyObjects = [algebra]
         
         
         LOOP: while try attempt(token: .semicolon) {
@@ -3259,10 +3259,10 @@ extension Algebra {
                     let label = i.first!
                     print("shared blank node algebra:")
                     print("- \(self)")
-                    throw SPARQLParsingError.parsingError("Blank node label _:\(label) cannot be used in multiple BGPs\n\(self)")
+                    // throw SPARQLParsingError.parsingError("Blank node label _:\(label) cannot be used in multiple BGPs\n\(self)")
                 } else {
                     let labels = i.map { "_:\($0)" }
-                    throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(labels.joined(separator: ", "))\n\(self)")
+                    // throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(labels.joined(separator: ", "))\n\(self)")
                 }
             }
             return l.union(r)
