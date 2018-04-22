@@ -26,7 +26,7 @@ public enum NumericValue: CustomStringConvertible {
         }
     }
     
-    var absoluteValue: NumericValue {
+    public var absoluteValue: NumericValue {
         if value >= 0.0 {
             return self
         } else {
@@ -34,7 +34,7 @@ public enum NumericValue: CustomStringConvertible {
         }
     }
     
-    var round: NumericValue {
+    public var round: NumericValue {
         var v = value
         if value < 0 {
             v += 0.5
@@ -52,7 +52,7 @@ public enum NumericValue: CustomStringConvertible {
         }
     }
     
-    var ceil: NumericValue {
+    public var ceil: NumericValue {
         var v = value
         v.round(.up)
         switch self {
@@ -67,7 +67,7 @@ public enum NumericValue: CustomStringConvertible {
         }
     }
     
-    var floor: NumericValue {
+    public var floor: NumericValue {
         var v = value
         v.round(.down)
         switch self {

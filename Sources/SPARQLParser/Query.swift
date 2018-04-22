@@ -26,7 +26,7 @@ public struct Query : Equatable {
     public var algebra: Algebra
     public var dataset: Dataset?
     
-    init(form: QueryForm, algebra: Algebra, dataset: Dataset? = nil) throws {
+    public init(form: QueryForm, algebra: Algebra, dataset: Dataset? = nil) throws {
         self.form = form
         self.algebra = algebra
         self.dataset = dataset
