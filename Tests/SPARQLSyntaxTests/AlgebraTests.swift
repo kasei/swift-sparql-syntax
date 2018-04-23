@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-@testable import SPARQLParser
+@testable import SPARQLSyntax
 
 #if os(Linux)
 extension AlgebraTest {

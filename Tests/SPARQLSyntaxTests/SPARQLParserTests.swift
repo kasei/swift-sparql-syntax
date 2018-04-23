@@ -1,9 +1,9 @@
 import XCTest
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 
 #if os(Linux)
-extension SPARQLParserTest {
+extension SPARQLParserTests {
     static var allTests : [(String, (SPARQLParserTest) -> () throws -> Void)] {
         return [
             ("testParser", testParser),
@@ -44,7 +44,7 @@ extension SPARQLParserTest {
 #endif
 
 // swiftlint:disable type_body_length
-class SPARQLParserTest: XCTestCase {
+class SPARQLParserTests: XCTestCase {
     
     override func setUp() {
         super.setUp()

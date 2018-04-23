@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 
 public struct PeekableIterator<T: IteratorProtocol> : IteratorProtocol {
     public typealias Element = T.Element

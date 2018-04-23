@@ -1,9 +1,9 @@
 import XCTest
 import Foundation
-@testable import SPARQLParser
+@testable import SPARQLSyntax
 
 #if os(Linux)
-extension SPARQLSerializationTest {
+extension SPARQLSerializationTests {
     static var allTests : [(String, (SPARQLSerializationTest) -> () throws -> Void)] {
         return [
             ("testProjectedSPARQLTokens", testProjectedSPARQLTokens),
@@ -18,7 +18,7 @@ extension SPARQLSerializationTest {
 #endif
 
 // swiftlint:disable type_body_length
-class SPARQLSerializationTest: XCTestCase {
+class SPARQLSerializationTests: XCTestCase {
     
     override func setUp() {
         super.setUp()

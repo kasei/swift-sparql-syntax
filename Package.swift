@@ -4,23 +4,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "SPARQLParser",
+    name: "SPARQLSyntax",
     products: [
         .library(
-            name: "SPARQLParser",
-            targets: ["SPARQLParser"]),
+            name: "SPARQLSyntax",
+            targets: ["SPARQLSyntax"]),
     ],
     dependencies: [],
     targets: [
         .target(
             name: "sparql-parser",
-            dependencies: ["SPARQLParser"]
+            dependencies: ["SPARQLSyntax"]
         ),
         .target(
-            name: "SPARQLParser",
+            name: "SPARQLSyntax",
             dependencies: []),
         .testTarget(
-            name: "SPARQLParserTests",
-            dependencies: ["SPARQLParser"]),
+            name: "SPARQLSyntaxTests",
+            dependencies: ["SPARQLSyntax"]),
     ]
 )

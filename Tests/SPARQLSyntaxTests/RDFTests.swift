@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-import SPARQLParser
+import SPARQLSyntax
 
 #if os(Linux)
 extension RDFTest {
