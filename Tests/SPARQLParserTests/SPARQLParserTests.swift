@@ -656,8 +656,28 @@ class SPARQLParserTest: XCTestCase {
         XCTAssertNoThrow(try p.parseAlgebra(), "Can project * when subquery properly projects aggregated variables")
     }
     
-    func testBadReuseOfBlankNodeIdentifier() {
+    func testBadReuseOfBlankNodeIdentifier1() {
         guard var p = SPARQLParser(string: "SELECT * WHERE { { _:a ?p ?o . FILTER(ISIRI(?p)) _:a ?p 2 } OPTIONAL { _:a ?y ?z ; <q> 'qq' } }") else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
+            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+                XCTAssertTrue(m.contains("Blank node label"))
+            } else {
+                XCTFail()
+            }
+        }
+    }
+    
+    func testBadReuseOfBlankNodeIdentifier2() {
+        let sparql = """
+        # $Id: syn-blabel-cross-graph-bad.rq,v 1.2 2007/04/18 23:11:57 eric Exp $
+        # BNode label used across a GRAPH.
+        PREFIX : <http://xmlns.com/foaf/0.1/>
+
+        ASK { _:who :homepage ?homepage
+              GRAPH ?g { ?someone :made ?homepage }
+              _:who :schoolHomepage ?schoolPage }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
                 XCTAssertTrue(m.contains("Blank node label"))
