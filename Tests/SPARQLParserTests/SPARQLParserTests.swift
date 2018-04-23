@@ -687,6 +687,28 @@ class SPARQLParserTest: XCTestCase {
         }
     }
     
+    func testBadReuseOfBlankNodeIdentifier3() {
+        let sparql = """
+        # $Id: syn-blabel-cross-optional-bad.rq,v 1.5 2007/09/04 15:04:22 eric Exp $
+        # BNode label used across an OPTIONAL.
+        # This isn't necessarily a *syntax* test, but references to bnode labels
+        # may not span basic graph patterns.
+        PREFIX foaf:     <http://xmlns.com/foaf/0.1/>
+
+        ASK { _:who foaf:homepage ?homepage
+              OPTIONAL { ?someone foaf:made ?homepage }
+              _:who foaf:schoolHomepage ?schoolPage }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
+            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+                XCTAssertTrue(m.contains("Blank node label"))
+            } else {
+                XCTFail()
+            }
+        }
+    }
+    
     func testAcceptableReuseOfBlankNodeIdentifier() {
         // reuse of bnode labels should be acceptable when in adjacent BGPs and property paths
         // https://www.w3.org/2013/sparql-errata#errata-query-17

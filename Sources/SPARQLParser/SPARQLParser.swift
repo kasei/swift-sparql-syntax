@@ -426,12 +426,6 @@ public struct SPARQLParser {
         }
         
         try expect(token: .rbrace)
-        let labels = try algebra.blankNodeLabels()
-        let sharedLabels = labels.intersection(seenBlankNodeLabels)
-        if sharedLabels.count > 0 {
-            throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(sharedLabels.joined(separator: ", "))\n\(self)")
-        }
-        self.seenBlankNodeLabels.formUnion(labels)
         return algebra
     }
     
@@ -669,9 +663,9 @@ public struct SPARQLParser {
     //    private mutating func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError }
     
     private mutating func parseGroupGraphPatternSub() throws -> Algebra {
-        var args = [Algebra]()
         var ok = true
         var allowTriplesBlock = true
+        var patterns = [UnfinishedAlgebra]()
         var filters = [UnfinishedAlgebra]()
         
         while ok {
@@ -680,18 +674,18 @@ public struct SPARQLParser {
                 if !allowTriplesBlock {
                     break
                 }
-                let algebra = try triplesByParsingTriplesBlock()
+                let algebras = try triplesByParsingTriplesBlock()
                 allowTriplesBlock = false
-                args.append(contentsOf: algebra)
+                patterns.append(contentsOf: algebras.map { .finished($0) })
             } else {
                 switch t {
                 case .lparen, .lbracket, ._var, .iri(_), .anon, .prefixname(_, _), .bnode(_), .string1d(_), .string1s(_), .string3d(_), .string3s(_), .boolean(_), .double(_), .decimal(_), .integer(_):
                     if !allowTriplesBlock {
                         break
                     }
-                    let algebra = try triplesByParsingTriplesBlock()
+                    let algebras = try triplesByParsingTriplesBlock()
                     allowTriplesBlock = false
-                    args.append(contentsOf: algebra)
+                    patterns.append(contentsOf: algebras.map { .finished($0) })
                 case .lbrace, .keyword(_):
                     guard let unfinished = try treeByParsingGraphPatternNotTriples() else {
                         throw parseError("Could not parse GraphPatternNotTriples in GroupGraphPatternSub (near \(t))")
@@ -700,8 +694,7 @@ public struct SPARQLParser {
                     if case .filter(_) = unfinished {
                         filters.append(unfinished)
                     } else {
-                        let algebra = try unfinished.finish(&args)
-                        args.append(algebra)
+                        patterns.append(unfinished)
                     }
                     allowTriplesBlock = true
                     try attempt(token: .dot)
@@ -710,13 +703,45 @@ public struct SPARQLParser {
                 }
             }
         }
-        
+
+        var args = [Algebra]()
+        var currentBlockSeenLabels = Set<String>()
+        for pattern in patterns {
+            switch pattern {
+            case .finished(let algebra):
+                if algebra.adjacentBlankNodeUseOK {
+                    currentBlockSeenLabels.formUnion(algebra.blankNodeLabels)
+                } else {
+                    try guardBlankNodeResuse(with: currentBlockSeenLabels)
+                    currentBlockSeenLabels = Set()
+                }
+                args.append(algebra)
+            default:
+                try guardBlankNodeResuse(with: currentBlockSeenLabels)
+                currentBlockSeenLabels = Set()
+                let algebra = try pattern.finish(&args)
+                args.append(algebra)
+            }
+        }
+
+        try guardBlankNodeResuse(with: currentBlockSeenLabels)
+
         for f in filters {
             let algebra = try f.finish(&args)
             args.append(algebra)
         }
+        
         let algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: false))
         return algebra
+    }
+    
+    private mutating func guardBlankNodeResuse(with currentBlockSeenLabels: Set<String>) throws {
+//        print("Ended adjacent BGP block with blank node labels: \(currentBlockSeenLabels)")
+        let sharedLabels = currentBlockSeenLabels.intersection(seenBlankNodeLabels)
+        if sharedLabels.count > 0 {
+            throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(sharedLabels.joined(separator: ", "))\n\(self)")
+        }
+        self.seenBlankNodeLabels.formUnion(currentBlockSeenLabels)
     }
     
     private mutating func parseBind() throws -> UnfinishedAlgebra {
@@ -1950,22 +1975,31 @@ extension String {
 }
 
 extension Algebra {
+    internal var adjacentBlankNodeUseOK: Bool {
+        switch self {
+        case .triple(_), .quad(_), .bgp(_), .path(_):
+            return true
+        default:
+            return false
+        }
+    }
+    
     /**
      This is used internally to throw exceptions on queries that use blank node labels in more than one BGP.
      It is not entirely accurate, as we exempt property paths from returning blank node labels so that they
      do not conflict with adjacent BGPs <https://www.w3.org/2013/sparql-errata#errata-query-17>
      */
-    internal func blankNodeLabels() throws -> Set<String> {
+    internal var blankNodeLabels: Set<String> {
         switch self {
             
         case .joinIdentity, .unionIdentity, .table(_, _):
             return Set()
             
         case .subquery(let q):
-            return try q.algebra.blankNodeLabels()
+            return q.algebra.blankNodeLabels
             
         case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _, _):
-            return try child.blankNodeLabels()
+            return child.blankNodeLabels
             
             
         case .triple(let t):
@@ -2015,8 +2049,8 @@ extension Algebra {
             return b
             
         case .leftOuterJoin(let lhs, let rhs, _), .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
-            let l = try lhs.blankNodeLabels()
-            let r = try rhs.blankNodeLabels()
+            let l = lhs.blankNodeLabels
+            let r = rhs.blankNodeLabels
             
             switch (lhs, rhs) {
             case (.bgp(_), .path(_)), (.path(_), .bgp(_)),
