@@ -64,7 +64,7 @@ extension TermType: Hashable {
     }
 }
 
-public struct Term: CustomStringConvertible {
+public struct Term: CustomStringConvertible, Encodable {
     public var value: String
     public var type: TermType
     public var _doubleValue: Double?
@@ -269,6 +269,33 @@ public struct Term: CustomStringConvertible {
         case .datatype(let dt):
             let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\"^^<\(dt)>"
+        }
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case value
+        case language = "xml:lang"
+        case datatype = "datatype"
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self.type {
+        case .blank:
+            try container.encode("bnode", forKey: .type)
+            try container.encode(value, forKey: .value)
+        case .iri:
+            try container.encode("uri", forKey: .type)
+            try container.encode(value, forKey: .value)
+        case .datatype(let dt):
+            try container.encode("literal", forKey: .type)
+            try container.encode(value, forKey: .value)
+            try container.encode(dt, forKey: .datatype)
+        case .language(let lang):
+            try container.encode("literal", forKey: .type)
+            try container.encode(value, forKey: .value)
+            try container.encode(lang, forKey: .language)
         }
     }
     
