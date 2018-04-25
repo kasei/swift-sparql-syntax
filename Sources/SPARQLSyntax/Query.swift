@@ -80,6 +80,17 @@ public extension Query {
     public var inscope: Set<String> {
         return self.algebra.inscope
     }
+    
+    public var projectedVariables: [String] {
+        switch self.form {
+        case .select(.variables(let v)):
+            return v
+        case .select(.star):
+            return self.inscope.sorted()
+        case .ask, .construct(_), .describe(_):
+            return []
+        }
+    }
 }
 
 
