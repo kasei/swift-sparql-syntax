@@ -55,12 +55,32 @@ public struct QuadPattern: CustomStringConvertible {
     }
 }
 
+extension QuadPattern: Sequence {
+    public func makeIterator() -> IndexingIterator<[Node]> {
+        return [subject, predicate, object, graph].makeIterator()
+    }
+}
+
 extension QuadPattern : Equatable {
     public static func == (lhs: QuadPattern, rhs: QuadPattern) -> Bool {
         guard lhs.subject == rhs.subject else { return false }
         guard lhs.predicate == rhs.predicate else { return false }
         guard lhs.object == rhs.object else { return false }
         guard lhs.graph == rhs.graph else { return false }
+        return true
+    }
+}
+
+extension QuadPattern {
+    public func matches(_ quad: Quad) -> Bool {
+        for (node, term) in zip(self, quad) {
+            switch node {
+            case .bound(let t) where t != term:
+                return false
+            default:
+                continue
+            }
+        }
         return true
     }
 }
