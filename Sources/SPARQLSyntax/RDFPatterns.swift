@@ -75,6 +75,16 @@ extension TriplePattern : Equatable {
 }
 
 extension TriplePattern {
+    public func replace(_ map: (Node) throws -> Node?) throws -> TriplePattern {
+        var nodes = [subject, predicate, object]
+        for (i, node) in nodes.enumerated() {
+            if let n = try map(node) {
+                nodes[i] = n
+            }
+        }
+        return TriplePattern(subject: nodes[0], predicate: nodes[1], object: nodes[2])
+    }
+    
     public func matches(_ triple: Triple) -> Bool {
         var matched = [String:Term]()
         for (node, term) in zip(self, triple) {
@@ -142,6 +152,16 @@ extension QuadPattern : Equatable {
 }
 
 extension QuadPattern {
+    public func replace(_ map: (Node) throws -> Node?) throws -> QuadPattern {
+        var nodes = [subject, predicate, object, graph]
+        for (i, node) in nodes.enumerated() {
+            if let n = try map(node) {
+                nodes[i] = n
+            }
+        }
+        return QuadPattern(subject: nodes[0], predicate: nodes[1], object: nodes[2], graph: nodes[3])
+    }
+    
     public func matches(_ quad: Quad) -> Bool {
         var matched = [String:Term]()
         for (node, term) in zip(self, quad) {

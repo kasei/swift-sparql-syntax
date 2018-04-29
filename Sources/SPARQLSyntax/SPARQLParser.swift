@@ -76,9 +76,10 @@ private enum UnfinishedAlgebra {
 
 // swiftlint:disable:next type_body_length
 public struct SPARQLParser {
+    var parseBlankNodesAsVariables: Bool
     var lexer: SPARQLLexer
     var prefixes: [String:String]
-    var bnodes: [String:Term]
+    var bnodes: [String:Node]
     var base: String?
     var tokenLookahead: SPARQLToken?
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
@@ -96,6 +97,7 @@ public struct SPARQLParser {
         self.base = base
         self.bnodes = [:]
         self.seenBlankNodeLabels = Set()
+        self.parseBlankNodesAsVariables = true
     }
     
     public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
@@ -113,12 +115,12 @@ public struct SPARQLParser {
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
-    private mutating func bnode(named name: String? = nil) -> Term {
-        if let name = name, let term = self.bnodes[name] {
-            return term
+    private mutating func bnode(named name: String? = nil) -> Node {
+        if let name = name, let node = self.bnodes[name] {
+            return node
         } else {
             guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
-            let b = Term(value: "b\(id)", type: .blank)
+            let b: Node = .bound(Term(value: "b\(id)", type: .blank))
             if let name = name {
                 self.bnodes[name] = b
             }
@@ -731,7 +733,38 @@ public struct SPARQLParser {
             args.append(algebra)
         }
         
-        let algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: false))
+        var algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: false))
+        
+        func replaceBlankNode(_ n: Node) -> Node? {
+            switch n {
+            case .bound(let term) where term.type == .blank:
+                return .variable(".blank.\(term.value)", binding: false)
+            default:
+                return nil
+            }
+        }
+        
+        if self.parseBlankNodesAsVariables {
+            algebra = try algebra.replace { (a) -> Algebra? in
+                switch a {
+                case .quad(let q):
+                    if let qp = try? q.replace(replaceBlankNode) {
+                        return .quad(qp)
+                    } else {
+                        return nil
+                    }
+                case .triple(let t):
+                    if let tp = try? t.replace(replaceBlankNode) {
+                        return .triple(tp)
+                    } else {
+                        return nil
+                    }
+                default:
+                    return nil
+                }
+            }
+        }
+        
         return algebra
     }
     
@@ -1149,7 +1182,7 @@ public struct SPARQLParser {
     
     private mutating func parseBlankNodePropertyListPathAsNode() throws -> (Node, [Algebra]) {
         try expect(token: .lbracket)
-        let node: Node = .bound(bnode())
+        let node: Node = bnode()
         let path = try parsePropertyListPathNotEmpty(for: node)
         try expect(token: .rbracket)
         return (node, path)
@@ -1193,24 +1226,24 @@ public struct SPARQLParser {
         var patterns = [TriplePattern]()
         if nodes.count > 0 {
             for (i, o) in nodes.enumerated() {
-                let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdffirst), object: o)
+                let triple = TriplePattern(subject: list, predicate: .bound(rdffirst), object: o)
                 patterns.append(triple)
                 if i == (nodes.count-1) {
-                    let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdfrest), object: .bound(rdfnil))
+                    let triple = TriplePattern(subject: list, predicate: .bound(rdfrest), object: .bound(rdfnil))
                     patterns.append(triple)
                 } else {
                     let newlist = self.bnode()
-                    let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdfrest), object: .bound(newlist))
+                    let triple = TriplePattern(subject: list, predicate: .bound(rdfrest), object: newlist)
                     patterns.append(triple)
                     list = newlist
                 }
             }
             triples.append(.bgp(patterns))
         } else {
-            let triple = TriplePattern(subject: .bound(list), predicate: .bound(rdffirst), object: .bound(rdfnil))
+            let triple = TriplePattern(subject: list, predicate: .bound(rdffirst), object: .bound(rdfnil))
             triples.append(.bgp([triple]))
         }
-        return (.bound(bnode), triples)
+        return (bnode, triples)
     }
     
     //    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError }
@@ -1749,7 +1782,7 @@ public struct SPARQLParser {
             }
             return try resolveIRI(value: ns + ln)
         case .anon:
-            return .bound(bnode())
+            return bnode()
         case .keyword("A"):
             return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         case .boolean(let value):
@@ -1761,8 +1794,8 @@ public struct SPARQLParser {
         case .integer(let value):
             return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#integer")))
         case .bnode(let name):
-            let term = bnode(named: name)
-            return .bound(term)
+            let node = bnode(named: name)
+            return node
         case .string1d(let value), .string1s(let value), .string3d(let value), .string3s(let value):
             return try literalAsTerm(value)
         case .plus:

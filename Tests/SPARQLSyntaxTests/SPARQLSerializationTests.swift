@@ -210,7 +210,7 @@ class SPARQLSerializationTests: XCTestCase {
                 .star,
                 .keyword("WHERE"),
                 .lbrace,
-                .bnode("b1"),
+                ._var(".blank.b1"),
                 .iri("http://example.org/value"),
                 ._var("o"),
                 .dot,
@@ -243,7 +243,7 @@ class SPARQLSerializationTests: XCTestCase {
                 ._var("o"),
                 .keyword("WHERE"),
                 .lbrace,
-                .bnode("b1"),
+                ._var(".blank.b1"),
                 .iri("http://example.org/value"),
                 ._var("o"),
                 .dot,
@@ -255,6 +255,38 @@ class SPARQLSerializationTests: XCTestCase {
                 .hathat,
                 .iri("http://www.w3.org/2001/XMLSchema#decimal"),
                 .rparen,
+                .rbrace
+            ]
+            
+            //            guard tokens.count == expected.count else { XCTFail("Got \(tokens.count), but expected \(expected.count)"); return }
+            for (t, expect) in zip(tokens, expected) {
+                XCTAssertEqual(t, expect)
+            }
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testQuerySerializedTokens_3() {
+        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT ?o WHERE {\n_:s ex:value ?o, 7\n}\n") else { XCTFail(); return }
+        do {
+            let q = try p.parseQuery()
+            let tokens = Array(q.sparqlTokens)
+            let expected: [SPARQLToken] = [
+                .keyword("SELECT"),
+                ._var("o"),
+                .keyword("WHERE"),
+                .lbrace,
+                ._var(".blank.b1"),
+                .iri("http://example.org/value"),
+                ._var("o"),
+                .dot,
+                ._var(".blank.b1"),
+                .iri("http://example.org/value"),
+                .string1d("7"),
+                .hathat,
+                .iri("http://www.w3.org/2001/XMLSchema#integer"),
+                .dot,
                 .rbrace
             ]
             
