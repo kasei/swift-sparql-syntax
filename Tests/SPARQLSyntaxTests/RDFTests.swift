@@ -115,4 +115,55 @@ class RDFTest: XCTestCase {
             """
         XCTAssertEqual(s, expected)
     }
+    
+    func testQuadPattern_matches() throws {
+        let q = Quad(subject: Term(iri: "http://example.org/s"), predicate: Term.rdf("type"), object: Term(iri: "http://xmlns.com/foaf/0.1/Person"), graph: Term(iri: "http://example.org/data"))
+        let qp = QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .bound(Term.rdf("type")),
+            object: .variable("class", binding: true),
+            graph: .variable("graph", binding: true)
+        )
+        XCTAssertTrue(qp.matches(q))
+    }
+    
+    func testQuadPattern_matches_shared_var() throws {
+        let q1 = Quad(subject: Term(iri: "http://example.org/s"), predicate: Term.rdf("type"), object: Term(iri: "http://xmlns.com/foaf/0.1/Person"), graph: Term(iri: "http://example.org/s"))
+        let q2 = Quad(subject: Term(iri: "http://example.org/s"), predicate: Term.rdf("type"), object: Term(iri: "http://xmlns.com/foaf/0.1/Person"), graph: Term(iri: "http://example.org/data"))
+        let qp = QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .bound(Term.rdf("type")),
+            object: .variable("class", binding: true),
+            graph: .variable("s", binding: true)
+        )
+        XCTAssertTrue(qp.matches(q1))
+        XCTAssertFalse(qp.matches(q2))
+    }
+    
+    func testQuadPattern_matches_shared_var_nonbinding() throws {
+        let q2 = Quad(subject: Term(iri: "http://example.org/s"), predicate: Term.rdf("type"), object: Term(iri: "http://xmlns.com/foaf/0.1/Person"), graph: Term(iri: "http://example.org/data"))
+        let qp = QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .bound(Term.rdf("type")),
+            object: .variable("class", binding: true),
+            graph: .variable("s", binding: false)
+        )
+        XCTAssertTrue(qp.matches(q2))
+    }
+    
+    func testQuadPattern_bindings() throws {
+        let q2 = Quad(subject: Term(iri: "http://example.org/s"), predicate: Term.rdf("type"), object: Term(iri: "http://xmlns.com/foaf/0.1/Person"), graph: Term(iri: "http://example.org/data"))
+        let qp = QuadPattern(
+            subject: .variable("s", binding: true),
+            predicate: .bound(Term.rdf("type")),
+            object: .variable("class", binding: true),
+            graph: .variable("s", binding: false)
+        )
+        let b = qp.bindings(for: q2)
+        XCTAssertNotNil(b)
+        XCTAssertEqual(b, .some([
+            "s": Term(iri: "http://example.org/s"),
+            "class": Term(iri: "http://xmlns.com/foaf/0.1/Person")
+        ]))
+    }
 }
