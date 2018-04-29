@@ -4,6 +4,8 @@ public struct TriplePattern: CustomStringConvertible {
     public var subject: Node
     public var predicate: Node
     public var object: Node
+    public static var groundKeyPaths = [\Triple.subject, \Triple.predicate, \Triple.object]
+    
     public init(subject: Node, predicate: Node, object: Node) {
         self.subject = subject
         self.predicate = predicate
@@ -36,6 +38,8 @@ public struct QuadPattern: CustomStringConvertible {
     public var predicate: Node
     public var object: Node
     public var graph: Node
+    public static var groundKeyPaths = [\Quad.subject, \Quad.predicate, \Quad.object, \Quad.graph]
+
     public init(subject: Node, predicate: Node, object: Node, graph: Node) {
         self.subject = subject
         self.predicate = predicate
