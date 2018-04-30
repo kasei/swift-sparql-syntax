@@ -13,8 +13,13 @@ public enum QueryForm : Equatable {
 }
 
 public struct Dataset : Equatable {
-    var defaultGraphs: [Term]
-    var namedGraphs: [Term]
+    public var defaultGraphs: [Term]
+    public var namedGraphs: [Term]
+    
+    public init(defaultGraphs: [Term]? = nil, namedGraphs: [Term]? = nil) {
+        self.defaultGraphs = defaultGraphs ?? []
+        self.namedGraphs = namedGraphs ?? []
+    }
     
     var isEmpty : Bool {
         return defaultGraphs.count == 0 && namedGraphs.count == 0
