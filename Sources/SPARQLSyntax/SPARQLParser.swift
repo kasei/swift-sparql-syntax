@@ -733,7 +733,7 @@ public struct SPARQLParser {
             args.append(algebra)
         }
         
-        var algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: false))
+        var algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
         
         func replaceBlankNode(_ n: Node) -> Node? {
             switch n {
