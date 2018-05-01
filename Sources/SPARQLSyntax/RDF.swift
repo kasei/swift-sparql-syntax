@@ -1,6 +1,6 @@
 import Foundation
 
-public enum TermType {
+public enum TermType: Hashable {
     case blank
     case iri
     case language(String)
@@ -45,21 +45,6 @@ extension TermType: Equatable {
             return l == r
         default:
             return false
-        }
-    }
-}
-
-extension TermType: Hashable {
-    public var hashValue: Int {
-        switch self {
-        case .blank:
-            return 0
-        case .iri:
-            return 1
-        case .datatype(let d):
-            return 2 ^ d.hashValue
-        case .language(let l):
-            return 3 ^ l.hashValue
         }
     }
 }
@@ -389,7 +374,7 @@ extension Term: Hashable {
     }
 }
 
-public struct Triple: CustomStringConvertible {
+public struct Triple: Hashable, CustomStringConvertible {
     public var subject: Term
     public var predicate: Term
     public var object: Term
@@ -409,7 +394,7 @@ extension Triple: Sequence {
     }
 }
 
-public struct Quad: CustomStringConvertible {
+public struct Quad: Hashable, CustomStringConvertible {
     public var subject: Term
     public var predicate: Term
     public var object: Term
