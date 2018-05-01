@@ -579,18 +579,40 @@ public struct SPARQLParser {
     // swiftlint:disable:next function_parameter_count
     private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
-        let aggregations = aggregation.map { ($0.1, $0.0) }.sorted { $0.1 <= $1.1 }
+        
+        var groups = [Expression]()
+        var applyAggregation: Bool = false
         if try attempt(token: .keyword("GROUP")) {
+            applyAggregation = true
             try expect(token: .keyword("BY"))
-            var groups = [Expression]()
             while let n = try? parseGroupCondition(&algebra), let node = n {
                 groups.append(.node(node))
             }
-            algebra = .aggregate(algebra, groups, aggregations)
-        } else if aggregations.count > 0 { // if algebra contains aggregation
-            algebra = .aggregate(algebra, [], aggregations)
         }
         
+        var aggregation = aggregation
+        var havingExpression: Expression? = nil
+        if try attempt(token: .keyword("HAVING")) {
+            var e = try parseConstraint()
+            if e.hasAggregation {
+                e = e.removeAggregations(freshCounter, mapping: &aggregation)
+            }
+            havingExpression = e
+        }
+        
+        let aggregations = aggregation.map { ($0.1, $0.0) }.sorted { $0.1 <= $1.1 }
+        if aggregations.count > 0 { // if algebra contains aggregation
+            applyAggregation = true
+        }
+
+        if applyAggregation {
+            algebra = .aggregate(algebra, groups, aggregations)
+        }
+
+        if let e = havingExpression {
+            algebra = .filter(algebra, e)
+        }
+
         let inScope = algebra.inscope
         for (_, name) in projectExpressions {
             if inScope.contains(name) {
@@ -598,11 +620,6 @@ public struct SPARQLParser {
             }
         }
         algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
-        
-        if try attempt(token: .keyword("HAVING")) {
-            let e = try parseConstraint()
-            algebra = .filter(algebra, e)
-        }
         
         if let values = valuesBlock {
             algebra = .innerJoin(algebra, values)
@@ -747,6 +764,12 @@ public struct SPARQLParser {
         if self.parseBlankNodesAsVariables {
             algebra = try algebra.replace { (a) -> Algebra? in
                 switch a {
+                case .bgp(let triples):
+                    if let newTriples = try? triples.map({ (t) in return try t.replace(replaceBlankNode) }) {
+                        return .bgp(newTriples)
+                    } else {
+                        return nil
+                    }
                 case .quad(let q):
                     if let qp = try? q.replace(replaceBlankNode) {
                         return .quad(qp)

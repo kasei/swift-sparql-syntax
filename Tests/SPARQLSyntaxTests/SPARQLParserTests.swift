@@ -583,10 +583,13 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX 食: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#> SELECT ?name ?food WHERE { [ foaf:name ?name ; 食:食べる ?food ] . }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case .project(.innerJoin(.triple(let ta), .triple(let tb)), let variables) = a else {
+            guard case let .project(.bgp(triples), variables) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
+            
+            let ta = triples[0]
+            let tb = triples[1]
             
             XCTAssertEqual(ta.subject, tb.subject)
             XCTAssertEqual(ta.predicate, .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri)))
