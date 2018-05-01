@@ -11,11 +11,22 @@ protocol TermPattern {
     associatedtype GroundType: Sequence
     static var groundKeyPaths: [KeyPath<GroundType, Term>] { get }
     static var groundKeyNames: [String] { get }
+    var isGround: Bool { get }
+    var ground: GroundType? { get }
     func matches(_ statement: GroundType) -> Bool
     func makeIterator() -> IndexingIterator<[Node]>
 }
 
 extension TermPattern {
+    public var isGround: Bool {
+        for n in makeIterator() {
+            if case .variable(_) = n {
+                return false
+            }
+        }
+        return true
+    }
+    
     public func bindings(for statement: GroundType) -> [String:Term]? {
         guard self.matches(statement) else { return nil }
         var d = [String: Term]()
@@ -75,6 +86,11 @@ extension TriplePattern : Equatable {
 }
 
 extension TriplePattern {
+    public var ground: GroundType? {
+        guard case let .bound(s) = subject, case let .bound(p) = predicate, case let .bound(o) = object else { return nil }
+        return Triple(subject: s, predicate: p, object: o)
+    }
+
     public func replace(_ map: (Node) throws -> Node?) throws -> TriplePattern {
         var nodes = [subject, predicate, object]
         for (i, node) in nodes.enumerated() {
@@ -152,6 +168,11 @@ extension QuadPattern : Equatable {
 }
 
 extension QuadPattern {
+    public var ground: GroundType? {
+        guard case let .bound(s) = subject, case let .bound(p) = predicate, case let .bound(o) = object, case let .bound(g) = graph else { return nil }
+        return Quad(subject: s, predicate: p, object: o, graph: g)
+    }
+    
     public func replace(_ map: (Node) throws -> Node?) throws -> QuadPattern {
         var nodes = [subject, predicate, object, graph]
         for (i, node) in nodes.enumerated() {
