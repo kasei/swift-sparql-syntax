@@ -15,6 +15,7 @@ protocol TermPattern {
     var ground: GroundType? { get }
     func matches(_ statement: GroundType) -> Bool
     func makeIterator() -> IndexingIterator<[Node]>
+    var bindingAllVariables: Self { get }
 }
 
 extension TermPattern {
@@ -67,6 +68,21 @@ public struct TriplePattern: TermPattern, CustomStringConvertible {
         let predicate = self.predicate.bind(variable, to: replacement)
         let object = self.object.bind(variable, to: replacement)
         return TriplePattern(subject: subject, predicate: predicate, object: object)
+    }
+    
+    public var bindingAllVariables: TriplePattern {
+        let nodes = self.map { (n) -> Node in
+            switch n {
+            case .variable(let name, binding: false):
+                return .variable(name, binding: true)
+            default:
+                return n
+            }
+        }
+        let s = nodes[0]
+        let p = nodes[1]
+        let o = nodes[2]
+        return TriplePattern(subject: s, predicate: p, object: o)
     }
 }
 
@@ -148,6 +164,23 @@ public struct QuadPattern: TermPattern, CustomStringConvertible {
         let object = self.object.bind(variable, to: replacement)
         let graph = self.graph.bind(variable, to: replacement)
         return QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
+    }
+
+    
+    public var bindingAllVariables: QuadPattern {
+        let nodes = self.map { (n) -> Node in
+            switch n {
+            case .variable(let name, binding: false):
+                return .variable(name, binding: true)
+            default:
+                return n
+            }
+        }
+        let s = nodes[0]
+        let p = nodes[1]
+        let o = nodes[2]
+        let g = nodes[3]
+        return QuadPattern(subject: s, predicate: p, object: o, graph: g)
     }
 }
 
