@@ -228,7 +228,7 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
             
-            let expected: Expression = .call("ISNUMERIC", [.node(.variable("x", binding: true))])
+            let expected: Expression = .isnumeric(.node(.variable("x", binding: true)))
             XCTAssertEqual(expr, expected)
         } catch let e {
             XCTFail("\(e)")

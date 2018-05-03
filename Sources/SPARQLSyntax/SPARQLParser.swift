@@ -1562,6 +1562,8 @@ public struct SPARQLParser {
                 return .lang(args[0])
             case "LANGMATCHES":
                 return .langmatches(args[0], args[1])
+            case "ISNUMERIC":
+                return .isnumeric(args[0])
             default:
                 return .call(kw, args)
             }
