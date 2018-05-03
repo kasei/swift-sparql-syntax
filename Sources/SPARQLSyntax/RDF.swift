@@ -424,6 +424,12 @@ public struct Quad: Hashable, CustomStringConvertible {
         self.object = object
         self.graph = graph
     }
+    public init(triple: Triple, graph: Term) {
+        self.subject = triple.subject
+        self.predicate = triple.predicate
+        self.object = triple.object
+        self.graph = graph
+    }
     public var description: String {
         return "\(subject) \(predicate) \(object) \(graph) ."
     }
