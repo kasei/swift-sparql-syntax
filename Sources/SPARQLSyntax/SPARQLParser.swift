@@ -1564,6 +1564,12 @@ public struct SPARQLParser {
                 return .langmatches(args[0], args[1])
             case "ISNUMERIC":
                 return .isnumeric(args[0])
+            case "ISIRI", "ISURI":
+                return .isiri(args[0])
+            case "ISLITERAL":
+                return .isliteral(args[0])
+            case "ISBLANK":
+                return .isblank(args[0])
             default:
                 return .call(kw, args)
             }
