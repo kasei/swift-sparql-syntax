@@ -36,9 +36,6 @@ public enum NumericValue: CustomStringConvertible {
     
     public var round: NumericValue {
         var v = value
-        if value < 0 {
-            v += 0.5
-        }
         v.round(.toNearestOrAwayFromZero)
         switch self {
         case .decimal(_):
