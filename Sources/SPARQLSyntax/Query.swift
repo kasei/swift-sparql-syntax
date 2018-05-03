@@ -27,11 +27,13 @@ public struct Dataset : Equatable {
 }
 
 public struct Query : Equatable {
+    public var base: String?
     public var form: QueryForm
     public var algebra: Algebra
     public var dataset: Dataset?
     
-    public init(form: QueryForm, algebra: Algebra, dataset: Dataset? = nil) throws {
+    public init(form: QueryForm, algebra: Algebra, dataset: Dataset? = nil, base: String? = nil) throws {
+        self.base = base
         self.form = form
         self.algebra = algebra
         self.dataset = dataset
