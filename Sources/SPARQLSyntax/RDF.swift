@@ -104,7 +104,9 @@ public struct Term: CustomStringConvertible, Encodable {
     private mutating func computeNumericValue() {
         switch type {
         case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
-            _doubleValue = Double(value) ?? 0.0
+            let c = Int(value) ?? 0
+            self.value = "\(c)"
+            _doubleValue = Double(c)
         case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
             let (sign, v, bytes) = canonicalDecimalComponents()
             let frac = bytes.compactMap { "\($0)" }.joined(separator: "")
