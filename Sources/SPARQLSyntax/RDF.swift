@@ -388,6 +388,23 @@ public struct Triple: Hashable, CustomStringConvertible {
     }
 }
 
+extension Triple {
+    public func replace(_ map: (Term) throws -> Term?) throws -> Triple {
+        let terms = self.map { (t) -> Term in
+            do {
+                if let term = try map(t) {
+                    return term
+                }
+            } catch {}
+            return t
+        }
+        let s = terms[0]
+        let p = terms[1]
+        let o = terms[2]
+        return Triple(subject: s, predicate: p, object: o)
+    }
+}
+
 extension Triple: Sequence {
     public func makeIterator() -> IndexingIterator<[Term]> {
         return [subject, predicate, object].makeIterator()
