@@ -313,10 +313,15 @@ extension Term: Comparable {
 }
 
 extension Term: Equatable {
-    public static func == (lhs: Term, rhs: Term) -> Bool {
-        if lhs.isNumeric && rhs.isNumeric {
-            return lhs.numericValue == rhs.numericValue
+    public func equals(_ term: Term) -> Bool {
+        if self.isNumeric && term.isNumeric {
+            return self.numericValue == term.numericValue
+        } else {
+            return self == term
         }
+    }
+    
+    public static func == (lhs: Term, rhs: Term) -> Bool {
         switch (lhs.type, rhs.type) {
         case (.iri, .iri), (.blank, .blank):
             return lhs.value == rhs.value
