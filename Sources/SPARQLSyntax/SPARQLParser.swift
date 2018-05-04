@@ -1547,6 +1547,10 @@ public struct SPARQLParser {
             return .doubleCast(exprs[0])
         case let .call("http://www.w3.org/2001/XMLSchema#float", exprs):
             return .floatCast(exprs[0])
+        case let .call("http://www.w3.org/2001/XMLSchema#decimal", exprs):
+            return .decimalCast(exprs[0])
+        case let .call("http://www.w3.org/2001/XMLSchema#dateTime", exprs):
+            return .dateTimeCast(exprs[0])
         default:
             return e
         }

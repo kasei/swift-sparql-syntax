@@ -492,6 +492,16 @@ extension Expression {
             tokens.append(.lparen)
             tokens.append(contentsOf: e.sparqlTokens())
             tokens.append(.rparen)
+        case .decimalCast(let e):
+            tokens.append(contentsOf: Term.xsd("decimal").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
+        case .dateTimeCast(let e):
+            tokens.append(contentsOf: Term.xsd("dateTime").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
         case .eq(let lhs, let rhs):
             tokens.append(contentsOf: lhs.sparqlTokens())
             tokens.append(.equals)
