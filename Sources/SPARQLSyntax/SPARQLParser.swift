@@ -1551,6 +1551,8 @@ public struct SPARQLParser {
             return .decimalCast(exprs[0])
         case let .call("http://www.w3.org/2001/XMLSchema#dateTime", exprs):
             return .dateTimeCast(exprs[0])
+        case let .call("http://www.w3.org/2001/XMLSchema#string", exprs):
+            return .stringCast(exprs[0])
         default:
             return e
         }
