@@ -570,9 +570,6 @@ public struct SPARQLParser {
     
     private mutating func parseFunctionCall() throws -> Expression {
         let expr = try parseIRIOrFunction()
-        guard case .call(_) = expr else {
-            throw parseError("Expecting function call but got \(expr)")
-        }
         return expr
     }
     
@@ -1501,10 +1498,10 @@ public struct SPARQLParser {
     private mutating func parseIRIOrFunction() throws -> Expression {
         let iri = try parseIRI()
         if try attempt(token: ._nil) {
-            return .call(iri.value, [])
+            return convertCallToExpression(e: .call(iri.value, []))
         } else if try attempt(token: .lparen) {
             if try attempt(token: .rparen) {
-                return .call(iri.value, [])
+                return convertCallToExpression(e: .call(iri.value, []))
             } else {
                 try attempt(token: .keyword("DISTINCT"))
                 let expr = try parseExpression()
@@ -1514,7 +1511,7 @@ public struct SPARQLParser {
                     args.append(expr)
                 }
                 try expect(token: .rparen)
-                return .call(iri.value, args)
+                return convertCallToExpression(e: .call(iri.value, args))
             }
         } else {
             return .node(.bound(iri))
@@ -1526,6 +1523,31 @@ public struct SPARQLParser {
         let expr = try parseExpression()
         try expect(token: .rparen)
         return expr
+    }
+    
+    private func convertCallToExpression(e: Expression) -> Expression {
+        switch e {
+        case let .call("LANG", exprs):
+            return .lang(exprs[0])
+        case let .call("LANGMATCHES", exprs):
+            return .langmatches(exprs[0], exprs[1])
+        case let .call("ISNUMERIC", exprs):
+            return .isnumeric(exprs[0])
+        case let .call("ISIRI", exprs), let .call("ISURI", exprs):
+            return .isiri(exprs[0])
+        case let .call("ISLITERAL", exprs):
+            return .isliteral(exprs[0])
+        case let .call("ISBLANK", exprs):
+            return .isblank(exprs[0])
+        case let .call("http://www.w3.org/2001/XMLSchema#integer", exprs):
+            return .intCast(exprs[0])
+        case let .call("http://www.w3.org/2001/XMLSchema#double", exprs):
+            return .doubleCast(exprs[0])
+        case let .call("http://www.w3.org/2001/XMLSchema#float", exprs):
+            return .floatCast(exprs[0])
+        default:
+            return e
+        }
     }
     
     private mutating func parseBuiltInCall() throws -> Expression {
@@ -1556,23 +1578,7 @@ public struct SPARQLParser {
                 }
                 try expect(token: .rparen)
             }
-            
-            switch kw {
-            case "LANG":
-                return .lang(args[0])
-            case "LANGMATCHES":
-                return .langmatches(args[0], args[1])
-            case "ISNUMERIC":
-                return .isnumeric(args[0])
-            case "ISIRI", "ISURI":
-                return .isiri(args[0])
-            case "ISLITERAL":
-                return .isliteral(args[0])
-            case "ISBLANK":
-                return .isblank(args[0])
-            default:
-                return .call(kw, args)
-            }
+            return convertCallToExpression(e: .call(kw, args))
         default:
             throw parseError("Expected built-in function call but found \(t)")
         }
