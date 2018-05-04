@@ -472,6 +472,11 @@ extension Expression {
             tokens.append(.lparen)
             tokens.append(contentsOf: e.sparqlTokens())
             tokens.append(.rparen)
+        case .boolCast(let e):
+            tokens.append(contentsOf: Term.xsd("boolean").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
         case .intCast(let e):
             tokens.append(contentsOf: Term.xsd("integer").sparqlTokens)
             tokens.append(.lparen)

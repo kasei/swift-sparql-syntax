@@ -93,6 +93,7 @@ public indirect enum Expression: CustomStringConvertible {
     case langmatches(Expression, Expression)
     case datatype(Expression)
     case bound(Expression)
+    case boolCast(Expression)
     case intCast(Expression)
     case floatCast(Expression)
     case doubleCast(Expression)
@@ -119,7 +120,7 @@ public indirect enum Expression: CustomStringConvertible {
             return true
         case .node(_), .exists(_):
             return false
-        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .neg(let expr):
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .neg(let expr):
             return expr.hasAggregation
         case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs):
             return lhs.hasAggregation || rhs.hasAggregation
@@ -156,6 +157,8 @@ public indirect enum Expression: CustomStringConvertible {
             return .datatype(expr.removeAggregations(counter, mapping: &mapping))
         case .bound(let expr):
             return .bound(expr.removeAggregations(counter, mapping: &mapping))
+        case .boolCast(let expr):
+            return .boolCast(expr.removeAggregations(counter, mapping: &mapping))
         case .intCast(let expr):
             return .intCast(expr.removeAggregations(counter, mapping: &mapping))
         case .floatCast(let expr):
@@ -258,12 +261,14 @@ public indirect enum Expression: CustomStringConvertible {
             return "ISLITERAL(\(expr))"
         case .isnumeric(let expr):
             return "ISNUMERIC(\(expr))"
+        case .boolCast(let expr):
+            return "xsd:boolean(\(expr.description))"
         case .intCast(let expr):
-            return "<http://www.w3.org/2001/XMLSchema#integer>(\(expr.description))"
+            return "xsd:integer(\(expr.description))"
         case .floatCast(let expr):
-            return "<http://www.w3.org/2001/XMLSchema#float>(\(expr.description))"
+            return "xsd:float(\(expr.description))"
         case .doubleCast(let expr):
-            return "<http://www.w3.org/2001/XMLSchema#double>(\(expr.description))"
+            return "xsd:double(\(expr.description))"
         case .call(let iri, let exprs):
             let strings = exprs.map { $0.description }
             return "<\(iri)>(\(strings.joined(separator: ",")))"
@@ -336,6 +341,8 @@ extension Expression: Equatable {
             return true
         case (.isnumeric(let l), .isnumeric(let r)) where l == r:
             return true
+        case (.boolCast(let l), .boolCast(let r)) where l == r:
+            return true
         case (.intCast(let l), .intCast(let r)) where l == r:
             return true
         case (.floatCast(let l), .floatCast(let r)) where l == r:
@@ -404,6 +411,8 @@ public extension Expression {
                 return try .isliteral(expr.replace(map))
             case .isnumeric(let expr):
                 return try .isnumeric(expr.replace(map))
+            case .boolCast(let expr):
+                return try .boolCast(expr.replace(map))
             case .intCast(let expr):
                 return try .intCast(expr.replace(map))
             case .floatCast(let expr):

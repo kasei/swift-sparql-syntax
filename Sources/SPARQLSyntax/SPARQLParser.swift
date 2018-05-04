@@ -1539,6 +1539,8 @@ public struct SPARQLParser {
             return .isliteral(exprs[0])
         case let .call("ISBLANK", exprs):
             return .isblank(exprs[0])
+        case let .call("http://www.w3.org/2001/XMLSchema#boolean", exprs):
+            return .boolCast(exprs[0])
         case let .call("http://www.w3.org/2001/XMLSchema#integer", exprs):
             return .intCast(exprs[0])
         case let .call("http://www.w3.org/2001/XMLSchema#double", exprs):
