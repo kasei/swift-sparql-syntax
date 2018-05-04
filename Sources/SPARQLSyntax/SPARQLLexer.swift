@@ -711,7 +711,7 @@ public class SPARQLLexer: IteratorProtocol {
             case "<":
                 return try packageToken(getIRIRefOrRelational())
             case "?", "$":
-                return try packageToken(getVariable())
+                return try packageToken(getVariableOrQuestion())
             case "!":
                 return try packageToken(getBang())
             case ">":
@@ -791,7 +791,7 @@ public class SPARQLLexer: IteratorProtocol {
         throw lexError("Expecting keyword")
     }
     
-    func getVariable() throws -> SPARQLToken? {
+    func getVariableOrQuestion() throws -> SPARQLToken? {
         getChar()
         let bufferLength = NSMakeRange(0, buffer.count)
         let variable_range = SPARQLLexer._variableNameRegex.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
@@ -799,7 +799,8 @@ public class SPARQLLexer: IteratorProtocol {
             let value = try read(length: variable_range.length)
             return ._var(value)
         } else {
-            throw lexError("Expecting variable name")
+            return .question
+//            throw lexError("Expecting variable name")
         }
     }
     

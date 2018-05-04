@@ -99,6 +99,7 @@ guard let pname = args.next() else { fatalError("Missing command name") }
 guard argscount > 2 else {
     print("Usage: \(pname) [-v] COMMAND [ARGUMENTS]")
     print("       \(pname) parse query.rq")
+    print("       \(pname) tokens query.rq")
     print("       \(pname) lint query.rq")
     print("")
     exit(1)
@@ -153,6 +154,37 @@ if let op = args.next() {
             }
         } catch let e {
             warn("*** Failed to parse query: \(e)")
+        }
+    } else if op == "tokens" {
+        var printAlgebra = false
+        var printSPARQL = false
+        var pretty = true
+        if let next = args.peek(), next.lowercased() == "-s" {
+            _ = args.next()
+            printSPARQL = true
+            if next == "-S" {
+                pretty = true
+            }
+        }
+        if let next = args.peek(), next == "-a" {
+            _ = args.next()
+            printAlgebra = true
+        }
+        if !printAlgebra && !printSPARQL {
+            printAlgebra = true
+        }
+        
+        guard let qfile = args.next() else { fatalError("No query file given") }
+        do {
+            let sparql = try data(fromFileOrString: qfile)
+            let stream = InputStream(data: sparql)
+            stream.open()
+            let lexer = SPARQLLexer(source: stream, includeComments: true)
+            while let t = lexer.next() {
+                print("\(t)")
+            }
+        } catch let e {
+            warn("*** Failed to tokenize query: \(e)")
         }
     } else if op == "lint", let qfile = args.next() {
         do {

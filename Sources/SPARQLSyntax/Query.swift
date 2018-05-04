@@ -21,7 +21,7 @@ public struct Dataset : Equatable {
         self.namedGraphs = namedGraphs ?? []
     }
     
-    var isEmpty : Bool {
+    public var isEmpty : Bool {
         return defaultGraphs.count == 0 && namedGraphs.count == 0
     }
 }
@@ -52,34 +52,40 @@ public extension Query {
     public func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         let algebra = self.algebra
+        var d = "\(indent)Query\n"
+        if let dataset = self.dataset {
+            d += "\(indent)  Dataset\n"
+            for g in dataset.defaultGraphs {
+                d += "\(indent)    Default graph: \(g)\n"
+            }
+            for g in dataset.namedGraphs {
+                d += "\(indent)    Named graph: \(g)\n"
+            }
+        }
         switch self.form {
         case .construct(let triples):
-            var d = "\(indent)Construct\n"
-            d += "\(indent)  Query\n"
-            d += algebra.serialize(depth: depth+2)
-            d += "\(indent)  Template\n"
+            d += "\(indent)  Construct\n"
+            d += "\(indent)    Algebra\n"
+            d += algebra.serialize(depth: depth+6)
+            d += "\(indent)    Template\n"
             for t in triples {
-                d += "\(indent)    \(t)\n"
+                d += "\(indent)      \(t)\n"
             }
-            return d
         case .describe(let nodes):
             let expressions = nodes.map { "\($0)" }
-            var d = "\(indent)Describe { \(expressions.joined(separator: ", ")) }\n"
-            d += algebra.serialize(depth: depth+1)
-            return d
+            d += "\(indent)  Describe { \(expressions.joined(separator: ", ")) }\n"
+            d += algebra.serialize(depth: depth+4)
         case .ask:
-            var d = "\(indent)Ask\n"
-            d += algebra.serialize(depth: depth+1)
-            return d
+            d += "\(indent)  Ask\n"
+            d += algebra.serialize(depth: depth+4)
         case .select(.star):
-            var d = "\(indent)Select { * }\n"
-            d += algebra.serialize(depth: depth+1)
-            return d
+            d += "\(indent)  Select { * }\n"
+            d += algebra.serialize(depth: depth+4)
         case .select(.variables(let v)):
-            var d = "\(indent)Select { \(v.joined(separator: ", ")) }\n"
-            d += algebra.serialize(depth: depth+1)
-            return d
+            d += "\(indent)  Select { \(v.joined(separator: ", ")) }\n"
+            d += algebra.serialize(depth: depth+4)
         }
+        return d
     }
 }
 

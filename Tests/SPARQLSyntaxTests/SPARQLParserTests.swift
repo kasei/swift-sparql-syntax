@@ -173,6 +173,36 @@ class SPARQLParserTests: XCTestCase {
         XCTAssertEqual(lexer.next()!, .string3d("\"\""), "expected token")
     }
     
+    func testLexerPropertyPath() {
+        guard let data = "prefix : <http://example/> select * where { :a (:p/:p)? ?t }".data(using: .utf8) else { XCTFail(); return }
+        let stream = InputStream(data: data)
+        stream.open()
+        let lexer = SPARQLLexer(source: stream)
+        var tokens = [SPARQLToken]()
+        while let t = lexer.next() {
+            tokens.append(t)
+        }
+        let expected : [SPARQLToken] = [
+            .keyword("PREFIX"),
+            .prefixname("", ""),
+            .iri("http://example/"),
+            .keyword("SELECT"),
+            .star,
+            .keyword("WHERE"),
+            .lbrace,
+            .prefixname("", "a"),
+            .lparen,
+            .prefixname("", "p"),
+            .slash,
+            .prefixname("", "p"),
+            .rparen,
+            .question,
+            ._var("t"),
+            .rbrace
+        ]
+        XCTAssertEqual(tokens, expected)
+    }
+    
     func testProjectExpression() {
         guard var p = SPARQLParser(string: "SELECT (?x+1 AS ?y) ?x WHERE {\n_:s <p> ?x .\n}\n") else { XCTFail(); return }
         do {
@@ -449,6 +479,19 @@ class SPARQLParserTests: XCTestCase {
         }
     }
     
+    func testPropertyPath_zeroOrOne() {
+        guard var p = SPARQLParser(string: "prefix : <http://example/> select * where { :a (:p/:p)? ?t }") else { XCTFail(); return }
+        do {
+            let a = try p.parseAlgebra()
+            guard case .path(_, .zeroOrOne(let pp), _) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
     func testConstruct() {
         guard var p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
         do {
