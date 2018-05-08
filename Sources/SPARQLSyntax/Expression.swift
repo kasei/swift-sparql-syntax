@@ -99,6 +99,7 @@ public indirect enum Expression: CustomStringConvertible {
     case doubleCast(Expression)
     case decimalCast(Expression)
     case dateTimeCast(Expression)
+    case dateCast(Expression)
     case stringCast(Expression)
     case eq(Expression, Expression)
     case ne(Expression, Expression)
@@ -123,7 +124,7 @@ public indirect enum Expression: CustomStringConvertible {
             return true
         case .node(_), .exists(_):
             return false
-        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .stringCast(let expr), .neg(let expr):
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
             return expr.hasAggregation
         case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs):
             return lhs.hasAggregation || rhs.hasAggregation
@@ -172,6 +173,8 @@ public indirect enum Expression: CustomStringConvertible {
             return .decimalCast(expr.removeAggregations(counter, mapping: &mapping))
         case .dateTimeCast(let expr):
             return .dateTimeCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .dateCast(let expr):
+            return .dateCast(expr.removeAggregations(counter, mapping: &mapping))
         case .stringCast(let expr):
             return .stringCast(expr.removeAggregations(counter, mapping: &mapping))
         case .call(let f, let exprs):
@@ -282,6 +285,8 @@ public indirect enum Expression: CustomStringConvertible {
             return "xsd:decimal(\(expr.description))"
         case .dateTimeCast(let expr):
             return "xsd:dateTime(\(expr.description))"
+        case .dateCast(let expr):
+            return "xsd:date(\(expr.description))"
         case .stringCast(let expr):
             return "xsd:string(\(expr.description))"
         case .call(let iri, let exprs):
@@ -368,6 +373,8 @@ extension Expression: Equatable {
             return true
         case (.dateTimeCast(let l), .dateTimeCast(let r)) where l == r:
             return true
+        case (.dateCast(let l), .dateCast(let r)) where l == r:
+            return true
         case (.stringCast(let l), .stringCast(let r)) where l == r:
             return true
         case (.call(let l, let largs), .call(let r, let rargs)) where l == r && largs == rargs:
@@ -444,6 +451,8 @@ public extension Expression {
                 return try .decimalCast(expr.replace(map))
             case .dateTimeCast(let expr):
                 return try .dateTimeCast(expr.replace(map))
+            case .dateCast(let expr):
+                return try .dateCast(expr.replace(map))
             case .stringCast(let expr):
                 return try .stringCast(expr.replace(map))
             case .call(let iri, let exprs):

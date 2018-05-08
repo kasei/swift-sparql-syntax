@@ -502,6 +502,11 @@ extension Expression {
             tokens.append(.lparen)
             tokens.append(contentsOf: e.sparqlTokens())
             tokens.append(.rparen)
+        case .dateCast(let e):
+            tokens.append(contentsOf: Term.xsd("date").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.rparen)
         case .stringCast(let e):
             tokens.append(contentsOf: Term.xsd("string").sparqlTokens)
             tokens.append(.lparen)
