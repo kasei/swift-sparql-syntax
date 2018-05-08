@@ -325,7 +325,7 @@ extension Term: Equatable {
         switch (lhs.type, rhs.type) {
         case (.iri, .iri), (.blank, .blank):
             return lhs.value == rhs.value
-        case (.language(let l), .language(let r)) where l == r:
+        case (.language(let l), .language(let r)) where l.lowercased() == r.lowercased():
             return lhs.value == rhs.value
         case (.datatype(let l), .datatype(let r)) where l == r:
             return lhs.value == rhs.value
