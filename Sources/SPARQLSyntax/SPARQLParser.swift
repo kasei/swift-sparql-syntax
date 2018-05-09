@@ -1535,6 +1535,8 @@ public struct SPARQLParser {
             return .bound(exprs[0])
         case let .call("DATATYPE", exprs):
             return .datatype(exprs[0])
+        case let .call("SAMETERM", exprs):
+            return .sameterm(exprs[0], exprs[1])
         case let .call("LANG", exprs):
             return .lang(exprs[0])
         case let .call("LANGMATCHES", exprs):

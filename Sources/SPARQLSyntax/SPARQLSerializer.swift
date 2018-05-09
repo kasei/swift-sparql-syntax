@@ -455,6 +455,13 @@ extension Expression {
             tokens.append(.lparen)
             tokens.append(contentsOf: e.sparqlTokens())
             tokens.append(.rparen)
+        case .sameterm(let lhs, let rhs):
+            tokens.append(.keyword("SAMETERM"))
+            tokens.append(.lparen)
+            tokens.append(contentsOf: lhs.sparqlTokens())
+            tokens.append(.comma)
+            tokens.append(contentsOf: rhs.sparqlTokens())
+            tokens.append(.rparen)
         case .langmatches(let e, let p):
             tokens.append(.keyword("LANGMATCHES"))
             tokens.append(.lparen)

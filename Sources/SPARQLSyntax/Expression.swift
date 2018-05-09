@@ -92,6 +92,7 @@ public indirect enum Expression: CustomStringConvertible {
     case lang(Expression)
     case langmatches(Expression, Expression)
     case datatype(Expression)
+    case sameterm(Expression, Expression)
     case bound(Expression)
     case boolCast(Expression)
     case intCast(Expression)
@@ -126,7 +127,7 @@ public indirect enum Expression: CustomStringConvertible {
             return false
         case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
             return expr.hasAggregation
-        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs):
+        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
             return lhs.hasAggregation || rhs.hasAggregation
         case .between(let a, let b, let c):
             return a.hasAggregation || b.hasAggregation || c.hasAggregation
@@ -157,6 +158,8 @@ public indirect enum Expression: CustomStringConvertible {
             return .lang(expr.removeAggregations(counter, mapping: &mapping))
         case .langmatches(let expr, let pattern):
             return .langmatches(expr.removeAggregations(counter, mapping: &mapping), pattern.removeAggregations(counter, mapping: &mapping))
+        case .sameterm(let expr, let pattern):
+            return .sameterm(expr.removeAggregations(counter, mapping: &mapping), pattern.removeAggregations(counter, mapping: &mapping))
         case .datatype(let expr):
             return .datatype(expr.removeAggregations(counter, mapping: &mapping))
         case .bound(let expr):
@@ -296,6 +299,8 @@ public indirect enum Expression: CustomStringConvertible {
             return "LANG(\(expr))"
         case .langmatches(let expr, let m):
             return "LANGMATCHES(\(expr), \"\(m)\")"
+        case .sameterm(let lhs, let rhs):
+            return "SAMETERM(\(lhs), \(rhs))"
         case .datatype(let expr):
             return "DATATYPE(\(expr))"
         case .bound(let expr):
@@ -461,6 +466,8 @@ public extension Expression {
                 return try .lang(expr.replace(map))
             case .langmatches(let expr, let m):
                 return try .langmatches(expr.replace(map), m)
+            case .sameterm(let lhs, let rhs):
+                return try .sameterm(lhs.replace(map), rhs.replace(map))
             case .datatype(let expr):
                 return try .datatype(expr.replace(map))
             case .bound(let expr):
