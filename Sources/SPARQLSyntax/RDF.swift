@@ -37,21 +37,35 @@ extension TermType {
         let float   = TermType.datatype("http://www.w3.org/2001/XMLSchema#float")
         let double  = TermType.datatype("http://www.w3.org/2001/XMLSchema#double")
         if op == "/" {
-            if self == rhs && self == integer {
+            if self == rhs && self.integerType {
                 return decimal
             }
         }
         switch (self, rhs) {
+        case (let a, let b) where a == b && a.integerType && b.integerType:
+            return integer
         case (let a, let b) where a == b:
             return a
-        case (integer, decimal), (decimal, integer):
+        case (let i, decimal) where i.integerType,
+             (decimal, let i) where i.integerType:
             return decimal
-        case (integer, float), (float, integer), (decimal, float), (float, decimal):
+        case (let i, float) where i.integerType,
+             (float, let i) where i.integerType:
             return float
-        case (integer, double), (double, integer), (decimal, double), (double, decimal):
+        case (decimal, float),
+             (float, decimal):
+            return float
+        case (let i, double) where i.integerType,
+             (double, let i) where i.integerType:
+            return double
+        case (decimal, double),
+             (double, decimal):
             return double
         case (let a, let b) where a.integerType && b.integerType:
             return integer
+        case (_, double),
+             (double, _):
+            return double
         default:
             return nil
         }
