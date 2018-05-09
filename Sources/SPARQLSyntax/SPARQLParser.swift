@@ -51,10 +51,14 @@ private enum UnfinishedAlgebra {
                 throw SPARQLParsingError.parsingError("Cannot BIND to an already in-scope variable (?\(name)") // TODO: can the line:col be included in this exception?
             }
             return .extend(algebra, e, name)
-        case .filter(let e):
+        case .filter(let expr):
             let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
-            return .filter(algebra, e)
+            if case let .filter(a, e) = algebra {
+                return .filter(a, .and(expr, e))
+            } else {
+                return .filter(algebra, expr)
+            }
         case .minus(let a):
             let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
