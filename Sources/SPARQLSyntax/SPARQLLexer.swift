@@ -807,7 +807,7 @@ public class SPARQLLexer: IteratorProtocol {
     // swiftlint:disable:next cyclomatic_complexity
     func getSingleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
-        if buffer.hasPrefix("''") {
+        if buffer.hasPrefix("'''") {
             try read(word: "'''")
             var quote_count = 0
             while true {
