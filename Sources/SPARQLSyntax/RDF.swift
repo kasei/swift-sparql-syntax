@@ -9,6 +9,28 @@ public enum TermType: Hashable {
 
 extension TermType {
     // swiftlint:disable:next variable_name
+    var integerType: Bool {
+        guard case .datatype(let dt) = self else { return false }
+        switch dt {
+            case "http://www.w3.org/2001/XMLSchema#integer",
+                 "http://www.w3.org/2001/XMLSchema#nonPositiveInteger",
+                 "http://www.w3.org/2001/XMLSchema#negativeInteger",
+                 "http://www.w3.org/2001/XMLSchema#long",
+                 "http://www.w3.org/2001/XMLSchema#int",
+                 "http://www.w3.org/2001/XMLSchema#short",
+                 "http://www.w3.org/2001/XMLSchema#byte",
+                 "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+                 "http://www.w3.org/2001/XMLSchema#unsignedLong",
+                 "http://www.w3.org/2001/XMLSchema#unsignedInt",
+                 "http://www.w3.org/2001/XMLSchema#unsignedShort",
+                 "http://www.w3.org/2001/XMLSchema#unsignedByte",
+                 "http://www.w3.org/2001/XMLSchema#positiveInteger":
+            return true
+        default:
+            return false
+        }
+    }
+    
     public func resultType(for op: String, withOperandType rhs: TermType) -> TermType? {
         let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
         let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
@@ -28,6 +50,8 @@ extension TermType {
             return float
         case (integer, double), (double, integer), (decimal, double), (double, decimal):
             return double
+        case (let a, let b) where a.integerType && b.integerType:
+            return integer
         default:
             return nil
         }
@@ -103,7 +127,7 @@ public struct Term: CustomStringConvertible, Encodable {
     
     private mutating func computeNumericValue() {
         switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+        case let t where t.integerType:
             let c = Int(value) ?? 0
             self.value = "\(c)"
             _doubleValue = Double(c)
@@ -221,7 +245,7 @@ public struct Term: CustomStringConvertible, Encodable {
             self.value = "\(value)"
         case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
             self.value = String(format: "%f", value)
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+        case let t where t.integerType:
             let i = Int(value)
             self.value = "\(i)"
         default:
@@ -337,11 +361,25 @@ extension Term: Equatable {
 
 extension Term {
     public var isNumeric: Bool {
-        switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"),
-             .datatype("http://www.w3.org/2001/XMLSchema#decimal"),
-             .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+        guard case .datatype(let dt) = type else { return false }
+        switch dt {
+        case "http://www.w3.org/2001/XMLSchema#integer",
+             "http://www.w3.org/2001/XMLSchema#nonPositiveInteger",
+             "http://www.w3.org/2001/XMLSchema#negativeInteger",
+             "http://www.w3.org/2001/XMLSchema#long",
+             "http://www.w3.org/2001/XMLSchema#int",
+             "http://www.w3.org/2001/XMLSchema#short",
+             "http://www.w3.org/2001/XMLSchema#byte",
+             "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+             "http://www.w3.org/2001/XMLSchema#unsignedLong",
+             "http://www.w3.org/2001/XMLSchema#unsignedInt",
+             "http://www.w3.org/2001/XMLSchema#unsignedShort",
+             "http://www.w3.org/2001/XMLSchema#unsignedByte",
+             "http://www.w3.org/2001/XMLSchema#positiveInteger":
+            return true
+        case "http://www.w3.org/2001/XMLSchema#decimal",
+             "http://www.w3.org/2001/XMLSchema#float",
+             "http://www.w3.org/2001/XMLSchema#double":
             return true
         default:
             return false
@@ -350,7 +388,7 @@ extension Term {
     
     public var numeric: NumericValue? {
         switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"):
+        case let t where t.integerType:
             if let i = Int(value) {
                 return .integer(i)
             } else {
