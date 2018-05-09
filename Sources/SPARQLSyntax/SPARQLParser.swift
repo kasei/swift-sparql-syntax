@@ -1533,6 +1533,8 @@ public struct SPARQLParser {
         switch e {
         case let .call("BOUND", exprs):
             return .bound(exprs[0])
+        case let .call("DATATYPE", exprs):
+            return .datatype(exprs[0])
         case let .call("LANG", exprs):
             return .lang(exprs[0])
         case let .call("LANGMATCHES", exprs):
