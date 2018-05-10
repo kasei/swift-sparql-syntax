@@ -237,6 +237,25 @@ public struct Term: CustomStringConvertible, Encodable {
         self.value = String(format: "%04d-%02d-%02d", year, month, day)
         self.type = .datatype("http://www.w3.org/2001/XMLSchema#date")
     }
+
+    public init(dateTime date: Date, timeZone tz: TimeZone?) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        
+        let year = calendar.component(.year, from: date)
+        let month = calendar.component(.month, from: date)
+        let day = calendar.component(.day, from: date)
+        let hours = calendar.component(.hour, from: date)
+        let minutes = calendar.component(.minute, from: date)
+        let seconds = Double(calendar.component(.second, from: date))
+        if let tz = tz {
+            let offset = tz.secondsFromGMT(for: date)
+            self.init(year: year, month: month, day: day, hours: hours, minutes: minutes, seconds: seconds, offset: offset)
+        } else {
+            self.init(year: year, month: month, day: day, hours: hours, minutes: minutes, seconds: seconds, offset: 0)
+            value.removeLast() // remove the trailing 'Z'
+        }
+    }
     
     public init(year: Int, month: Int, day: Int, hours: Int, minutes: Int, seconds: Double, offset: Int) {
         var v = String(format: "%04d-%02d-%02dT%02d:%02d:%02g", year, month, day, hours, minutes, seconds)
