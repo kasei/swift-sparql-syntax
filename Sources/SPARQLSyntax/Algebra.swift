@@ -393,6 +393,130 @@ public extension Algebra {
 }
 
 public extension Algebra {
+    func replace(_ map: [String:Term]) throws -> Algebra {
+        let a = try self.replace({ (e) -> Expression? in
+            return try e.replace(map)
+        })
+        return try a.replace({ (a) -> Algebra? in
+            switch a {
+            case .triple(let tp):
+                let r = try tp.replace({ (n) -> Node? in
+                    switch n {
+                    case .variable(let name, _):
+                        if let t = map[name] {
+                            return .bound(t)
+                        } else {
+                            return n
+                        }
+                    default:
+                        return n
+                    }
+                })
+                return .triple(r)
+            case .quad(let qp):
+                let r = try qp.replace { (n) -> Node? in
+                    switch n {
+                    case .variable(let name, _):
+                        if let t = map[name] {
+                            return .bound(t)
+                        } else {
+                            return n
+                        }
+                    default:
+                        return n
+                    }
+                }
+                return .quad(r)
+            case .bgp(let tps):
+                let r = try tps.map { (tp) -> TriplePattern in
+                    return try tp.replace { (n) -> Node? in
+                        switch n {
+                        case .variable(let name, _):
+                            if let t = map[name] {
+                                return .bound(t)
+                            } else {
+                                return n
+                            }
+                        default:
+                            return n
+                        }
+                    }
+                }
+                return .bgp(r)
+            case let .path(s, pp, o):
+                var subj = s
+                var obj = o
+                if case .variable(let name, _) = s {
+                    if let t = map[name] {
+                        subj = .bound(t)
+                    }
+                }
+                if case .variable(let name, _) = o {
+                    if let t = map[name] {
+                        obj = .bound(t)
+                    }
+                }
+                return .path(subj, pp, obj)
+            case let .project(a, vars):
+                return try .project(a.replace(map), vars)
+            case let .namedGraph(a, g):
+                var graph = g
+                if case .variable(let name, _) = g {
+                    if let t = map[name] {
+                        graph = .bound(t)
+                    }
+                }
+                return try .namedGraph(a.replace(map), graph)
+            case .subquery(let q):
+                print("TODO: implement node-replacement for subqueries")
+                return a
+            case .unionIdentity, .joinIdentity:
+                return self
+            case .distinct(let a):
+                return try .distinct(a.replace(map))
+            case .minus(let a, let b):
+                return try .minus(a.replace(map), b.replace(map))
+            case .union(let a, let b):
+                return try .union(a.replace(map), b.replace(map))
+            case .innerJoin(let a, let b):
+                return try .innerJoin(a.replace(map), b.replace(map))
+            case .slice(let a, let offset, let limit):
+                return try .slice(a.replace(map), offset, limit)
+            case .service(let endpoint, let a, let silent):
+                return try .service(endpoint, a.replace(map), silent)
+            case .filter(let a, let expr):
+                return try .filter(a.replace(map), expr.replace(map))
+            case .leftOuterJoin(let a, let b, let expr):
+                return try .leftOuterJoin(a.replace(map), b.replace(map), expr.replace(map))
+            case .extend(let a, let expr, let v):
+                return try .extend(a.replace(map), expr.replace(map), v)
+            case .order(let a, let cmps):
+                return try .order(a.replace(map), cmps.map { (asc, expr) in try (asc, expr.replace(map)) })
+            case .aggregate(let a, let exprs, let aggs):
+                let exprs = try exprs.map { (expr) in
+                    return try expr.replace(map)
+                }
+                print("TODO: implement node-replacement for aggregations")
+//                let aggs = try aggs.map { (data) in
+//                    let (agg, name) = data
+//                    return try (agg.replace(map), name)
+//                }
+                return try .aggregate(a.replace(map), exprs, aggs)
+            case .window(let a, let exprs, let funcs):
+                let exprs = try exprs.map { (expr) in
+                    return try expr.replace(map)
+                }
+                let funcs = try funcs.map { (f, cmps, name) -> (WindowFunction, [SortComparator], String) in
+                    let e = try cmps.map { (asc, expr) in try (asc, expr.replace(map)) }
+                    return (f, e, name)
+                }
+                return try .window(a.replace(map), exprs, funcs)
+
+
+            }
+        })
+    }
+    
     func replace(_ map: (Expression) throws -> Expression?) throws -> Algebra {
         switch self {
         case .subquery(let q):

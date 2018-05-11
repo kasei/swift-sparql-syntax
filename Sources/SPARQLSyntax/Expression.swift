@@ -399,6 +399,93 @@ extension Expression: Equatable {
 }
 
 public extension Expression {
+    func replace(_ map: [String:Term]) throws -> Expression {
+        return try self.replace({ (e) -> Expression? in
+            switch e {
+            case let .node(.variable(name, _)):
+                if let t = map[name] {
+                    return .node(.bound(t))
+                } else {
+                    return e
+                }
+            case .node(_):
+                return self
+            case .aggregate(let a):
+                return .aggregate(a) // TODO: replace variables in the aggregation
+            case .neg(let expr):
+                return try .neg(expr.replace(map))
+            case .eq(let lhs, let rhs):
+                return try .eq(lhs.replace(map), rhs.replace(map))
+            case .ne(let lhs, let rhs):
+                return try .ne(lhs.replace(map), rhs.replace(map))
+            case .gt(let lhs, let rhs):
+                return try .gt(lhs.replace(map), rhs.replace(map))
+            case .lt(let lhs, let rhs):
+                return try .lt(lhs.replace(map), rhs.replace(map))
+            case .ge(let lhs, let rhs):
+                return try .ge(lhs.replace(map), rhs.replace(map))
+            case .le(let lhs, let rhs):
+                return try .le(lhs.replace(map), rhs.replace(map))
+            case .add(let lhs, let rhs):
+                return try .add(lhs.replace(map), rhs.replace(map))
+            case .sub(let lhs, let rhs):
+                return try .sub(lhs.replace(map), rhs.replace(map))
+            case .mul(let lhs, let rhs):
+                return try .mul(lhs.replace(map), rhs.replace(map))
+            case .div(let lhs, let rhs):
+                return try .div(lhs.replace(map), rhs.replace(map))
+            case .between(let val, let lower, let upper):
+                return try .between(val.replace(map), lower.replace(map), upper.replace(map))
+            case .and(let lhs, let rhs):
+                return try .and(lhs.replace(map), rhs.replace(map))
+            case .or(let lhs, let rhs):
+                return try .or(lhs.replace(map), rhs.replace(map))
+            case .isiri(let expr):
+                return try .isiri(expr.replace(map))
+            case .isblank(let expr):
+                return try .isblank(expr.replace(map))
+            case .isliteral(let expr):
+                return try .isliteral(expr.replace(map))
+            case .isnumeric(let expr):
+                return try .isnumeric(expr.replace(map))
+            case .boolCast(let expr):
+                return try .boolCast(expr.replace(map))
+            case .intCast(let expr):
+                return try .intCast(expr.replace(map))
+            case .floatCast(let expr):
+                return try .floatCast(expr.replace(map))
+            case .doubleCast(let expr):
+                return try .doubleCast(expr.replace(map))
+            case .decimalCast(let expr):
+                return try .decimalCast(expr.replace(map))
+            case .dateTimeCast(let expr):
+                return try .dateTimeCast(expr.replace(map))
+            case .dateCast(let expr):
+                return try .dateCast(expr.replace(map))
+            case .stringCast(let expr):
+                return try .stringCast(expr.replace(map))
+            case .call(let iri, let exprs):
+                return try .call(iri, exprs.map { try $0.replace(map) })
+            case .lang(let expr):
+                return try .lang(expr.replace(map))
+            case .langmatches(let expr, let m):
+                return try .langmatches(expr.replace(map), m)
+            case .sameterm(let lhs, let rhs):
+                return try .sameterm(lhs.replace(map), rhs.replace(map))
+            case .datatype(let expr):
+                return try .datatype(expr.replace(map))
+            case .bound(let expr):
+                return try .bound(expr.replace(map))
+            case .valuein(let expr, let exprs):
+                return try .valuein(expr.replace(map), exprs.map { try $0.replace(map) })
+            case .not(let expr):
+                return try .not(expr.replace(map))
+            case .exists(let a):
+                return try .exists(a.replace(map))
+            }
+        })
+    }
+    
     func replace(_ map: (Expression) throws -> Expression?) throws -> Expression {
         if let e = try map(self) {
             return e

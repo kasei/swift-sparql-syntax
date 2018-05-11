@@ -343,6 +343,10 @@ public struct Term: CustomStringConvertible, Encodable {
         }
     }
     
+    public static func boolean(_ value: Bool) -> Term {
+        return value ? trueValue : falseValue
+    }
+    
     public static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
     public static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
 }

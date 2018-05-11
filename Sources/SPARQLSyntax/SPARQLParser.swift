@@ -1530,6 +1530,51 @@ public struct SPARQLParser {
     }
     
     private func convertCallToExpression(e: Expression) -> Expression {
+        // These are the built-in functions that are currently represented
+        // with .call that lack individual representations in Expression:
+        //    "ABS"
+        //    "BNODE"
+        //    "CEIL"
+        //    "COALESCE"
+        //    "CONCAT"
+        //    "CONTAINS"
+        //    "DAY"
+        //    "ENCODE_FOR_URI"
+        //    "FLOOR"
+        //    "HOURS"
+        //    "IF"
+        //    "IRI"
+        //    "LCASE"
+        //    "MD5"
+        //    "MINUTES"
+        //    "MONTH"
+        //    "NOW"
+        //    "RAND"
+        //    "REGEX"
+        //    "REPLACE"
+        //    "ROUND"
+        //    "SECONDS"
+        //    "SHA1"
+        //    "SHA256"
+        //    "SHA384"
+        //    "SHA512"
+        //    "STR",
+        //    "STRAFTER"
+        //    "STRBEFORE"
+        //    "STRDT"
+        //    "STRENDS"
+        //    "STRLANG"
+        //    "STRLEN"
+        //    "STRSTARTS"
+        //    "STRUUID"
+        //    "SUBSTR"
+        //    "TIMEZONE"
+        //    "TZ"
+        //    "UCASE"
+        //    "URI"
+        //    "UUID"
+        //    "YEAR"
+        
         switch e {
         case let .call("BOUND", exprs):
             return .bound(exprs[0])
