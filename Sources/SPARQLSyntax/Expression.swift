@@ -411,7 +411,7 @@ public extension Expression {
             case .node(_):
                 return self
             case .aggregate(let a):
-                return .aggregate(a) // TODO: replace variables in the aggregation
+                return try .aggregate(a.replace(map))
             case .neg(let expr):
                 return try .neg(expr.replace(map))
             case .eq(let lhs, let rhs):
@@ -571,6 +571,27 @@ public extension Expression {
 }
 
 public extension Aggregation {
+    func replace(_ map: [String:Term]) throws -> Aggregation {
+        switch self {
+        case .countAll:
+            return self
+        case .count(let expr, let distinct):
+            return try .count(expr.replace(map), distinct)
+        case .sum(let expr, let distinct):
+            return try .sum(expr.replace(map), distinct)
+        case .avg(let expr, let distinct):
+            return try .avg(expr.replace(map), distinct)
+        case .min(let expr):
+            return try .min(expr.replace(map))
+        case .max(let expr):
+            return try .max(expr.replace(map))
+        case .sample(let expr):
+            return try .sample(expr.replace(map))
+        case .groupConcat(let expr, let sep, let distinct):
+            return try .groupConcat(expr.replace(map), sep, distinct)
+        }
+    }
+    
     func replace(_ map: (Expression) throws -> Expression?) throws -> Aggregation {
         switch self {
         case .countAll:

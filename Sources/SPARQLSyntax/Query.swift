@@ -108,13 +108,18 @@ public extension Query {
 
 
 public extension Query {
+    func replace(_ map: [String:Term]) throws -> Query {
+        let algebra = try self.algebra.replace(map)
+        return try Query(form: self.form, algebra: algebra, dataset: self.dataset, base: self.base)
+    }
+    
     func replace(_ map: (Expression) throws -> Expression?) throws -> Query {
         let algebra = try self.algebra.replace(map)
-        return try Query(form: self.form, algebra: algebra, dataset: self.dataset)
+        return try Query(form: self.form, algebra: algebra, dataset: self.dataset, base: self.base)
     }
     
     func replace(_ map: (Algebra) throws -> Algebra?) throws -> Query {
         let algebra = try self.algebra.replace(map)
-        return try Query(form: self.form, algebra: algebra, dataset: self.dataset)
+        return try Query(form: self.form, algebra: algebra, dataset: self.dataset, base: self.base)
     }
 }

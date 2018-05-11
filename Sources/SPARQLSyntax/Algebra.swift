@@ -468,8 +468,7 @@ public extension Algebra {
                 }
                 return try .namedGraph(a.replace(map), graph)
             case .subquery(let q):
-                print("TODO: implement node-replacement for subqueries")
-                return a
+                return try .subquery(q.replace(map))
             case .unionIdentity, .joinIdentity:
                 return self
             case .distinct(let a):
@@ -496,11 +495,10 @@ public extension Algebra {
                 let exprs = try exprs.map { (expr) in
                     return try expr.replace(map)
                 }
-                print("TODO: implement node-replacement for aggregations")
-//                let aggs = try aggs.map { (data) in
-//                    let (agg, name) = data
-//                    return try (agg.replace(map), name)
-//                }
+                let aggs = try aggs.map { (data) -> (Aggregation, String) in
+                    let (agg, name) = data
+                    return try (agg.replace(map), name)
+                }
                 return try .aggregate(a.replace(map), exprs, aggs)
             case .window(let a, let exprs, let funcs):
                 let exprs = try exprs.map { (expr) in
