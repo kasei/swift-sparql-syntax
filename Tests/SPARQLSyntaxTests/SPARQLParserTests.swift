@@ -483,7 +483,7 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "prefix : <http://example/> select * where { :a (:p/:p)? ?t }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case .path(_, .zeroOrOne(let pp), _) = a else {
+            guard case .path(_, .zeroOrOne(_), _) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }

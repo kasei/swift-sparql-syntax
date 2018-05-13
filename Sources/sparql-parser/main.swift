@@ -158,13 +158,9 @@ if let op = args.next() {
     } else if op == "tokens" {
         var printAlgebra = false
         var printSPARQL = false
-        var pretty = true
         if let next = args.peek(), next.lowercased() == "-s" {
             _ = args.next()
             printSPARQL = true
-            if next == "-S" {
-                pretty = true
-            }
         }
         if let next = args.peek(), next == "-a" {
             _ = args.next()
