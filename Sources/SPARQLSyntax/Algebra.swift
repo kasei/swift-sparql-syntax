@@ -196,7 +196,7 @@ public extension Algebra {
             d += child.serialize(depth: depth+1)
             return d
         case .project(let child, let variables):
-            var d = "\(indent)Project \(variables)\n"
+            var d = "\(indent)Project { \(variables.map { "?\($0)" }.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
         case .distinct(let child):

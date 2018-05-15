@@ -54,12 +54,14 @@ public extension Query {
         let algebra = self.algebra
         var d = "\(indent)Query\n"
         if let dataset = self.dataset {
-            d += "\(indent)  Dataset\n"
-            for g in dataset.defaultGraphs {
-                d += "\(indent)    Default graph: \(g)\n"
-            }
-            for g in dataset.namedGraphs {
-                d += "\(indent)    Named graph: \(g)\n"
+            if !dataset.isEmpty {
+                d += "\(indent)  Dataset\n"
+                for g in dataset.defaultGraphs {
+                    d += "\(indent)    Default graph: \(g)\n"
+                }
+                for g in dataset.namedGraphs {
+                    d += "\(indent)    Named graph: \(g)\n"
+                }
             }
         }
         switch self.form {
@@ -82,7 +84,7 @@ public extension Query {
             d += "\(indent)  Select { * }\n"
             d += algebra.serialize(depth: depth+4)
         case .select(.variables(let v)):
-            d += "\(indent)  Select { \(v.joined(separator: ", ")) }\n"
+            d += "\(indent)  Select { \(v.map { "?\($0)" }.joined(separator: ", ")) }\n"
             d += algebra.serialize(depth: depth+4)
         }
         return d
