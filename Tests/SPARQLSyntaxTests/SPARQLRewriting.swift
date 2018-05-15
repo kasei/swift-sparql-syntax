@@ -41,16 +41,51 @@ class SPARQLNodeReplacementTests: XCTestCase {
                     .node(.bound(Term(integer: 8))),
                     .node(.bound(Term(value: "7.0", type: .datatype("http://www.w3.org/2001/XMLSchema#decimal"))))
                 )) = replaced else {
-                XCTFail("Unexpected algebra: \(a.serialize())")
-                return
+                    XCTFail("Unexpected algebra: \(a.serialize())")
+                    return
             }
-
+            
             guard case .triple(let got) = pattern else {
                 XCTFail("Unexpected algebra: \(pattern.serialize())")
                 return
             }
             
             XCTAssertEqual(got, tp)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testMultipleRewrite() {
+        // the use of rewrite() here first replaces the variable name in .extend(_, _, name) with "XXX",
+        // and then rewrites the extend's child algebra (a .triple) with a .bgp containing a triple
+        // with a different object value
+        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value 7 . BIND(1 AS ?s)\n}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseAlgebra()
+            let replaced = try a.rewrite({ (a) -> RewriteStatus<Algebra> in
+                switch a {
+                case let .extend(a, e, _):
+                    print(">>> \(a)")
+                    return .rewriteChildren(.extend(a, e, "XXX"))
+                case .triple(let tp):
+                    let p = TriplePattern(subject: tp.subject, predicate: tp.predicate, object: .bound(Term(integer: 8)))
+                    return .rewriteChildren(.bgp([p]))
+                default:
+                    return .rewriteChildren(a)
+                }
+            })
+            let tp = TriplePattern(
+                subject: .variable(".blank.b1", binding: true),
+                predicate: .bound(Term(iri: "http://example.org/value")),
+                object: .bound(Term(integer: 8))
+            )
+            guard case .extend(.bgp(let got), _, "XXX") = replaced else {
+                XCTFail("Unexpected algebra: \(replaced.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(got[0], tp)
         } catch let e {
             XCTFail("\(e)")
         }

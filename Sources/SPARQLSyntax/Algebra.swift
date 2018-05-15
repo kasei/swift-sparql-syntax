@@ -1,5 +1,11 @@
 import Foundation
 
+public enum RewriteStatus<A> {
+    case keep
+    case rewriteChildren(A)
+    case rewrite(A)
+}
+
 public enum WindowFunction {
     case rowNumber
     case rank
@@ -568,42 +574,56 @@ public extension Algebra {
     }
     
     func replace(_ map: (Algebra) throws -> Algebra?) throws -> Algebra {
-        if let r = try map(self) {
-            return r
-        } else {
-            switch self {
+        return try self.rewrite { (a) -> RewriteStatus<Algebra> in
+            if let r = try map(a) {
+                return .rewrite(r)
+            } else {
+                return .rewriteChildren(a)
+            }
+        }
+    }
+    
+    public func rewrite(_ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> Algebra {
+        let status = try map(self)
+        switch status {
+        case .keep:
+            return self
+        case .rewrite(let a):
+            return a
+        case .rewriteChildren(let a):
+            switch a {
             case .subquery(let q):
-                return try .subquery(q.replace(map))
+                return try .subquery(q.rewrite(map))
             case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
-                return self
+                return a
             case .distinct(let a):
-                return try .distinct(a.replace(map))
+                return try .distinct(a.rewrite(map))
             case .project(let a, let p):
-                return try .project(a.replace(map), p)
+                return try .project(a.rewrite(map), p)
             case .order(let a, let cmps):
-                return try .order(a.replace(map), cmps)
+                return try .order(a.rewrite(map), cmps)
             case .minus(let a, let b):
-                return try .minus(a.replace(map), b.replace(map))
+                return try .minus(a.rewrite(map), b.rewrite(map))
             case .union(let a, let b):
-                return try .union(a.replace(map), b.replace(map))
+                return try .union(a.rewrite(map), b.rewrite(map))
             case .innerJoin(let a, let b):
-                return try .innerJoin(a.replace(map), b.replace(map))
+                return try .innerJoin(a.rewrite(map), b.rewrite(map))
             case .leftOuterJoin(let a, let b, let expr):
-                return try .leftOuterJoin(a.replace(map), b.replace(map), expr)
+                return try .leftOuterJoin(a.rewrite(map), b.rewrite(map), expr)
             case .extend(let a, let expr, let v):
-                return try .extend(a.replace(map), expr, v)
+                return try .extend(a.rewrite(map), expr, v)
             case .filter(let a, let expr):
-                return try .filter(a.replace(map), expr)
+                return try .filter(a.rewrite(map), expr)
             case .namedGraph(let a, let node):
-                return try .namedGraph(a.replace(map), node)
+                return try .namedGraph(a.rewrite(map), node)
             case .slice(let a, let offset, let limit):
-                return try .slice(a.replace(map), offset, limit)
+                return try .slice(a.rewrite(map), offset, limit)
             case .service(let endpoint, let a, let silent):
-                return try .service(endpoint, a.replace(map), silent)
+                return try .service(endpoint, a.rewrite(map), silent)
             case .aggregate(let a, let exprs, let aggs):
-                return try .aggregate(a.replace(map), exprs, aggs)
+                return try .aggregate(a.rewrite(map), exprs, aggs)
             case .window(let a, let exprs, let funcs):
-                return try .window(a.replace(map), exprs, funcs)
+                return try .window(a.rewrite(map), exprs, funcs)
             }
         }
     }

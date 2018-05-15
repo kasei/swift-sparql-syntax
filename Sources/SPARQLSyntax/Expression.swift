@@ -17,6 +17,21 @@ public enum Aggregation {
     case max(Expression)
     case sample(Expression)
     case groupConcat(Expression, String, Bool)
+
+    public var variables: Set<String> {
+        switch self {
+        case .countAll:
+            return Set()
+        case .count(let e, _),
+             .sum(let e, _),
+             .avg(let e, _),
+             .min(let e),
+             .max(let e),
+             .sample(let e),
+             .groupConcat(let e, _, _):
+            return e.variables
+        }
+    }
 }
 
 extension Aggregation: Equatable {
@@ -118,6 +133,29 @@ public indirect enum Expression: CustomStringConvertible {
     case valuein(Expression, [Expression])
     case call(String, [Expression])
     case exists(Algebra)
+    
+    public var variables: Set<String> {
+        switch self {
+        case .node(.variable(let s, binding: _)):
+            return Set([s])
+        case .node(_):
+            return Set()
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
+            return expr.variables
+        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
+            return lhs.variables.union(rhs.variables)
+        case .between(let a, let b, let c):
+            return a.variables.union(b.variables).union(c.variables)
+        case .call(_, let exprs):
+            return exprs.reduce(Set()) { $0.union($1.variables) }
+        case .valuein(let expr, let exprs):
+            return exprs.reduce(expr.variables) { $0.union($1.variables) }
+        case .aggregate(let a):
+            return a.variables
+        case .exists(let p):
+            return p.inscope
+        }
+    }
     
     public var hasAggregation: Bool {
         switch self {
@@ -487,84 +525,98 @@ public extension Expression {
     }
     
     func replace(_ map: (Expression) throws -> Expression?) throws -> Expression {
-        if let e = try map(self) {
+        return try self.rewrite { (e) -> RewriteStatus<Expression> in
+            if let r = try map(e) {
+                return .rewrite(r)
+            } else {
+                return .rewriteChildren(e)
+            }
+        }
+    }
+
+    public func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> Expression {
+        let status = try map(self)
+        switch status {
+        case .keep:
+            return self
+        case .rewrite(let e):
             return e
-        } else {
-            switch self {
+        case .rewriteChildren(let e):
+            switch e {
             case .node(_):
-                return self
+                return e
             case .aggregate(let a):
-                return try .aggregate(a.replace(map))
+                return try .aggregate(a.rewrite(map))
             case .neg(let expr):
-                return try .neg(expr.replace(map))
+                return try .neg(expr.rewrite(map))
             case .eq(let lhs, let rhs):
-                return try .eq(lhs.replace(map), rhs.replace(map))
+                return try .eq(lhs.rewrite(map), rhs.rewrite(map))
             case .ne(let lhs, let rhs):
-                return try .ne(lhs.replace(map), rhs.replace(map))
+                return try .ne(lhs.rewrite(map), rhs.rewrite(map))
             case .gt(let lhs, let rhs):
-                return try .gt(lhs.replace(map), rhs.replace(map))
+                return try .gt(lhs.rewrite(map), rhs.rewrite(map))
             case .lt(let lhs, let rhs):
-                return try .lt(lhs.replace(map), rhs.replace(map))
+                return try .lt(lhs.rewrite(map), rhs.rewrite(map))
             case .ge(let lhs, let rhs):
-                return try .ge(lhs.replace(map), rhs.replace(map))
+                return try .ge(lhs.rewrite(map), rhs.rewrite(map))
             case .le(let lhs, let rhs):
-                return try .le(lhs.replace(map), rhs.replace(map))
+                return try .le(lhs.rewrite(map), rhs.rewrite(map))
             case .add(let lhs, let rhs):
-                return try .add(lhs.replace(map), rhs.replace(map))
+                return try .add(lhs.rewrite(map), rhs.rewrite(map))
             case .sub(let lhs, let rhs):
-                return try .sub(lhs.replace(map), rhs.replace(map))
+                return try .sub(lhs.rewrite(map), rhs.rewrite(map))
             case .mul(let lhs, let rhs):
-                return try .mul(lhs.replace(map), rhs.replace(map))
+                return try .mul(lhs.rewrite(map), rhs.rewrite(map))
             case .div(let lhs, let rhs):
-                return try .div(lhs.replace(map), rhs.replace(map))
+                return try .div(lhs.rewrite(map), rhs.rewrite(map))
             case .between(let val, let lower, let upper):
-                return try .between(val.replace(map), lower.replace(map), upper.replace(map))
+                return try .between(val.rewrite(map), lower.rewrite(map), upper.rewrite(map))
             case .and(let lhs, let rhs):
-                return try .and(lhs.replace(map), rhs.replace(map))
+                return try .and(lhs.rewrite(map), rhs.rewrite(map))
             case .or(let lhs, let rhs):
-                return try .or(lhs.replace(map), rhs.replace(map))
+                return try .or(lhs.rewrite(map), rhs.rewrite(map))
             case .isiri(let expr):
-                return try .isiri(expr.replace(map))
+                return try .isiri(expr.rewrite(map))
             case .isblank(let expr):
-                return try .isblank(expr.replace(map))
+                return try .isblank(expr.rewrite(map))
             case .isliteral(let expr):
-                return try .isliteral(expr.replace(map))
+                return try .isliteral(expr.rewrite(map))
             case .isnumeric(let expr):
-                return try .isnumeric(expr.replace(map))
+                return try .isnumeric(expr.rewrite(map))
             case .boolCast(let expr):
-                return try .boolCast(expr.replace(map))
+                return try .boolCast(expr.rewrite(map))
             case .intCast(let expr):
-                return try .intCast(expr.replace(map))
+                return try .intCast(expr.rewrite(map))
             case .floatCast(let expr):
-                return try .floatCast(expr.replace(map))
+                return try .floatCast(expr.rewrite(map))
             case .doubleCast(let expr):
-                return try .doubleCast(expr.replace(map))
+                return try .doubleCast(expr.rewrite(map))
             case .decimalCast(let expr):
-                return try .decimalCast(expr.replace(map))
+                return try .decimalCast(expr.rewrite(map))
             case .dateTimeCast(let expr):
-                return try .dateTimeCast(expr.replace(map))
+                return try .dateTimeCast(expr.rewrite(map))
             case .dateCast(let expr):
-                return try .dateCast(expr.replace(map))
+                return try .dateCast(expr.rewrite(map))
             case .stringCast(let expr):
-                return try .stringCast(expr.replace(map))
+                return try .stringCast(expr.rewrite(map))
             case .call(let iri, let exprs):
-                return try .call(iri, exprs.map { try $0.replace(map) })
+                return try .call(iri, exprs.map { try $0.rewrite(map) })
             case .lang(let expr):
-                return try .lang(expr.replace(map))
+                return try .lang(expr.rewrite(map))
             case .langmatches(let expr, let m):
-                return try .langmatches(expr.replace(map), m)
+                return try .langmatches(expr.rewrite(map), m)
             case .sameterm(let lhs, let rhs):
-                return try .sameterm(lhs.replace(map), rhs.replace(map))
+                return try .sameterm(lhs.rewrite(map), rhs.rewrite(map))
             case .datatype(let expr):
-                return try .datatype(expr.replace(map))
+                return try .datatype(expr.rewrite(map))
             case .bound(let expr):
-                return try .bound(expr.replace(map))
+                return try .bound(expr.rewrite(map))
             case .valuein(let expr, let exprs):
-                return try .valuein(expr.replace(map), exprs.map { try $0.replace(map) })
+                return try .valuein(expr.rewrite(map), exprs.map { try $0.rewrite(map) })
             case .not(let expr):
-                return try .not(expr.replace(map))
+                return try .not(expr.rewrite(map))
             case .exists(_):
-                return self
+                return e
             }
         }
     }
@@ -610,6 +662,27 @@ public extension Aggregation {
             return try .sample(expr.replace(map))
         case .groupConcat(let expr, let sep, let distinct):
             return try .groupConcat(expr.replace(map), sep, distinct)
+        }
+    }
+
+    public func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> Aggregation {
+        switch self {
+        case .countAll:
+            return self
+        case .count(let expr, let distinct):
+            return try .count(expr.rewrite(map), distinct)
+        case .sum(let expr, let distinct):
+            return try .sum(expr.rewrite(map), distinct)
+        case .avg(let expr, let distinct):
+            return try .avg(expr.rewrite(map), distinct)
+        case .min(let expr):
+            return try .min(expr.rewrite(map))
+        case .max(let expr):
+            return try .max(expr.rewrite(map))
+        case .sample(let expr):
+            return try .sample(expr.rewrite(map))
+        case .groupConcat(let expr, let sep, let distinct):
+            return try .groupConcat(expr.rewrite(map), sep, distinct)
         }
     }
 }
