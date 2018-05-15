@@ -22,6 +22,29 @@ public indirect enum PropertyPath {
     case zeroOrOne(PropertyPath)
 }
 
+extension PropertyPath: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .link(let t):
+            return t.description
+        case .inv(let pp):
+            return "inv(\(pp))"
+        case .nps(let pp):
+            return "NPS(\(pp))"
+        case let .alt(lhs, rhs):
+            return "alt(\(lhs), \(rhs))"
+        case let .seq(lhs, rhs):
+            return "seq(\(lhs), \(rhs))"
+        case .plus(let pp):
+            return "oneOrMore(\(pp))"
+        case .star(let pp):
+            return "zeroOrMore(\(pp))"
+        case .zeroOrOne(let pp):
+            return "zeroOrOne(\(pp))"
+        }
+    }
+}
+
 extension PropertyPath : Equatable {
     public static func == (lhs: PropertyPath, rhs: PropertyPath) -> Bool {
         switch (lhs, rhs) {
