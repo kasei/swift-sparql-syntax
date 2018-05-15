@@ -99,8 +99,8 @@ guard let pname = args.next() else { fatalError("Missing command name") }
 guard argscount > 2 else {
     print("Usage: \(pname) [-v] COMMAND [ARGUMENTS]")
     print("       \(pname) parse query.rq")
-    print("       \(pname) tokens query.rq")
     print("       \(pname) lint query.rq")
+    print("       \(pname) tokens query.rq")
     print("")
     exit(1)
 }
@@ -184,7 +184,7 @@ if let op = args.next() {
         }
     } else if op == "lint", let qfile = args.next() {
         do {
-            let pretty = false
+            let pretty = true
             try printSPARQL(qfile, pretty: pretty, silent: false, includeComments: true)
         } catch let e {
             warn("*** Failed to lint query: \(e)")
@@ -193,12 +193,4 @@ if let op = args.next() {
         warn("Unrecognized operation: '\(op)'")
         exit(1)
     }
-}
-
-let endTime = getCurrentTime()
-let elapsed = Double(endTime - startTime)
-let tps = Double(count) / elapsed
-if verbose {
-//    Logger.shared.printSummary()
-    warn("elapsed time: \(elapsed)s (\(tps)/s)")
 }
