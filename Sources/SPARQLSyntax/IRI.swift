@@ -9,7 +9,7 @@ import Foundation
 import serd
 
 public class IRI {
-    let absoluteString: String
+    public let absoluteString: String
 
     public init?(string: String) {
         var uri = SERD_URI_NULL
