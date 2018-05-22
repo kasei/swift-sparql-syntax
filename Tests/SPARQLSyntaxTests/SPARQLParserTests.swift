@@ -78,11 +78,13 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testLexer() {
-        guard let data = "[ [] { - @en-US 'foo' \"bar\" PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n".data(using: .utf8) else { XCTFail(); return }
+        guard let data = "HR:resumé ?resume [ [] { - @en-US 'foo' \"bar\" PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n".data(using: .utf8) else { XCTFail(); return }
         //        guard let data = "[ [] { - @en-US".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
         let lexer = SPARQLLexer(source: stream)
+        XCTAssertEqual(lexer.next()!, .prefixname("HR", "resumé"), "expected token")
+        XCTAssertEqual(lexer.next()!, ._var("resume"), "expected token")
         XCTAssertEqual(lexer.next()!, .lbracket, "expected token")
         XCTAssertEqual(lexer.next()!, .anon, "expected token")
         XCTAssertEqual(lexer.next()!, .lbrace, "expected token")
@@ -783,11 +785,39 @@ class SPARQLParserTests: XCTestCase {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
-            
-            print("Triple patterns:")
-            for t in tps {
-                print("- \(t)")
+        } catch let e {
+            XCTFail("I18N error: \(e)")
+        }
+    }
+
+    func testi18nNormalization() {
+        _testi18nNormalization(base: nil)
+        _testi18nNormalization(base: "https://raw.githubusercontent.com/w3c/rdf-tests/gh-pages/sparql11/data-r2/i18n/")
+    }
+    
+    func _testi18nNormalization(base: String?) {
+        let sparql = """
+        # Figure out what happens with normalization form C.
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        PREFIX HR: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/normalization.ttl#>
+        SELECT ?name
+         WHERE { [ foaf:name ?name;
+                   HR:resumé ?resume ] . }
+        """
+        guard var p = SPARQLParser(string: sparql, base: base) else { XCTFail(); return }
+        
+        do {
+            let a = try p.parseAlgebra()
+            guard case .project(.bgp(let tps), _) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
             }
+            
+            XCTAssertEqual(tps.count, 2)
+            let t = tps.filter { $0.object == Node.variable("resume", binding: true) }.first
+            XCTAssertNotNil(t)
+            guard case .bound(let pred) = t!.predicate else { fatalError() }
+            XCTAssertEqual(pred.value, "http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/normalization.ttl#resumé")
         } catch let e {
             XCTFail("I18N error: \(e)")
         }

@@ -1217,13 +1217,19 @@ public class SPARQLLexer: IteratorProtocol {
     @discardableResult
     func read(length: Int) throws -> String {
         try fillBuffer()
-        if buffer.count < length {
+        let utf16 = buffer.utf16
+        if buffer.utf16.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
         }
         
-        let index = buffer.index(buffer.startIndex, offsetBy: length)
-        let s = String(buffer[..<index])
-        buffer = String(buffer[index...])
+        let index = utf16.index(utf16.startIndex, offsetBy: length)
+        guard let s = String(utf16[..<index]) else {
+            throw lexError("Invalid utf16 sequence found while reading bytes")
+        }
+        guard let b = String(utf16[index...]) else {
+            throw lexError("Invalid utf16 sequence found while reading bytes")
+        }
+        buffer = b
         self.character += UInt(length)
         for c in s {
             if c == "\n" {
