@@ -303,7 +303,7 @@ public struct Term: CustomStringConvertible, Encodable {
             return "\"\(escaped)\""
         case .datatype("http://www.w3.org/2001/XMLSchema#float"):
             let s = "\(value)"
-            if s.contains("e") {
+            if s.lowercased().contains("e") {
                 return s
             } else {
                 return "\(s)e0"

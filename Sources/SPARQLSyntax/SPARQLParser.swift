@@ -1862,7 +1862,7 @@ public struct SPARQLParser {
     private mutating func resolveIRI(value: String) throws -> Node {
         var iri = value
         if let base = base {
-            guard let b = URL(string: base), let i = URL(string: value, relativeTo: b) else {
+            guard let b = IRI(string: base), let i = IRI(string: value, relativeTo: b) else {
                 throw parseError("Failed to resolve IRI against base IRI")
             }
             iri = i.absoluteString

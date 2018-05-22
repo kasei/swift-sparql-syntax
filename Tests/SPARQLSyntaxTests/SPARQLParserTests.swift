@@ -38,6 +38,7 @@ extension SPARQLParserTests {
             ("testSubSelectAggregationAcceptableProjection", testSubSelectAggregationAcceptableProjection),
             ("testBadReuseOfBlankNodeIdentifier", testBadReuseOfBlankNodeIdentifier),
             ("testAcceptableReuseOfBlankNodeIdentifier", testAcceptableReuseOfBlankNodeIdentifier),
+            ("testi18n", testi18n),
         ]
     }
 }
@@ -760,5 +761,35 @@ class SPARQLParserTests: XCTestCase {
         // https://www.w3.org/2013/sparql-errata#errata-query-17
         guard var p = SPARQLParser(string: "SELECT * WHERE { _:a ?p ?o ; <q>* 1 }") else { XCTFail(); return }
         XCTAssertNoThrow(try p.parseAlgebra(), "Can use blank node labels in adjacet BGPs and property paths")
+    }
+    
+    func testi18n() {
+        let sparql = """
+        # $Id: kanji-01.rq,v 1.3 2005/11/06 08:27:50 eric Exp $
+        # test kanji QNames
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        PREFIX 食: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#>
+        SELECT ?name ?food WHERE {
+          [ foaf:name ?name ;
+            食:食べる ?food ] . }
+        """
+        
+        let base = "https://raw.githubusercontent.com/w3c/rdf-tests/gh-pages/sparql11/data-r2/i18n/kanji-01.rq"
+        guard var p = SPARQLParser(string: sparql, base: base) else { XCTFail(); return }
+        
+        do {
+            let a = try p.parseAlgebra()
+            guard case .project(.bgp(let tps), _) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            print("Triple patterns:")
+            for t in tps {
+                print("- \(t)")
+            }
+        } catch let e {
+            XCTFail("I18N error: \(e)")
+        }
     }
 }
