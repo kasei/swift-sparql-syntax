@@ -385,7 +385,9 @@ extension Term: Equatable {
     public static func == (lhs: Term, rhs: Term) -> Bool {
         switch (lhs.type, rhs.type) {
         case (.iri, .iri), (.blank, .blank):
-            return lhs.value == rhs.value
+            let lu = lhs.value.unicodeScalars
+            let ru = rhs.value.unicodeScalars
+            return lu.elementsEqual(ru)
         case (.language(let l), .language(let r)) where l.lowercased() == r.lowercased():
             return lhs.value == rhs.value
         case (.datatype(let l), .datatype(let r)) where l == r:
