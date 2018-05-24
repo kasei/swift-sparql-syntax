@@ -785,6 +785,12 @@ class SPARQLParserTests: XCTestCase {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
+
+            XCTAssertEqual(tps.count, 2)
+            let t = tps.filter { $0.object == Node.variable("food", binding: true) }.first
+            XCTAssertNotNil(t)
+            guard case .bound(let pred) = t!.predicate else { fatalError() }
+            XCTAssertEqual(pred.value, "http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#食べる")
         } catch let e {
             XCTFail("I18N error: \(e)")
         }

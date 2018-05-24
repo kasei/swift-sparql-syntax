@@ -14,14 +14,15 @@ public class IRI {
     public init?(string: String) {
         var uri = SERD_URI_NULL
         let absolute = withUnsafeMutablePointer(to: &uri) { (u) -> String? in
-            let data = string.data(using: .utf8)!
-            let status = data.withUnsafeBytes { (s) in
-                return serd_uri_parse(s, u)
-            }
-            if status == SERD_SUCCESS {
-                return u.pointee.value
-            } else {
-                return nil
+            guard let stringData = string.cString(using: .utf8) else { return nil }
+            return stringData.withUnsafeBytes { (bytes) -> String? in
+                let stringPtr = bytes.bindMemory(to: UInt8.self)
+                let status = serd_uri_parse(stringPtr.baseAddress, u)
+                if status == SERD_SUCCESS {
+                    return u.pointee.value
+                } else {
+                    return nil
+                }
             }
         }
         if let a = absolute {
@@ -50,33 +51,34 @@ public class IRI {
     public init?(string: String, relativeTo iri: IRI?) {
         let baseString = iri?.absoluteString ?? ""
         var rel = SERD_URI_NULL
+        print("<\(iri?.absoluteString ?? "")> + <\(string)>")
         let absolute = withUnsafeMutablePointer(to: &rel) { (r) -> String? in
-            let data = string.data(using: .utf8)!
-            let status = data.withUnsafeBytes { (s) in
-                return serd_uri_parse(s, r)
-            }
-            if status != SERD_SUCCESS {
-                return nil
-            }
-            var base = SERD_URI_NULL
-            return withUnsafeMutablePointer(to: &base) { (b) -> String? in
-                let data = baseString.data(using: .utf8)!
-                let status = data.withUnsafeBytes { (s) in
-                    return serd_uri_parse(s, b)
-                }
-                if status != SERD_SUCCESS {
-                    return nil
-                }
-                var uri = SERD_URI_NULL
-                return withUnsafeMutablePointer(to: &uri) { (out) -> String? in
-                    let rr = UnsafePointer(r)
-                    let bb = UnsafePointer(b)
-                    serd_uri_resolve(rr, bb, out)
-                    let absolute = out.pointee.value
-                    return absolute
+            guard let stringData = string.cString(using: .utf8) else { return nil }
+            return stringData.withUnsafeBytes { (bytes) -> String? in
+                let stringPtr = bytes.bindMemory(to: UInt8.self)
+                let status = serd_uri_parse(stringPtr.baseAddress, r)
+                guard status == SERD_SUCCESS else { return nil }
+//                print("Relative IRI: \(r.pointee.value)")
+                var base = SERD_URI_NULL
+                return withUnsafeMutablePointer(to: &base) { (b) -> String? in
+                    guard let baseData = baseString.data(using: .utf8) else { return nil }
+                    return baseData.withUnsafeBytes { (basePtr : UnsafePointer<UInt8>) -> String? in
+                        let status = serd_uri_parse(basePtr, b)
+                        guard status == SERD_SUCCESS else { return nil }
+//                        print("Base IRI: \(b.pointee.value)")
+                        var uri = SERD_URI_NULL
+                        return withUnsafeMutablePointer(to: &uri) { (out) -> String in
+                            let rr = UnsafePointer(r)
+                            let bb = UnsafePointer(b)
+                            serd_uri_resolve(rr, bb, out)
+                            let absolute = out.pointee.value
+                            return absolute
+                        }
+                    }
                 }
             }
         }
+
         if let a = absolute {
             absoluteString = a
         } else {
@@ -100,18 +102,12 @@ fileprivate extension SerdChunk {
     
     var value : String {
         if let buf = self.buf {
-            let len = self.len
-            let value = String(cString: buf)
-            if value.utf8.count != len {
-                let bytes = value.utf8.prefix(len)
-                if let string = String(bytes) {
-                    return string
-                } else {
-                    fatalError("Failed to turn \(bytes.count) bytes from SerdChunk into string")
-                }
-            } else {
-                return value
+            var data = Data()
+            data.append(buf, count: self.len)
+            guard let string = String(data: data, encoding: .utf8) else {
+                fatalError("Failed to turn \(self.len) bytes from SerdChunk into string")
             }
+            return string
         } else {
             return ""
         }

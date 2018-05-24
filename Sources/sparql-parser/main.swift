@@ -78,18 +78,20 @@ func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, in
     }
 }
 
-func data(fromFileOrString qfile: String) throws -> Data {
+func data(fromFileOrString qfile: String) throws -> (Data, String?) {
     let url = URL(fileURLWithPath: qfile)
     let data: Data
+    var base: String? = nil
     if case .some(true) = try? url.checkResourceIsReachable() {
         data = try Data(contentsOf: url)
+        base = url.absoluteString
     } else {
         guard let s = qfile.data(using: .utf8) else {
             fatalError("Could not interpret SPARQL query string as UTF-8")
         }
         data = s
     }
-    return data
+    return (data, base)
 }
 
 var verbose = true
@@ -136,8 +138,8 @@ if let op = args.next() {
         
         guard let qfile = args.next() else { fatalError("No query file given") }
         do {
-            let sparql = try data(fromFileOrString: qfile)
-            guard var p = SPARQLParser(data: sparql) else { fatalError("Failed to construct SPARQL parser") }
+            let (sparql, base) = try data(fromFileOrString: qfile)
+            guard var p = SPARQLParser(data: sparql, base: base) else { fatalError("Failed to construct SPARQL parser") }
             let query = try p.parseQuery()
             count = 1
             if printAlgebra {
@@ -172,7 +174,7 @@ if let op = args.next() {
         
         guard let qfile = args.next() else { fatalError("No query file given") }
         do {
-            let sparql = try data(fromFileOrString: qfile)
+            let (sparql, _) = try data(fromFileOrString: qfile)
             let stream = InputStream(data: sparql)
             stream.open()
             let lexer = SPARQLLexer(source: stream, includeComments: true)
