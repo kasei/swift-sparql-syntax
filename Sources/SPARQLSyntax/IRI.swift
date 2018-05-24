@@ -51,7 +51,7 @@ public class IRI {
     public init?(string: String, relativeTo iri: IRI?) {
         let baseString = iri?.absoluteString ?? ""
         var rel = SERD_URI_NULL
-        print("<\(iri?.absoluteString ?? "")> + <\(string)>")
+//        print("<\(iri?.absoluteString ?? "")> + <\(string)>")
         let absolute = withUnsafeMutablePointer(to: &rel) { (r) -> String? in
             guard let stringData = string.cString(using: .utf8) else { return nil }
             return stringData.withUnsafeBytes { (bytes) -> String? in
