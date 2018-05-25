@@ -515,6 +515,10 @@ public struct Quad: Hashable, CustomStringConvertible {
     public var description: String {
         return "\(subject) \(predicate) \(object) \(graph) ."
     }
+
+    public var triple: Triple {
+        return Triple(subject: subject, predicate: predicate, object: object)
+    }
 }
 
 extension Quad: Sequence {
