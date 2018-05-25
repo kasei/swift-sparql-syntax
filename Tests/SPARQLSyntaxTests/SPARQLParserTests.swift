@@ -39,6 +39,7 @@ extension SPARQLParserTests {
             ("testBadReuseOfBlankNodeIdentifier", testBadReuseOfBlankNodeIdentifier),
             ("testAcceptableReuseOfBlankNodeIdentifier", testAcceptableReuseOfBlankNodeIdentifier),
             ("testi18n", testi18n),
+            ("testService", testService),
         ]
     }
 }
@@ -826,6 +827,34 @@ class SPARQLParserTests: XCTestCase {
             XCTAssertEqual(pred.value, "http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/normalization.ttl#resumé")
         } catch let e {
             XCTFail("I18N error: \(e)")
+        }
+    }
+    
+    func testService() throws {
+        let sparql = """
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        SELECT * WHERE {
+            SERVICE SILENT <http://dbpedia.org/sparql> {
+                ?s a foaf:Person .
+            }
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        do {
+            let a = try p.parseAlgebra()
+            guard case let .service(endpoint, algebra, silent) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            XCTAssertEqual(endpoint, .bound(Term(iri: "http://dbpedia.org/sparql")))
+            guard case .triple(_) = algebra else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            XCTAssertEqual(silent, true)
+            print(a.serialize())
+        } catch let e {
+            XCTFail("\(e)")
         }
     }
 }
