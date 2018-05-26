@@ -1,23 +1,5 @@
 import Foundation
 
-public enum SPARQLParsingError: Error, CustomStringConvertible {
-    case lexicalError(String)
-    case parsingError(String)
-    
-    public var localizedDescription : String {
-        return self.description
-    }
-    
-    public var description : String {
-        switch self {
-        case .lexicalError(let s):
-            return s
-        case .parsingError(let s):
-            return s
-        }
-    }
-}
-
 private func joinReduction(coalesceBGPs: Bool = false) -> (Algebra, Algebra) -> Algebra {
     return { (lhs, rhs) in
         switch (lhs, rhs) {
@@ -48,7 +30,7 @@ private enum UnfinishedAlgebra {
             let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             if algebra.inscope.contains(name) {
-                throw SPARQLParsingError.parsingError("Cannot BIND to an already in-scope variable (?\(name)") // TODO: can the line:col be included in this exception?
+                throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name)") // TODO: can the line:col be included in this exception?
             }
             return .extend(algebra, e, name)
         case .filter(let expr):
@@ -89,10 +71,10 @@ public struct SPARQLParser {
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     var seenBlankNodeLabels: Set<String>
     
-    private mutating func parseError(_ message: String) -> SPARQLParsingError {
+    private mutating func parseError(_ message: String) -> SPARQLSyntaxError {
         try? lexer.fillBuffer()
         let rest = lexer.buffer
-        return SPARQLParsingError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
+        return SPARQLSyntaxError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
     }
     
     public init(lexer: SPARQLLexer, prefixes: [String:String] = [:], base: String? = nil) {
@@ -796,7 +778,7 @@ public struct SPARQLParser {
 //        print("Ended adjacent BGP block with blank node labels: \(currentBlockSeenLabels)")
         let sharedLabels = currentBlockSeenLabels.intersection(seenBlankNodeLabels)
         if sharedLabels.count > 0 {
-            throw SPARQLParsingError.parsingError("Blank node labels cannot be used in multiple BGPs: \(sharedLabels.joined(separator: ", "))\n\(self)")
+            throw SPARQLSyntaxError.parsingError("Blank node labels cannot be used in multiple BGPs: \(sharedLabels.joined(separator: ", "))\n\(self)")
         }
         self.seenBlankNodeLabels.formUnion(currentBlockSeenLabels)
     }

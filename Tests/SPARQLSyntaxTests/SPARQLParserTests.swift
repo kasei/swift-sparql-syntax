@@ -671,7 +671,7 @@ class SPARQLParserTests: XCTestCase {
     func testAggregationProjection1() {
         guard var p = SPARQLParser(string: "SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
-            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+            if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Aggregation queries cannot use a `SELECT *`"))
             } else {
                 XCTFail()
@@ -682,7 +682,7 @@ class SPARQLParserTests: XCTestCase {
     func testAggregationProjection2() {
         guard var p = SPARQLParser(string: "SELECT ?s (MIN(?p) AS ?minpred) ?o WHERE { ?s ?p ?o } GROUP BY ?s") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
-            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+            if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Cannot project non-grouped variable in aggregation query"))
             } else {
                 XCTFail()
@@ -693,7 +693,7 @@ class SPARQLParserTests: XCTestCase {
     func testSubSelectAggregationProjection() {
         guard var p = SPARQLParser(string: "SELECT ?s WHERE { { SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s } }") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
-            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+            if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Aggregation subqueries cannot use a `SELECT *`"))
             } else {
                 XCTFail()
@@ -709,7 +709,7 @@ class SPARQLParserTests: XCTestCase {
     func testBadReuseOfBlankNodeIdentifier1() {
         guard var p = SPARQLParser(string: "SELECT * WHERE { { _:a ?p ?o . FILTER(ISIRI(?p)) _:a ?p 2 } OPTIONAL { _:a ?y ?z ; <q> 'qq' } }") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
-            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+            if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Blank node label"))
             } else {
                 XCTFail()
@@ -729,7 +729,7 @@ class SPARQLParserTests: XCTestCase {
         """
         guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
-            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+            if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Blank node label"))
             } else {
                 XCTFail()
@@ -751,7 +751,7 @@ class SPARQLParserTests: XCTestCase {
         """
         guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
-            if case .some(.parsingError(let m)) = e as? SPARQLParsingError {
+            if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Blank node label"))
             } else {
                 XCTFail()

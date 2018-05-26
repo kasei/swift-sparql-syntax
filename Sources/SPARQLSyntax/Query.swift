@@ -41,7 +41,7 @@ public struct Query : Equatable {
         if case .select(.variables(let vars)) = form {
             let vset = Set(vars)
             if vars.count != vset.count {
-                throw SPARQLParsingError.parsingError("Cannot project variables more than once in a SELECT query")
+                throw SPARQLSyntaxError.parsingError("Cannot project variables more than once in a SELECT query")
             }
         }
     }

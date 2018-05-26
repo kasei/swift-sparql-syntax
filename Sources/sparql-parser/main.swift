@@ -147,7 +147,7 @@ if let op = args.next() {
             }
             if printSPARQL {
                 let s = SPARQLSerializer()
-                let tokens  = query.sparqlTokens
+                let tokens  = try query.sparqlTokens()
                 if pretty {
                     print(s.serializePretty(tokens))
                 } else {

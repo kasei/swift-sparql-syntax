@@ -30,7 +30,7 @@ class SPARQLSerializationTests: XCTestCase {
         super.tearDown()
     }
     
-    func testProjectedSPARQLTokens() {
+    func testProjectedSPARQLTokens() throws {
         let subj: Node = .bound(Term(value: "b", type: .blank))
         let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
@@ -41,7 +41,7 @@ class SPARQLSerializationTests: XCTestCase {
         let algebra: Algebra = .project(.innerJoin(.triple(t1), .triple(t2)), ["name", "type"])
         do {
             let query = try Query(form: .select(.variables(["name", "type"])), algebra: algebra)
-            let tokens = Array(query.sparqlTokens)
+            let tokens = Array(try query.sparqlTokens())
             XCTAssertEqual(tokens, [
                 .keyword("SELECT"),
                 ._var("name"),
@@ -63,7 +63,7 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
     
-    func testNonProjectedSPARQLTokens() {
+    func testNonProjectedSPARQLTokens() throws {
         let subj: Node = .bound(Term(value: "b", type: .blank))
         let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
@@ -72,7 +72,7 @@ class SPARQLSerializationTests: XCTestCase {
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
         let algebra: Algebra = .innerJoin(.triple(t1), .triple(t2))
-        let tokens = Array(algebra.sparqlTokens(depth: 0))
+        let tokens = Array(try algebra.sparqlTokens(depth: 0))
         XCTAssertEqual(tokens, [
             .bnode("b"),
             .keyword("A"),
@@ -86,7 +86,7 @@ class SPARQLSerializationTests: XCTestCase {
         
         do {
             let query = try Query(form: .select(.variables(["name", "type"])), algebra: algebra)
-            let qtokens = Array(query.sparqlTokens)
+            let qtokens = Array(try query.sparqlTokens())
             XCTAssertEqual(qtokens, [
                 .keyword("SELECT"),
                 ._var("name"),
@@ -108,7 +108,7 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
     
-    func testQueryModifiedSPARQLSerialization1() {
+    func testQueryModifiedSPARQLSerialization1() throws {
         let subj: Node = .bound(Term(value: "b", type: .blank))
         let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
@@ -119,7 +119,7 @@ class SPARQLSerializationTests: XCTestCase {
         let algebra: Algebra = .slice(.order(.innerJoin(.triple(t1), .triple(t2)), [(false, .node(.variable("name", binding: false)))]), nil, 5)
         do {
             let query = try Query(form: .select(.variables(["name", "type"])), algebra: algebra)
-            let qtokens = Array(query.sparqlTokens)
+            let qtokens = Array(try query.sparqlTokens())
             
             XCTAssertEqual(qtokens, [
                 .keyword("SELECT"),
@@ -147,7 +147,7 @@ class SPARQLSerializationTests: XCTestCase {
                 ])
             
             let s = SPARQLSerializer()
-            let sparql = s.serialize(query.sparqlTokens)
+            let sparql = s.serialize(try query.sparqlTokens())
             let expected = "SELECT ?name ?type WHERE { _:b a ?type . _:b <http://xmlns.com/foaf/0.1/name> ?name . } ORDER BY DESC ( ?name ) LIMIT 5"
             
             XCTAssertEqual(sparql, expected)
@@ -156,7 +156,7 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
     
-    func testQueryModifiedSPARQLSerialization2() {
+    func testQueryModifiedSPARQLSerialization2() throws {
         let subj: Node = .bound(Term(value: "b", type: .blank))
         let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
         let vname: Node = .variable("name", binding: true)
@@ -167,7 +167,7 @@ class SPARQLSerializationTests: XCTestCase {
             
             let query = try Query(form: .select(.star), algebra: algebra)
             
-            let qtokens = Array(query.sparqlTokens)
+            let qtokens = Array(try query.sparqlTokens())
             // SELECT * WHERE { { SELECT * WHERE { _:b foaf:name ?name . } LIMIT 5 } } ORDER BY DESC(?name)
             XCTAssertEqual(qtokens, [
                 .keyword("SELECT"),
@@ -200,11 +200,11 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
     
-    func testQuerySerializedTokens_1() {
+    func testQuerySerializedTokens_1() throws {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
-            let tokens = Array(q.sparqlTokens)
+            let tokens = Array(try q.sparqlTokens())
             let expected: [SPARQLToken] = [
                 .keyword("SELECT"),
                 .star,
@@ -233,11 +233,11 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
     
-    func testQuerySerializedTokens_2() {
+    func testQuerySerializedTokens_2() throws {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT ?o WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
-            let tokens = Array(q.sparqlTokens)
+            let tokens = Array(try q.sparqlTokens())
             let expected: [SPARQLToken] = [
                 .keyword("SELECT"),
                 ._var("o"),
@@ -267,11 +267,11 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
     
-    func testQuerySerializedTokens_3() {
+    func testQuerySerializedTokens_3() throws {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT ?o WHERE {\n_:s ex:value ?o, 7\n}\n") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
-            let tokens = Array(q.sparqlTokens)
+            let tokens = Array(try q.sparqlTokens())
             let expected: [SPARQLToken] = [
                 .keyword("SELECT"),
                 ._var("o"),
