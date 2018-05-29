@@ -84,7 +84,7 @@ public struct SPARQLSerializer {
     
     struct SerializerState {
         var spaceSeparator = " "
-        var indent = "\t"
+        var indent = "    "
     }
     
     enum SerializerOutput {
@@ -197,6 +197,7 @@ public struct SPARQLSerializer {
                 //                 'BIND' '('        -> NEWLINE_INDENT 'BIND'                { set no SPACE_SEP }
                 outputArray.append((t, .newline(pstate.indentLevel)))
                 outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .spaceSeparator))
             case (_, .hathat, _):
                 // no trailing whitespace after ^^ (it's probably followed by an IRI or PrefixName
                 outputArray.append((t, .tokenString("\(t.sparql)")))
@@ -276,7 +277,7 @@ public struct SPARQLSerializer {
                 pretty += "\n"
                 if indent > 0 {
                     for _ in 0..<indent {
-                        pretty += "\t"
+                        pretty += "    "
                     }
                 }
             case .spaceSeparator:
@@ -659,8 +660,6 @@ extension Aggregation {
             tokens.append(contentsOf: try e.sparqlTokens())
             if sep != " " {
                 tokens.append(.semicolon)
-                tokens.append(.keyword("GROUP_CONCAT"))
-                tokens.append(.semicolon)
                 tokens.append(.keyword("SEPARATOR"))
                 tokens.append(.equals)
                 let t = Term(string: sep)
@@ -902,6 +901,40 @@ extension Algebra {
 
 extension Query {
     public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
+        
+        
+        var projectedExpressions = [String:[SPARQLToken]]()
+        var groupTokens = [SPARQLToken]()
+        if let a = algebra.aggregation, case let .aggregate(child, groups, aggs) = a {
+            print("*** serializing query with aggregation:\n\(groups)\n\(aggs)")
+            for (agg, v) in aggs {
+                var aggTokens = [SPARQLToken]()
+                aggTokens.append(.lparen)
+                try aggTokens.append(contentsOf: agg.sparqlTokens())
+                aggTokens.append(.keyword("AS"))
+                aggTokens.append(._var(v))
+                aggTokens.append(.rparen)
+                projectedExpressions[v] = aggTokens
+            }
+            
+            if groups.count > 0 {
+                groupTokens.append(.keyword("GROUP"))
+                groupTokens.append(.keyword("BY"))
+                for (i, g) in groups.enumerated() {
+                    if i > 0 {
+                        groupTokens.append(.comma)
+                    }
+                    try groupTokens.append(contentsOf: g.sparqlTokens())
+                }
+            }
+        }
+        
+        // TODO: handle wrapping .extend() algebras that rewrite aggregation variables to named variables
+        // e.g. SELECT (SUM(_) AS ?m) { ... }
+        // e.g. .extend(.aggregate(_, _, [(.sum(_), ".agg-1")]), .variable(".agg-1"), "m")
+        // then replace ?.agg-1 in projection with contents of projectedExpressions[".agg-1"]
+        // TODO: handle cases where aggregation is used within a deep expression: (1+SUM(_) AS ?m)
+        
         var tokens = [SPARQLToken]()
         // TODO: handle projection of aggregate/window functions
         // TODO: handle projection of select expressions
@@ -922,8 +955,12 @@ extension Query {
                 tokens.append(.keyword("DISTINCT"))
             }
             for v in vars {
-                let v : Node = .variable(v, binding: true)
-                tokens.append(contentsOf: v.sparqlTokens)
+                if let a = projectedExpressions[v] {
+                    tokens.append(contentsOf: a)
+                } else {
+                    let v : Node = .variable(v, binding: true)
+                    tokens.append(contentsOf: v.sparqlTokens)
+                }
             }
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
@@ -955,6 +992,8 @@ extension Query {
             tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         }
+        
+        tokens.append(contentsOf: groupTokens)
         
         switch self.form {
         case .select(_):
