@@ -5,6 +5,36 @@ public enum SelectProjection : Equatable {
     case variables([String])
 }
 
+extension SelectProjection: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case variables
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "variables":
+            let vars = try container.decode([String].self, forKey: .variables)
+            self = .variables(vars)
+        default:
+            self = .star
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .variables(vars):
+            try container.encode("variables", forKey: .type)
+            try container.encode(vars, forKey: .variables)
+        case .star:
+            try container.encode("star", forKey: .type)
+        }
+    }
+}
+
 public enum QueryForm : Equatable {
     case select(SelectProjection)
     case ask
@@ -12,7 +42,53 @@ public enum QueryForm : Equatable {
     case describe([Node])
 }
 
-public struct Dataset : Equatable {
+extension QueryForm: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case projection
+        case patterns
+        case nodes
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "select":
+            let p = try container.decode(SelectProjection.self, forKey: .projection)
+            self = .select(p)
+        case "ask":
+            self = .ask
+        case "construct":
+            let tps = try container.decode([TriplePattern].self, forKey: .patterns)
+            self = .construct(tps)
+        case "describe":
+            let nodes = try container.decode([Node].self, forKey: .nodes)
+            self = .describe(nodes)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected query form type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .select(p):
+            try container.encode("select", forKey: .type)
+            try container.encode(p, forKey: .projection)
+        case .ask:
+            try container.encode("ask", forKey: .type)
+        case let .construct(tps):
+            try container.encode("construct", forKey: .type)
+            try container.encode(tps, forKey: .patterns)
+        case let .describe(nodes):
+            try container.encode("describe", forKey: .type)
+            try container.encode(nodes, forKey: .nodes)
+        }
+    }
+}
+
+public struct Dataset : Codable, Equatable {
     public var defaultGraphs: [Term]
     public var namedGraphs: [Term]
     
@@ -26,7 +102,7 @@ public struct Dataset : Equatable {
     }
 }
 
-public struct Query : Equatable {
+public struct Query : Codable, Equatable {
     public var base: String?
     public var form: QueryForm
     public var algebra: Algebra

@@ -8,7 +8,7 @@
 import Foundation
 import serd
 
-public class IRI {
+public class IRI : Codable {
     public let absoluteString: String
 
     public init?(string: String) {

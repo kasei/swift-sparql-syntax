@@ -45,7 +45,7 @@ extension TermPattern {
     }
 }
 
-public struct TriplePattern: TermPattern, CustomStringConvertible {
+public struct TriplePattern: Codable, TermPattern, CustomStringConvertible {
     public var subject: Node
     public var predicate: Node
     public var object: Node
@@ -139,7 +139,7 @@ extension TriplePattern {
     }
 }
 
-public struct QuadPattern: TermPattern, CustomStringConvertible {
+public struct QuadPattern: Codable, TermPattern, CustomStringConvertible {
     public var subject: Node
     public var predicate: Node
     public var object: Node

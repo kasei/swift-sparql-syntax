@@ -87,7 +87,7 @@ extension TermType: Equatable {
     }
 }
 
-public struct Term: CustomStringConvertible, Encodable {
+public struct Term: CustomStringConvertible, Codable {
     public var value: String
     public var type: TermType
     public var _doubleValue: Double?
@@ -323,6 +323,28 @@ public struct Term: CustomStringConvertible, Encodable {
         case datatype = "datatype"
     }
     
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        let value = try container.decode(String.self, forKey: .value)
+        switch type {
+        case "bnode":
+            self.init(value: value, type: .blank)
+        case "uri":
+            self.init(value: value, type: .iri)
+        case "literal":
+            if container.contains(.language) {
+                let lang = try container.decode(String.self, forKey: .language)
+                self.init(value: value, type: .language(lang))
+            } else {
+                let dt = try container.decode(String.self, forKey: .datatype)
+                self.init(value: value, type: .datatype(dt))
+            }
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected term type '\(type)' found")
+        }
+    }
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self.type {
@@ -458,7 +480,7 @@ extension Term: Hashable {
     }
 }
 
-public struct Triple: Hashable, CustomStringConvertible {
+public struct Triple: Codable, Hashable, CustomStringConvertible {
     public var subject: Term
     public var predicate: Term
     public var object: Term
@@ -495,7 +517,7 @@ extension Triple: Sequence {
     }
 }
 
-public struct Quad: Hashable, CustomStringConvertible {
+public struct Quad: Codable, Hashable, CustomStringConvertible {
     public var subject: Term
     public var predicate: Term
     public var object: Term
@@ -537,6 +559,44 @@ public enum Node {
             return replacement
         default:
             return self
+        }
+    }
+}
+
+extension Node: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case binding
+        case variable
+        case term
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "variable":
+            let binding = try container.decode(Bool.self, forKey: .binding)
+            let name = try container.decode(String.self, forKey: .variable)
+            self = .variable(name, binding: binding)
+        case "term":
+            let term = try container.decode(Term.self, forKey: .term)
+            self = .bound(term)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected node type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .variable(name, binding: binding):
+            try container.encode("variable", forKey: .type)
+            try container.encode(name, forKey: .variable)
+            try container.encode(binding, forKey: .binding)
+        case .bound(let term):
+            try container.encode("term", forKey: .type)
+            try container.encode(term, forKey: .term)
         }
     }
 }

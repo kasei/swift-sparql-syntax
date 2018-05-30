@@ -6,7 +6,7 @@ public enum RewriteStatus<A> {
     case rewrite(A)
 }
 
-public enum WindowFunction {
+public enum WindowFunction : String, Codable {
     case rowNumber
     case rank
 }
@@ -20,6 +20,83 @@ public indirect enum PropertyPath {
     case plus(PropertyPath)
     case star(PropertyPath)
     case zeroOrOne(PropertyPath)
+}
+
+extension PropertyPath : Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case link
+        case lhs
+        case rhs
+        case terms
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "link":
+            let term = try container.decode(Term.self, forKey: .link)
+            self = .link(term)
+        case "inv":
+            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
+            self = .inv(pp)
+        case "nps":
+            let terms = try container.decode([Term].self, forKey: .terms)
+            self = .nps(terms)
+        case "alt":
+            let lhs = try container.decode(PropertyPath.self, forKey: .lhs)
+            let rhs = try container.decode(PropertyPath.self, forKey: .rhs)
+            self = .alt(lhs, rhs)
+        case "seq":
+            let lhs = try container.decode(PropertyPath.self, forKey: .lhs)
+            let rhs = try container.decode(PropertyPath.self, forKey: .rhs)
+            self = .seq(lhs, rhs)
+        case "plus":
+            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
+            self = .plus(pp)
+        case "star":
+            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
+            self = .star(pp)
+        case "zeroOrOne":
+            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
+            self = .zeroOrOne(pp)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected property path type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .link(let term):
+            try container.encode("link", forKey: .type)
+            try container.encode(term, forKey: .link)
+        case .inv(let pp):
+            try container.encode("inv", forKey: .type)
+            try container.encode(pp, forKey: .lhs)
+        case .nps(let terms):
+            try container.encode("nps", forKey: .type)
+            try container.encode(terms, forKey: .terms)
+        case let .alt(lhs, rhs):
+            try container.encode("alt", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .seq(lhs, rhs):
+            try container.encode("seq", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case .plus(let pp):
+            try container.encode("plus", forKey: .type)
+            try container.encode(pp, forKey: .lhs)
+        case .star(let pp):
+            try container.encode("star", forKey: .type)
+            try container.encode(pp, forKey: .lhs)
+        case .zeroOrOne(let pp):
+            try container.encode("zeroOrOne", forKey: .type)
+            try container.encode(pp, forKey: .lhs)
+        }
+    }
 }
 
 extension PropertyPath: CustomStringConvertible {
@@ -71,7 +148,21 @@ extension PropertyPath : Equatable {
 }
 
 public indirect enum Algebra {
-    public typealias SortComparator = (Bool, Expression)
+    public struct SortComparator : Equatable, Codable {
+        public var ascending: Bool
+        public var expression: Expression
+    }
+    
+    public struct AggregationMapping: Equatable, Codable {
+        public var aggregation: Aggregation
+        public var variableName: String
+    }
+    
+    public struct WindowFunctionMapping: Equatable, Codable {
+        public var windowFunction: WindowFunction
+        public var comparators: [SortComparator]
+        public var variableName: String
+    }
     
     case unionIdentity
     case joinIdentity
@@ -92,10 +183,227 @@ public indirect enum Algebra {
     case slice(Algebra, Int?, Int?)
     case order(Algebra, [SortComparator])
     case path(Node, PropertyPath, Node)
-    case aggregate(Algebra, [Expression], [(Aggregation, String)])
-    case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
+    case aggregate(Algebra, [Expression], [AggregationMapping])
+    case window(Algebra, [Expression], [WindowFunctionMapping])
     case subquery(Query)
 }
+
+extension Algebra : Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case nodes
+        case terms
+        case triplePattern
+        case quadPattern
+        case triplePatterns
+        case lhs
+        case rhs
+        case expression
+        case name
+        case node
+        case silent
+        case variables
+        case limit
+        case offset
+        case path
+        case subject
+        case object
+        case expressions
+        case groups
+        case aggregations
+        case windowFunctions
+        case comparators
+        case query
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "unionIdentity":
+            self = .unionIdentity
+        case "joinIdentity":
+            self = .joinIdentity
+        case "table":
+            let nodes = try container.decode([Node].self, forKey: .nodes)
+            let terms = try container.decode([[Term?]].self, forKey: .terms)
+            self = .table(nodes, terms)
+        case "quadPattern":
+            let qp = try container.decode(QuadPattern.self, forKey: .quadPattern)
+            self = .quad(qp)
+        case "triplePattern":
+            let tp = try container.decode(TriplePattern.self, forKey: .triplePattern)
+            self = .triple(tp)
+        case "bgp":
+            let triples = try container.decode([TriplePattern].self, forKey: .triplePatterns)
+            self = .bgp(triples)
+        case "innerJoin":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            self = .innerJoin(lhs, rhs)
+        case "leftOuterJoin":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            self = .leftOuterJoin(lhs, rhs, expr)
+        case "filter":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            self = .filter(lhs, expr)
+        case "union":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            self = .union(lhs, rhs)
+        case "namedGraph":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let graph = try container.decode(Node.self, forKey: .node)
+            self = .namedGraph(lhs, graph)
+        case "extend":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            let name = try container.decode(String.self, forKey: .name)
+            self = .extend(lhs, expr, name)
+        case "minus":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            self = .minus(lhs, rhs)
+        case "project":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let vars = try container.decode(Set<String>.self, forKey: .variables)
+            self = .project(lhs, vars)
+        case "distinct":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            self = .distinct(lhs)
+        case "service":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let endpoint = try container.decode(Node.self, forKey: .node)
+            let silent = try container.decode(Bool.self, forKey: .silent)
+            self = .service(endpoint, lhs, silent)
+        case "slice":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let offset = try container.decode(Int?.self, forKey: .offset)
+            let limit = try container.decode(Int?.self, forKey: .limit)
+            self = .slice(lhs, offset, limit)
+        case "order":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let cmps = try container.decode([SortComparator].self, forKey: .comparators)
+            self = .order(lhs, cmps)
+        case "propertyPath":
+            let s = try container.decode(Node.self, forKey: .subject)
+            let o = try container.decode(Node.self, forKey: .object)
+            let pp = try container.decode(PropertyPath.self, forKey: .path)
+            self = .path(s, pp, o)
+        case "aggregate":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let groups = try container.decode([Expression].self, forKey: .groups)
+            let aggs = try container.decode([AggregationMapping].self, forKey: .aggregations)
+            self = .aggregate(lhs, groups, aggs)
+        case "window":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            let groups = try container.decode([Expression].self, forKey: .groups)
+            let windows = try container.decode([WindowFunctionMapping].self, forKey: .windowFunctions)
+            self = .window(lhs, groups, windows)
+        case "query":
+            let q = try container.decode(Query.self, forKey: .query)
+            self = .subquery(q)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected algebra type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .unionIdentity:
+            try container.encode("unionIdentity", forKey: .type)
+        case .joinIdentity:
+            try container.encode("joinIdentity", forKey: .type)
+        case let .table(nodes, terms):
+            try container.encode("table", forKey: .type)
+            try container.encode(nodes, forKey: .nodes)
+            try container.encode(terms, forKey: .terms)
+        case .quad(let qp):
+            try container.encode("quadPattern", forKey: .type)
+            try container.encode(qp, forKey: .quadPattern)
+        case .triple(let tp):
+            try container.encode("triplePattern", forKey: .type)
+            try container.encode(tp, forKey: .triplePattern)
+        case let .bgp(tps):
+            try container.encode("bgp", forKey: .type)
+            try container.encode(tps, forKey: .triplePatterns)
+        case let .innerJoin(lhs, rhs):
+            try container.encode("innerJoin", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .leftOuterJoin(lhs, rhs, expr):
+            try container.encode("leftOuterJoin", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+            try container.encode(expr, forKey: .expression)
+        case let .filter(lhs, expr):
+            try container.encode("filter", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(expr, forKey: .expression)
+        case let .union(lhs, rhs):
+            try container.encode("union", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .namedGraph(lhs, node):
+            try container.encode("namedGraph", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(node, forKey: .node)
+        case let .extend(lhs, expr, name):
+            try container.encode("extend", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(expr, forKey: .expression)
+            try container.encode(name, forKey: .name)
+        case let .minus(lhs, rhs):
+            try container.encode("minus", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .project(lhs, v):
+            try container.encode("project", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(v, forKey: .variables)
+        case let .distinct(lhs):
+            try container.encode("distinct", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .service(endpoint, lhs, silent):
+            try container.encode("service", forKey: .type)
+            try container.encode(endpoint, forKey: .node)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(silent, forKey: .silent)
+        case let .slice(lhs, offset, limit):
+            try container.encode("slice", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(offset, forKey: .offset)
+            try container.encode(limit, forKey: .limit)
+        case let .order(lhs, cmps):
+            try container.encode("order", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(cmps, forKey: .comparators)
+        case let .path(s, pp, o):
+            try container.encode("propertyPath", forKey: .type)
+            try container.encode(s, forKey: .subject)
+            try container.encode(pp, forKey: .path)
+            try container.encode(o, forKey: .object)
+        case let .aggregate(lhs, groups, aggs):
+            try container.encode("aggregate", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(groups, forKey: .groups)
+            try container.encode(aggs, forKey: .aggregations)
+        case let .window(lhs, groups, windows):
+            try container.encode("window", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(groups, forKey: .groups)
+            try container.encode(windows, forKey: .windowFunctions)
+        case .subquery(let q):
+            try container.encode("query", forKey: .type)
+            try container.encode(q, forKey: .query)
+        }
+    }
+}
+
 
 extension Algebra : Equatable {
     public static func == (lhs: Algebra, rhs: Algebra) -> Bool {
@@ -137,8 +445,7 @@ extension Algebra : Equatable {
         case (.order(let la, let lc), .order(let ra, let rc)) where la == ra:
             guard lc.count == rc.count else { return false }
             for (lcmp, rcmp) in zip(lc, rc) {
-                guard lcmp.0 == rcmp.0 else { return false }
-                guard lcmp.1 == rcmp.1 else { return false }
+                guard lcmp == rcmp else { return false }
             }
             return true
         case (.path(let ls, let lp, let lo), .path(let rs, let rp, let ro)) where ls == rs && lp == rp && lo == ro:
@@ -146,20 +453,13 @@ extension Algebra : Equatable {
         case (.aggregate(let ls, let lp, let lo), .aggregate(let rs, let rp, let ro)) where ls == rs && lp == rp:
             guard lo.count == ro.count else { return false }
             for (l, r) in zip(lo, ro) {
-                guard l.0 == r.0 else { return false }
-                guard l.1 == r.1 else { return false }
+                guard l == r else { return false }
             }
             return true
         case (.window(let ls, let lp, let lo), .window(let rs, let rp, let ro)) where ls == rs && lp == rp:
             guard lo.count == ro.count else { return false }
             for (l, r) in zip(lo, ro) {
-                guard l.0 == r.0 else { return false }
-                guard l.2 == r.2 else { return false }
-                guard l.1.count == r.1.count else { return false }
-                for (lcmp, rcmp) in zip(l.1 ,r.1) {
-                    guard lcmp.0 == rcmp.0 else { return false }
-                    guard lcmp.1 == rcmp.1 else { return false }
-                }
+                guard l == r else { return false }
             }
             return true
         default:
@@ -239,7 +539,7 @@ public extension Algebra {
             d += child.serialize(depth: depth+1)
             return d
         case .order(let child, let orders):
-            let expressions = orders.map { $0.0 ? "\($0.1)" : "DESC(\($0.1))" }
+            let expressions = orders.map { $0.ascending ? "\($0.expression)" : "DESC(\($0.expression))" }
             var d = "\(indent)OrderBy { \(expressions.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
@@ -259,9 +559,9 @@ public extension Algebra {
             d += child.serialize(depth: depth+1)
             return d
         case .window(let child, let groups, let funcs):
-            let orders = funcs.flatMap { $0.1 }
-            let expressions = orders.map { $0.0 ? "\($0.1)" : "DESC(\($0.1))" }
-            let f = funcs.map { ($0.0, $0.2) }
+            let orders = funcs.flatMap { $0.comparators }
+            let expressions = orders.map { $0.ascending ? "\($0.expression)" : "DESC(\($0.expression))" }
+            let f = funcs.map { ($0.windowFunction, $0.variableName) }
             var d = "\(indent)Window \(f) over groups \(groups) ordered by { \(expressions.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
@@ -360,14 +660,14 @@ public extension Algebra {
                     variables.insert(name)
                 }
             }
-            for (_, name) in aggs {
-                variables.insert(name)
+            for a in aggs {
+                variables.insert(a.variableName)
             }
             return variables
         case .window(let child, _, let funcs):
             var variables = child.inscope
-            for (_, _, name) in funcs {
-                variables.insert(name)
+            for w in funcs {
+                variables.insert(w.variableName)
             }
             return variables
         case .table(let nodes, _):
@@ -399,24 +699,29 @@ public extension Algebra {
         }
     }
     
-    public var isAggregation: Bool {
+    public var aggregation: Algebra? {
         switch self {
         case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):
-            return false
+            return nil
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
-            return child.isAggregation
+            return child.aggregation
             
         case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
-            return lhs.isAggregation || rhs.isAggregation
+            return lhs.aggregation ?? rhs.aggregation
             
         case .aggregate(_):
+            return self
+        case .extend(let child, _, _), .filter(let child, _):
+            return child.aggregation
+        }
+    }
+
+    public var isAggregation: Bool {
+        if let _ = aggregation {
             return true
-        case .extend(let child, let expr, _), .filter(let child, let expr):
-            if child.isAggregation {
-                return true
-            }
-            return expr.hasAggregation
+        } else {
+            return false
         }
     }
 }
@@ -519,23 +824,30 @@ public extension Algebra {
             case .extend(let a, let expr, let v):
                 return try .extend(a.replace(map), expr.replace(map), v)
             case .order(let a, let cmps):
-                return try .order(a.replace(map), cmps.map { (asc, expr) in try (asc, expr.replace(map)) })
+                return try .order(a.replace(map), cmps.map { cmp in
+                    try SortComparator(ascending: cmp.ascending, expression: cmp.expression.replace(map))
+                })
             case .aggregate(let a, let exprs, let aggs):
                 let exprs = try exprs.map { (expr) in
                     return try expr.replace(map)
                 }
-                let aggs = try aggs.map { (data) -> (Aggregation, String) in
-                    let (agg, name) = data
-                    return try (agg.replace(map), name)
+                let aggs = try aggs.map { (data) -> AggregationMapping in
+                    return try AggregationMapping(aggregation: data.aggregation.replace(map), variableName: data.variableName)
                 }
                 return try .aggregate(a.replace(map), exprs, aggs)
             case .window(let a, let exprs, let funcs):
                 let exprs = try exprs.map { (expr) in
                     return try expr.replace(map)
                 }
-                let funcs = try funcs.map { (f, cmps, name) -> (WindowFunction, [SortComparator], String) in
-                    let e = try cmps.map { (asc, expr) in try (asc, expr.replace(map)) }
-                    return (f, e, name)
+                let funcs = try funcs.map { data -> WindowFunctionMapping in
+                    let e = try data.comparators.map { cmp in
+                        try SortComparator(ascending: cmp.ascending, expression: cmp.expression.replace(map))
+                    }
+                    return WindowFunctionMapping(
+                        windowFunction: data.windowFunction,
+                        comparators: e,
+                        variableName: data.variableName
+                    )
                 }
                 return try .window(a.replace(map), exprs, funcs)
 
@@ -573,24 +885,32 @@ public extension Algebra {
         case .extend(let a, let expr, let v):
             return try .extend(a.replace(map), expr.replace(map), v)
         case .order(let a, let cmps):
-            return try .order(a.replace(map), cmps.map { (asc, expr) in try (asc, expr.replace(map)) })
+            return try .order(a.replace(map), cmps.map { cmp in
+                try SortComparator(ascending: cmp.ascending, expression: cmp.expression.replace(map))
+            })
         case .aggregate(let a, let exprs, let aggs):
             // case aggregate(Algebra, [Expression], [(Aggregation, String)])
             let exprs = try exprs.map { (expr) in
                 return try expr.replace(map)
             }
-            let aggs = try aggs.map { (agg, name) in
-                return try (agg.replace(map), name)
+            let aggs = try aggs.map { data in
+                return try AggregationMapping(aggregation: data.aggregation.replace(map), variableName: data.variableName)
             }
             return try .aggregate(a.replace(map), exprs, aggs)
         case .window(let a, let exprs, let funcs):
-            //     case window(Algebra, [Expression], [(WindowFunction, [SortComparator], String)])
+            //     case window(Algebra, [Expression], [WindowFunctionMapping])
             let exprs = try exprs.map { (expr) in
                 return try expr.replace(map)
             }
-            let funcs = try funcs.map { (f, cmps, name) -> (WindowFunction, [SortComparator], String) in
-                let e = try cmps.map { (asc, expr) in try (asc, expr.replace(map)) }
-                return (f, e, name)
+            let funcs = try funcs.map { data -> WindowFunctionMapping in
+                let e = try data.comparators.map { cmp in
+                    try SortComparator(ascending: cmp.ascending, expression: cmp.expression.replace(map))
+                }
+                return WindowFunctionMapping(
+                    windowFunction: data.windowFunction,
+                    comparators: e,
+                    variableName: data.variableName
+                )
             }
             return try .window(a.replace(map), exprs, funcs)
         }
