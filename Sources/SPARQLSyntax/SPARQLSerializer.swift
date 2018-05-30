@@ -187,8 +187,12 @@ public struct SPARQLSerializer {
                 // newline after all DOTs
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel)))
+            case (_, .semicolon, .keyword("SEPARATOR")):
+                // suppress newline after SEMICOLON used in GROUP_CONCAT; use a space instead
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .spaceSeparator))
             case (_, .semicolon, _):
-                // newline after all SEMICOLONs
+                // newline after all other SEMICOLONs
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel+1)))
             case (_, .keyword("FILTER"), _), (_, .keyword("BIND"), _):
@@ -209,6 +213,9 @@ public struct SPARQLSerializer {
                 outputArray.append((t, .tokenString("\(t.sparql)")))
             case (_, .lparen, _):
                 // no space between a lparen and any following token
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+            case (_, .keyword(let kw), .lparen) where SPARQLLexer.validAggregations.contains(kw):
+                //                 KEYWORD '('        -> KEYWORD                                { set no SPACE_SEP }
                 outputArray.append((t, .tokenString("\(t.sparql)")))
             case (_, .keyword(let kw), .lparen) where SPARQLLexer.validFunctionNames.contains(kw):
                 //                 KEYWORD '('        -> KEYWORD                                { set no SPACE_SEP }
@@ -889,9 +896,10 @@ extension Algebra {
             tokens.append(contentsOf: try q.sparqlTokens())
             tokens.append(.rbrace)
             return AnySequence(tokens)
-        case .aggregate(let lhs, let groups, let aggs):
-            //            fatalError("TODO: implement sparqlTokens() on aggregate: \(lhs) \(groups) \(aggs)")
-            throw SPARQLSyntaxError.serializationError("Cannot serialize aggregation operator to SPARQL syntax: \(lhs) \(groups) \(aggs)")
+        case .aggregate(let lhs, _, _):
+//            throw SPARQLSyntaxError.serializationError("Cannot serialize aggregation operator to SPARQL syntax: \(lhs) \(groups) \(aggs)")
+            // we pass-through on this becauase aggregation serialization happens in Query.sparqlTokens
+            return try lhs.sparqlTokens(depth: depth)
         case .window(let lhs, let groups, let funcs):
             //            fatalError("TODO: implement sparqlTokens() on window: \(lhs) \(groups) \(funcs)")
             throw SPARQLSyntaxError.serializationError("Cannot serialize window function operator to SPARQL syntax: \(lhs) \(groups) \(funcs)")
@@ -902,19 +910,13 @@ extension Algebra {
 extension Query {
     public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
         
-        
         var projectedExpressions = [String:[SPARQLToken]]()
         var groupTokens = [SPARQLToken]()
-        if let a = algebra.aggregation, case let .aggregate(child, groups, aggs) = a {
-            print("*** serializing query with aggregation:\n\(groups)\n\(aggs)")
-            for (agg, v) in aggs {
-                var aggTokens = [SPARQLToken]()
-                aggTokens.append(.lparen)
-                try aggTokens.append(contentsOf: agg.sparqlTokens())
-                aggTokens.append(.keyword("AS"))
-                aggTokens.append(._var(v))
-                aggTokens.append(.rparen)
-                projectedExpressions[v] = aggTokens
+        var aggExtensions = algebra.aggregationExtensions
+        if let a = algebra.aggregation, case let .aggregate(_, groups, aggs) = a {
+            for aggMap in aggs {
+                let v = aggMap.variableName
+                projectedExpressions[v] = try Array(aggMap.aggregation.sparqlTokens())
             }
             
             if groups.count > 0 {
@@ -936,8 +938,6 @@ extension Query {
         // TODO: handle cases where aggregation is used within a deep expression: (1+SUM(_) AS ?m)
         
         var tokens = [SPARQLToken]()
-        // TODO: handle projection of aggregate/window functions
-        // TODO: handle projection of select expressions
         switch self.form {
         case .select(.star):
             tokens.append(.keyword("SELECT"))
@@ -950,21 +950,46 @@ extension Query {
             tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         case .select(.variables(let vars)):
+            // TODO: handle projection of aggregate/window functions
+            // TODO: handle projection of select expressions
             tokens.append(.keyword("SELECT"))
             if self.algebra.distinct {
                 tokens.append(.keyword("DISTINCT"))
             }
+            
+            var algebra = self.algebra
             for v in vars {
-                if let a = projectedExpressions[v] {
-                    tokens.append(contentsOf: a)
-                } else {
+                var rewritten = false
+                if let ext = aggExtensions[v] {
+                    if case .node(.variable(let name, _)) = ext {
+                        if let expr = projectedExpressions[name] {
+                            tokens.append(.lparen)
+                            tokens.append(contentsOf: expr)
+                            tokens.append(.keyword("AS"))
+                            tokens.append(._var(v))
+                            tokens.append(.rparen)
+
+                            algebra = try algebra.replace({ (a) -> Algebra? in
+                                switch a {
+                                case .extend(let child, _, v):
+                                    return child
+                                default:
+                                    return nil
+                                }
+                            })
+                            rewritten = true
+                        }
+                    }
+                }
+                
+                if !rewritten {
                     let v : Node = .variable(v, binding: true)
                     tokens.append(contentsOf: v.sparqlTokens)
                 }
             }
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
-            tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
+            tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         case .ask:
             tokens.append(.keyword("ASK"))

@@ -715,6 +715,29 @@ public extension Algebra {
         }
     }
     
+    internal var aggregationExtensions: [String:Expression] {
+        switch self {
+        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):
+            return [:]
+            
+        case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .filter(let child, _):
+            return child.aggregationExtensions
+            
+        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
+            let le = lhs.aggregationExtensions
+            let re = rhs.aggregationExtensions
+            return le.merging(re) { (l,r) in l }
+            
+        case .aggregate(_):
+            return [:]
+
+        case let .extend(child, expr, name):
+            var d = child.aggregationExtensions
+            d[name] = expr
+            return d
+        }
+    }
+    
     public var aggregation: Algebra? {
         switch self {
         case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):

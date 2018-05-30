@@ -191,7 +191,7 @@ extension SPARQLToken {
         case .rbracket:
             return "]"
         case .equals:
-            return "=="
+            return "="
         case .notequals:
             return "!="
         case .bang:
