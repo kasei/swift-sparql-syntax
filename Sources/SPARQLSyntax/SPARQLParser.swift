@@ -536,7 +536,7 @@ public struct SPARQLParser {
         } else {
             return nil
         }
-        return (ascending, expr)
+        return Algebra.SortComparator(ascending: ascending, expression: expr)
     }
     
     private mutating func parseConstraint() throws -> Expression {
@@ -583,7 +583,8 @@ public struct SPARQLParser {
             havingExpression = e
         }
         
-        let aggregations = aggregation.map { ($0.1, $0.0) }.sorted { $0.1 <= $1.1 }
+        let aggregations = aggregation.map {
+            Algebra.AggregationMapping(aggregation: $0.1, variableName: $0.0) }.sorted { $0.variableName <= $1.variableName }
         if aggregations.count > 0 { // if algebra contains aggregation
             applyAggregation = true
         }

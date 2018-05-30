@@ -34,6 +34,86 @@ public enum Aggregation {
     }
 }
 
+extension Aggregation: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case expression
+        case distinct
+        case string
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "countAll":
+            self = .countAll
+        case "count":
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            let distinct = try container.decode(Bool.self, forKey: .distinct)
+            self = .count(expr, distinct)
+        case "sum":
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            let distinct = try container.decode(Bool.self, forKey: .distinct)
+            self = .sum(expr, distinct)
+        case "avg":
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            let distinct = try container.decode(Bool.self, forKey: .distinct)
+            self = .avg(expr, distinct)
+        case "min":
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            self = .min(expr)
+        case "max":
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            self = .max(expr)
+        case "sample":
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            self = .sample(expr)
+        case "groupConcat":
+            let expr = try container.decode(Expression.self, forKey: .expression)
+            let distinct = try container.decode(Bool.self, forKey: .distinct)
+            let sep = try container.decode(String.self, forKey: .string)
+            self = .groupConcat(expr, sep, distinct)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected aggregation type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .countAll:
+            try container.encode("countAll", forKey: .type)
+        case let .count(expr, distinct):
+            try container.encode("count", forKey: .type)
+            try container.encode(expr, forKey: .expression)
+            try container.encode(distinct, forKey: .distinct)
+        case let .sum(expr, distinct):
+            try container.encode("sum", forKey: .type)
+            try container.encode(expr, forKey: .expression)
+            try container.encode(distinct, forKey: .distinct)
+        case let .avg(expr, distinct):
+            try container.encode("avg", forKey: .type)
+            try container.encode(expr, forKey: .expression)
+            try container.encode(distinct, forKey: .distinct)
+        case let .min(expr):
+            try container.encode("min", forKey: .type)
+            try container.encode(expr, forKey: .expression)
+        case let .max(expr):
+            try container.encode("max", forKey: .type)
+            try container.encode(expr, forKey: .expression)
+        case let .sample(expr):
+            try container.encode("sample", forKey: .type)
+            try container.encode(expr, forKey: .expression)
+        case let .groupConcat(expr, sep, distinct):
+            try container.encode("groupConcat", forKey: .type)
+            try container.encode(expr, forKey: .expression)
+            try container.encode(distinct, forKey: .distinct)
+            try container.encode(sep, forKey: .string)
+        }
+    }
+}
+
 extension Aggregation: Equatable {
     public static func == (lhs: Aggregation, rhs: Aggregation) -> Bool {
         switch (lhs, rhs) {
@@ -89,6 +169,168 @@ extension Aggregation: CustomStringConvertible {
             } else {
                 return "GROUP_CONCAT(\(e); SEPARATOR=\"\(sep)\")"
             }
+        }
+    }
+}
+
+extension Expression: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case node
+        case lhs
+        case rhs
+        case value
+        case algebra
+        case name
+        case expressions
+        case aggregate
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+//        case "variable":
+//            let binding = try container.decode(Bool.self, forKey: .binding)
+//            let name = try container.decode(String.self, forKey: .variable)
+//            self = .variable(name, binding: binding)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected expression type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .node(node):
+            try container.encode("node", forKey: .type)
+            try container.encode(node, forKey: .node)
+        case let .aggregate(agg):
+            try container.encode("aggregate", forKey: .type)
+            try container.encode(agg, forKey: .aggregate)
+        case let .neg(lhs):
+            try container.encode("neg", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .not(lhs):
+            try container.encode("not", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .isiri(lhs):
+            try container.encode("isiri", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .isblank(lhs):
+            try container.encode("isblank", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .isliteral(lhs):
+            try container.encode("isliteral", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .isnumeric(lhs):
+            try container.encode("isnumeric", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .lang(lhs):
+            try container.encode("lang", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .langmatches(lhs, rhs):
+            try container.encode("langmatches", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .datatype(lhs):
+            try container.encode("datatype", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .sameterm(lhs, rhs):
+            try container.encode("sameterm", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .bound(lhs):
+            try container.encode("bound", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .boolCast(lhs):
+            try container.encode("bool", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .intCast(lhs):
+            try container.encode("int", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .floatCast(lhs):
+            try container.encode("float", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .doubleCast(lhs):
+            try container.encode("double", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .decimalCast(lhs):
+            try container.encode("decimal", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .dateTimeCast(lhs):
+            try container.encode("dateTime", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .dateCast(lhs):
+            try container.encode("date", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .stringCast(lhs):
+            try container.encode("string", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .eq(lhs, rhs):
+            try container.encode("eq", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .ne(lhs, rhs):
+            try container.encode("ne", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .lt(lhs, rhs):
+            try container.encode("lt", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .le(lhs, rhs):
+            try container.encode("le", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .gt(lhs, rhs):
+            try container.encode("gt", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .ge(lhs, rhs):
+            try container.encode("ge", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .add(lhs, rhs):
+            try container.encode("add", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .sub(lhs, rhs):
+            try container.encode("sub", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .div(lhs, rhs):
+            try container.encode("div", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .mul(lhs, rhs):
+            try container.encode("mul", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .and(lhs, rhs):
+            try container.encode("and", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .or(lhs, rhs):
+            try container.encode("or", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .between(value, lhs, rhs):
+            try container.encode("between", forKey: .type)
+            try container.encode(value, forKey: .value)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(rhs, forKey: .rhs)
+        case let .valuein(lhs, exprs):
+            try container.encode("valuein", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+            try container.encode(exprs, forKey: .expressions)
+        case let .call(name, exprs):
+            try container.encode("call", forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(exprs, forKey: .expressions)
+        case let .exists(algebra):
+            try container.encode("exists", forKey: .type)
+            try container.encode(algebra, forKey: .algebra)
         }
     }
 }

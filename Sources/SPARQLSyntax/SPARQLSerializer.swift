@@ -1000,13 +1000,13 @@ extension Query {
             if let cmps = self.algebra.sortComparators {
                 tokens.append(.keyword("ORDER"))
                 tokens.append(.keyword("BY"))
-                for (asc, expr) in cmps {
-                    if asc {
-                        tokens.append(contentsOf: try expr.sparqlTokens())
+                for cmp in cmps {
+                    if cmp.ascending {
+                        tokens.append(contentsOf: try cmp.expression.sparqlTokens())
                     } else {
                         tokens.append(.keyword("DESC"))
                         tokens.append(.lparen)
-                        tokens.append(contentsOf: try expr.sparqlTokens())
+                        tokens.append(contentsOf: try cmp.expression.sparqlTokens())
                         tokens.append(.rparen)
                     }
                 }

@@ -306,7 +306,8 @@ class SPARQLParserTests: XCTestCase {
             
             XCTAssertEqual(aggs.count, 1)
             XCTAssertEqual(projection, ["x", "z"])
-            guard case (.sum(_), ".agg-1") = aggs[0] else {
+            let aggMap = aggs[0]
+            guard case .sum(_) = aggMap.aggregation, aggMap.variableName == ".agg-1" else {
                 XCTFail("Unexpected aggregation: \(aggs[0])")
                 return
             }
@@ -343,11 +344,14 @@ class SPARQLParserTests: XCTestCase {
             
             XCTAssertEqual(aggs.count, 2)
             XCTAssertEqual(projection, ["x", "sum", "avg"])
-            guard case (.sum(_), ".agg-1") = aggs[0] else {
+            let aggMap0 = aggs[0]
+            guard case .sum(_) = aggMap0.aggregation, aggMap0.variableName == ".agg-1" else {
                 XCTFail("Unexpected aggregation: \(aggs[0])")
                 return
             }
-            guard case (.avg(_), ".agg-2") = aggs[1] else {
+
+            let aggMap1 = aggs[1]
+            guard case .avg(_) = aggMap1.aggregation, aggMap1.variableName == ".agg-2" else {
                 XCTFail("Unexpected aggregation: \(aggs[1])")
                 return
             }

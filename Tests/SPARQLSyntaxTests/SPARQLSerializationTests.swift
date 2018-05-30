@@ -116,7 +116,8 @@ class SPARQLSerializationTests: XCTestCase {
         let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
-        let algebra: Algebra = .slice(.order(.innerJoin(.triple(t1), .triple(t2)), [(false, .node(.variable("name", binding: false)))]), nil, 5)
+        let cmp = Algebra.SortComparator(ascending: false, expression: .node(.variable("name", binding: false)))
+        let algebra: Algebra = .slice(.order(.innerJoin(.triple(t1), .triple(t2)), [cmp]), nil, 5)
         do {
             let query = try Query(form: .select(.variables(["name", "type"])), algebra: algebra)
             let qtokens = Array(try query.sparqlTokens())
@@ -163,7 +164,8 @@ class SPARQLSerializationTests: XCTestCase {
         let t = TriplePattern(subject: subj, predicate: name, object: vname)
         do {
             let sq = try Query(form: .select(.star), algebra: .slice(.triple(t), nil, 5))
-            let algebra: Algebra = .order(.subquery(sq), [(false, .node(.variable("name", binding: false)))])
+            let cmp = Algebra.SortComparator(ascending: false, expression: .node(.variable("name", binding: false)))
+            let algebra: Algebra = .order(.subquery(sq), [cmp])
             
             let query = try Query(form: .select(.star), algebra: algebra)
             
