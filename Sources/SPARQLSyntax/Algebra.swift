@@ -151,17 +151,33 @@ public indirect enum Algebra {
     public struct SortComparator : Equatable, Codable {
         public var ascending: Bool
         public var expression: Expression
+        
+        public init(ascending: Bool, expression: Expression) {
+            self.ascending = ascending
+            self.expression = expression
+        }
     }
     
     public struct AggregationMapping: Equatable, Codable {
         public var aggregation: Aggregation
         public var variableName: String
+        
+        public init(aggregation: Aggregation, variableName: String) {
+            self.aggregation = aggregation
+            self.variableName = variableName
+        }
     }
     
     public struct WindowFunctionMapping: Equatable, Codable {
         public var windowFunction: WindowFunction
         public var comparators: [SortComparator]
         public var variableName: String
+
+        public init(windowFunction: WindowFunction, comparators: [SortComparator], variableName: String) {
+            self.windowFunction = windowFunction
+            self.comparators = comparators
+            self.variableName = variableName
+        }
     }
     
     case unionIdentity
