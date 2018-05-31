@@ -329,4 +329,64 @@ class SPARQLSerializationTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testAggregationSerialization_ComplexProjection() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT (SUM(?o)+AVG(?o) AS ?a) WHERE {
+            ?s ex:value ?o
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            print("===============")
+            print("\(q.serialize())")
+            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT (GROUP_CONCAT(?o ; SEPARATOR = "-") AS ?m) (AVG(?o) AS ?a) WHERE {
+                ?s <http://example.org/value> ?o .
+            }
+            
+            """
+            print("got: \(query)")
+            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testSelectExpressionSerialization() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT (?o+2 AS ?a) WHERE {
+            ?s ex:value ?o
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            print("===============")
+            print("\(q.serialize())")
+            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT (?o + 2 AS ?a) WHERE {
+                ?s <http://example.org/value> ?o .
+            }
+            
+            """
+            print("got: \(query)")
+            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }

@@ -912,7 +912,7 @@ extension Query {
         
         var projectedExpressions = [String:[SPARQLToken]]()
         var groupTokens = [SPARQLToken]()
-        var aggExtensions = algebra.aggregationExtensions
+        var aggExtensions = algebra.variableExtensions
         if let a = algebra.aggregation, case let .aggregate(_, groups, aggs) = a {
             for aggMap in aggs {
                 let v = aggMap.variableName
