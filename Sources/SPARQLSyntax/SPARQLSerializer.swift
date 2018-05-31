@@ -912,7 +912,6 @@ extension Query {
         
         var projectedExpressions = [String:[SPARQLToken]]()
         var groupTokens = [SPARQLToken]()
-        var aggExtensions = algebra.variableExtensions
         if let a = algebra.aggregation, case let .aggregate(_, groups, aggs) = a {
             for aggMap in aggs {
                 let v = aggMap.variableName
@@ -931,6 +930,7 @@ extension Query {
             }
         }
 
+        let aggExtensions = algebra.variableExtensions
         var aggExtensionTokens = [String : [SPARQLToken]]()
         for (name,e) in aggExtensions {
             let tokens = try Array(e.sparqlTokens())
@@ -977,7 +977,6 @@ extension Query {
             
             var algebra = self.algebra
             for v in vars {
-//                var rewritten = false
                 if let replacement = aggExtensionTokens[v] {
                     tokens.append(.lparen)
                     tokens.append(contentsOf: replacement)
@@ -994,32 +993,6 @@ extension Query {
                     let v : Node = .variable(v, binding: true)
                     tokens.append(contentsOf: v.sparqlTokens)
                 }
-//                if let ext = aggExtensions[v] {
-//                    if case .node(.variable(let name, _)) = ext {
-//                        if let expr = projectedExpressions[name] {
-//                            tokens.append(.lparen)
-//                            tokens.append(contentsOf: expr)
-//                            tokens.append(.keyword("AS"))
-//                            tokens.append(._var(v))
-//                            tokens.append(.rparen)
-//
-//                            algebra = try algebra.replace({ (a) -> Algebra? in
-//                                switch a {
-//                                case .extend(let child, _, v):
-//                                    return child
-//                                default:
-//                                    return nil
-//                                }
-//                            })
-//                            rewritten = true
-//                        }
-//                    }
-//                }
-//
-//                if !rewritten {
-//                    let v : Node = .variable(v, binding: true)
-//                    tokens.append(contentsOf: v.sparqlTokens)
-//                }
             }
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
