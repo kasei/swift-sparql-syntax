@@ -850,7 +850,8 @@ class SPARQLParserTests: XCTestCase {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
-            XCTAssertEqual(endpoint, .bound(Term(iri: "http://dbpedia.org/sparql")))
+            let expected = URL(string: "http://dbpedia.org/sparql")!
+            XCTAssertEqual(endpoint, expected)
             guard case .triple(_) = algebra else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return

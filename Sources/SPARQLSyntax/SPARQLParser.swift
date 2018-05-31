@@ -1795,8 +1795,15 @@ public struct SPARQLParser {
             try expect(token: t)
             let silent = try attempt(token: .keyword("SILENT"))
             let node = try parseVarOrIRI()
+            guard case .bound(let endpoint) = node else {
+                throw parseError("Expecting IRI as SERVICE endpoint but got \(node)")
+            }
             let ggp = try parseGroupGraphPattern()
-            return .finished(.service(node, ggp, silent))
+            guard let url = URL(string: endpoint.value) else {
+                throw parseError("Endpoint IRI is an invalid URL: \(endpoint.value)")
+            }
+            
+            return .finished(.service(url, ggp, silent))
         } else if case .keyword("FILTER") = t {
             try expect(token: t)
             let expression = try parseConstraint()

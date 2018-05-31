@@ -710,8 +710,8 @@ extension Algebra {
             default:
                 return .distinct(.project(lhs.serializableEquivalent, lhs.inscope))
             }
-        case .service(let endpoint, let lhs, let silent):
-            return .service(endpoint, lhs.serializableEquivalent, silent)
+        case .service(let endpoint, let sparql, let silent):
+            return .service(endpoint, sparql, silent)
         case .slice(let lhs, let offset, let limit):
             switch lhs {
             case .order(_), .aggregate(_), .project(_):
@@ -837,7 +837,7 @@ extension Algebra {
             if silent {
                 tokens.append(.keyword("SILENT"))
             }
-            tokens.append(contentsOf: endpoint.sparqlTokens)
+            tokens.append(.iri(endpoint.absoluteString))
             tokens.append(.lbrace)
             tokens.append(contentsOf: try lhs.sparqlTokens(depth: depth+1))
             tokens.append(.rbrace)

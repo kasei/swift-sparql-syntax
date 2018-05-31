@@ -195,7 +195,7 @@ public indirect enum Algebra {
     case minus(Algebra, Algebra)
     case project(Algebra, Set<String>)
     case distinct(Algebra)
-    case service(Node, Algebra, Bool)
+    case service(URL, Algebra, Bool)
     case slice(Algebra, Int?, Int?)
     case order(Algebra, [SortComparator])
     case path(Node, PropertyPath, Node)
@@ -230,6 +230,7 @@ extension Algebra : Codable {
         case windowFunctions
         case comparators
         case query
+        case url
     }
     
     public init(from decoder: Decoder) throws {
@@ -292,7 +293,7 @@ extension Algebra : Codable {
             self = .distinct(lhs)
         case "service":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
-            let endpoint = try container.decode(Node.self, forKey: .node)
+            let endpoint = try container.decode(URL.self, forKey: .url)
             let silent = try container.decode(Bool.self, forKey: .silent)
             self = .service(endpoint, lhs, silent)
         case "slice":
@@ -386,7 +387,7 @@ extension Algebra : Codable {
             try container.encode(lhs, forKey: .lhs)
         case let .service(endpoint, lhs, silent):
             try container.encode("service", forKey: .type)
-            try container.encode(endpoint, forKey: .node)
+            try container.encode(endpoint, forKey: .url)
             try container.encode(lhs, forKey: .lhs)
             try container.encode(silent, forKey: .silent)
         case let .slice(lhs, offset, limit):
