@@ -371,14 +371,50 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-//            print("===============")
-//            print("\(q.serialize())")
-//            print("===============")
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
             SELECT (?o + "2"^^<http://www.w3.org/2001/XMLSchema#integer> AS ?a) WHERE {
                 ?s <http://example.org/value> ?o .
+            }
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testConstructWithExtensionSerialization() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        CONSTRUCT { ?s ?p ?q }
+        WHERE {
+            ?s ex:value ?o
+            BIND(?o AS ?q)
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            CONSTRUCT {
+                ?s ?p ?q .
+            }
+            WHERE {
+                ?s <http://example.org/value> ?o .
+                BIND (?o AS ?q)
             }
             
             """
