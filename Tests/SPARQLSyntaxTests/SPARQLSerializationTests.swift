@@ -447,8 +447,7 @@ class SPARQLSerializationTests: XCTestCase {
             let query = s.serializePretty(tokens)
             let expected = """
             SELECT * WHERE {
-                VALUES (?x ?y)
-                {
+                VALUES (?x ?y) {
                     (<http://example.org/uri1> "1"^^<http://www.w3.org/2001/XMLSchema#integer>) (<http://example.org/uri2> UNDEF)
                 }
             }

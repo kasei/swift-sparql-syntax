@@ -170,6 +170,15 @@ public struct SPARQLSerializer {
                 }
             case(_, .bang, _):
                 outputArray.append((t, .tokenString("\(t.sparql)")))
+            case (_, .rparen, .lbrace):
+                // this occurs in VALUES blocks: VALUES (?x) { (...) (...) }
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .spaceSeparator))
+//            case (_, .rparen, .lparen):
+//                // this occurs in VALUES blocks: VALUES (?x) { (...) (...) }
+//                // TODO: but we only want the newline in VALUES, not in select expressions: SELECT (SUM(?o) AS ?s) (AVG(?o) AS ?a) ...
+//                outputArray.append((t, .tokenString("\(t.sparql)")))
+//                outputArray.append((t, .newline(pstate.indentLevel)))
             case (_, _, .lbrace):
                 // {openBraces=_}    $ '{'            -> $ NEWLINE_INDENT
                 outputArray.append((t, .tokenString("\(t.sparql)")))
@@ -856,12 +865,6 @@ extension Algebra {
             var tokens = [SPARQLToken]()
             tokens.append(.keyword("VALUES"))
             tokens.append(.lparen)
-//            var names = [String]()
-//            for n in nodes {
-//                guard case .variable(let name, _) = n else { fatalError() }
-//                tokens.append(contentsOf: n.sparqlTokens)
-//                names.append(name)
-//            }
             tokens.append(contentsOf: nodes.map { $0.sparqlTokens }.flatMap { $0 })
             tokens.append(.rparen)
             tokens.append(.lbrace)
