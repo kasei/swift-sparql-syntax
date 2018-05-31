@@ -62,7 +62,7 @@ private enum UnfinishedAlgebra {
 
 // swiftlint:disable:next type_body_length
 public struct SPARQLParser {
-    var parseBlankNodesAsVariables: Bool
+    public var parseBlankNodesAsVariables: Bool
     var lexer: SPARQLLexer
     var prefixes: [String:String]
     var bnodes: [String:Node]
