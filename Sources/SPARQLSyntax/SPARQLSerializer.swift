@@ -856,12 +856,12 @@ extension Algebra {
             var tokens = [SPARQLToken]()
             tokens.append(.keyword("VALUES"))
             tokens.append(.lparen)
-            var names = [String]()
-            for n in nodes {
-                guard case .variable(let name, _) = n else { fatalError() }
-                tokens.append(contentsOf: n.sparqlTokens)
-                names.append(name)
-            }
+//            var names = [String]()
+//            for n in nodes {
+//                guard case .variable(let name, _) = n else { fatalError() }
+//                tokens.append(contentsOf: n.sparqlTokens)
+//                names.append(name)
+//            }
             tokens.append(contentsOf: nodes.map { $0.sparqlTokens }.flatMap { $0 })
             tokens.append(.rparen)
             tokens.append(.lbrace)
@@ -880,7 +880,7 @@ extension Algebra {
             return AnySequence(tokens)
         case .project(let lhs, _), .distinct(let lhs), .slice(let lhs, _, _), .order(let lhs, _):
             var tokens = [SPARQLToken]()
-            // Projection, ordering, distinct, and slice serialization happens in Query.sparqlTokens, so this just serializes the child algebra
+            // projection, ordering, distinct, and slice serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             tokens.append(contentsOf: try lhs.sparqlTokens(depth: depth+1))
             return AnySequence(tokens)
         case .path(let lhs, let path, let rhs):
@@ -897,8 +897,7 @@ extension Algebra {
             tokens.append(.rbrace)
             return AnySequence(tokens)
         case .aggregate(let lhs, _, _):
-//            throw SPARQLSyntaxError.serializationError("Cannot serialize aggregation operator to SPARQL syntax: \(lhs) \(groups) \(aggs)")
-            // we pass-through on this becauase aggregation serialization happens in Query.sparqlTokens
+            // aggregation serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             return try lhs.sparqlTokens(depth: depth)
         case .window(let lhs, let groups, let funcs):
             //            fatalError("TODO: implement sparqlTokens() on window: \(lhs) \(groups) \(funcs)")
@@ -949,12 +948,6 @@ extension Query {
             aggExtensionTokens[name] = flat
         }
         
-        // TODO: handle wrapping .extend() algebras that rewrite aggregation variables to named variables
-        // e.g. SELECT (SUM(_) AS ?m) { ... }
-        // e.g. .extend(.aggregate(_, _, [(.sum(_), ".agg-1")]), .variable(".agg-1"), "m")
-        // then replace ?.agg-1 in projection with contents of projectedExpressions[".agg-1"]
-        // TODO: handle cases where aggregation is used within a deep expression: (1+SUM(_) AS ?m)
-        
         var tokens = [SPARQLToken]()
         switch self.form {
         case .select(.star):
@@ -968,8 +961,6 @@ extension Query {
             tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         case .select(.variables(let vars)):
-            // TODO: handle projection of aggregate/window functions
-            // TODO: handle projection of select expressions
             tokens.append(.keyword("SELECT"))
             if self.algebra.distinct {
                 tokens.append(.keyword("DISTINCT"))

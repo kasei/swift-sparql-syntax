@@ -418,8 +418,44 @@ class SPARQLSerializationTests: XCTestCase {
             }
             
             """
-//            print("got: \(query)")
-//            print("expected: \(expected)")
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testValuesSerialization() throws {
+        let sparql = """
+        PREFIX : <http://example.org/>
+        SELECT * WHERE {
+            VALUES (?x ?y) {
+              (:uri1 1)
+              (:uri2 UNDEF)
+            }
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT * WHERE {
+                VALUES (?x ?y)
+                {
+                    (<http://example.org/uri1> "1"^^<http://www.w3.org/2001/XMLSchema#integer>) (<http://example.org/uri2> UNDEF)
+                }
+            }
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
             XCTAssertEqual(query, expected)
         } catch let e {
             XCTFail("\(e)")
