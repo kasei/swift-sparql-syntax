@@ -930,6 +930,24 @@ extension Query {
                 }
             }
         }
+
+        var aggExtensionTokens = [String : [SPARQLToken]]()
+        for (name,e) in aggExtensions {
+            let tokens = try Array(e.sparqlTokens())
+            let mapped = tokens.map { (t) -> [SPARQLToken] in
+                switch t {
+                case ._var(let n):
+                    if let replacement = projectedExpressions[n] {
+                        return replacement
+                    }
+                default:
+                    break
+                }
+                return [t]
+                }.joined()
+            let flat = Array(mapped)
+            aggExtensionTokens[name] = flat
+        }
         
         // TODO: handle wrapping .extend() algebras that rewrite aggregation variables to named variables
         // e.g. SELECT (SUM(_) AS ?m) { ... }
@@ -959,33 +977,49 @@ extension Query {
             
             var algebra = self.algebra
             for v in vars {
-                var rewritten = false
-                if let ext = aggExtensions[v] {
-                    if case .node(.variable(let name, _)) = ext {
-                        if let expr = projectedExpressions[name] {
-                            tokens.append(.lparen)
-                            tokens.append(contentsOf: expr)
-                            tokens.append(.keyword("AS"))
-                            tokens.append(._var(v))
-                            tokens.append(.rparen)
-
-                            algebra = try algebra.replace({ (a) -> Algebra? in
-                                switch a {
-                                case .extend(let child, _, v):
-                                    return child
-                                default:
-                                    return nil
-                                }
-                            })
-                            rewritten = true
+//                var rewritten = false
+                if let replacement = aggExtensionTokens[v] {
+                    tokens.append(.lparen)
+                    tokens.append(contentsOf: replacement)
+                    tokens.append(contentsOf: [.keyword("AS"), ._var(v), .rparen])
+                    algebra = try algebra.replace({ (a) -> Algebra? in
+                        switch a {
+                        case .extend(let child, _, v):
+                            return child
+                        default:
+                            return nil
                         }
-                    }
-                }
-                
-                if !rewritten {
+                    })
+                } else {
                     let v : Node = .variable(v, binding: true)
                     tokens.append(contentsOf: v.sparqlTokens)
                 }
+//                if let ext = aggExtensions[v] {
+//                    if case .node(.variable(let name, _)) = ext {
+//                        if let expr = projectedExpressions[name] {
+//                            tokens.append(.lparen)
+//                            tokens.append(contentsOf: expr)
+//                            tokens.append(.keyword("AS"))
+//                            tokens.append(._var(v))
+//                            tokens.append(.rparen)
+//
+//                            algebra = try algebra.replace({ (a) -> Algebra? in
+//                                switch a {
+//                                case .extend(let child, _, v):
+//                                    return child
+//                                default:
+//                                    return nil
+//                                }
+//                            })
+//                            rewritten = true
+//                        }
+//                    }
+//                }
+//
+//                if !rewritten {
+//                    let v : Node = .variable(v, binding: true)
+//                    tokens.append(contentsOf: v.sparqlTokens)
+//                }
             }
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)

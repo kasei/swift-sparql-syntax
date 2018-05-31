@@ -141,7 +141,7 @@ class SPARQLParserTests: XCTestCase {
         let positions = tokens.map { (Int($0.startCharacter), Int($0.endCharacter-$0.startCharacter)) }
         let comparisions = zip(positions, expected)
         for (got, expected) in comparisions {
-            print("got: \(got); expected: \(expected)")
+//            print("got: \(got); expected: \(expected)")
             XCTAssertEqual(got.0, expected.0)
             XCTAssertEqual(got.1, expected.1)
         }

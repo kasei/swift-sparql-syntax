@@ -322,8 +322,8 @@ class SPARQLSerializationTests: XCTestCase {
             }
             
             """
-            print("got: \(query)")
-            print("expected: \(expected)")
+//            print("got: \(query)")
+//            print("expected: \(expected)")
             XCTAssertEqual(query, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -341,19 +341,19 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-            print("===============")
-            print("\(q.serialize())")
-            print("===============")
+//            print("===============")
+//            print("\(q.serialize())")
+//            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
-            SELECT (GROUP_CONCAT(?o ; SEPARATOR = "-") AS ?m) (AVG(?o) AS ?a) WHERE {
+            SELECT (SUM(?o) + AVG(?o) AS ?a) WHERE {
                 ?s <http://example.org/value> ?o .
             }
             
             """
-            print("got: \(query)")
-            print("expected: \(expected)")
+//            print("got: \(query)")
+//            print("expected: \(expected)")
             XCTAssertEqual(query, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -371,19 +371,19 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-            print("===============")
-            print("\(q.serialize())")
-            print("===============")
+//            print("===============")
+//            print("\(q.serialize())")
+//            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
-            SELECT (?o + 2 AS ?a) WHERE {
+            SELECT (?o + "2"^^<http://www.w3.org/2001/XMLSchema#integer> AS ?a) WHERE {
                 ?s <http://example.org/value> ?o .
             }
             
             """
-            print("got: \(query)")
-            print("expected: \(expected)")
+//            print("got: \(query)")
+//            print("expected: \(expected)")
             XCTAssertEqual(query, expected)
         } catch let e {
             XCTFail("\(e)")
