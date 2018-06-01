@@ -341,9 +341,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-//            print("===============")
-//            print("\(q.serialize())")
-//            print("===============")
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
@@ -352,14 +352,14 @@ class SPARQLSerializationTests: XCTestCase {
             }
             
             """
-//            print("got: \(query)")
-//            print("expected: \(expected)")
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
             XCTAssertEqual(query, expected)
         } catch let e {
             XCTFail("\(e)")
         }
     }
-    
+
     func testSelectExpressionSerialization() throws {
         let sparql = """
         PREFIX ex: <http://example.org/>
@@ -483,6 +483,37 @@ class SPARQLSerializationTests: XCTestCase {
                 ?s (<http://example.org/value> / <http://example.org/value>) | <http://example.org/value> ?o .
             }
             ORDER BY ("xyz")
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testAggregationSerialization_2() throws {
+        let algebra : Algebra = .project(
+            .aggregate(
+                .joinIdentity,
+                [],
+                [
+                    Algebra.AggregationMapping(aggregation: .sum(.node(.variable("o", binding: true)), false), variableName: "sum"),
+                    Algebra.AggregationMapping(aggregation: .avg(.node(.variable("o", binding: true)), false), variableName: "avg")
+                ]
+            ),
+            Set(["o"])
+        )
+        let q = try Query(form: .select(.variables(["sum", "avg"])), algebra: algebra, dataset: Dataset())
+        let s = SPARQLSerializer()
+        do {
+            let query = try s.serializePretty(q.sparqlTokens())
+            let expected = """
+            SELECT (SUM(?o) AS ?sum) (AVG(?o) AS ?avg) WHERE {
+                {
+                }
+            }
             
             """
             //            print("got: \(query)")

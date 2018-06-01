@@ -988,6 +988,18 @@ extension Query {
                             return nil
                         }
                     })
+                } else if let replacement = projectedExpressions[v] {
+                    tokens.append(.lparen)
+                    tokens.append(contentsOf: replacement)
+                    tokens.append(contentsOf: [.keyword("AS"), ._var(v), .rparen])
+                    algebra = try algebra.replace({ (a) -> Algebra? in
+                        switch a {
+                        case .extend(let child, _, v):
+                            return child
+                        default:
+                            return nil
+                        }
+                    })
                 } else {
                     let v : Node = .variable(v, binding: true)
                     tokens.append(contentsOf: v.sparqlTokens)
