@@ -610,6 +610,9 @@ public struct SPARQLParser {
                 guard let c = try parseOrderCondition() else { break }
                 sortConditions.append(c)
             }
+            if sortConditions.count > 0 {
+                algebra = .order(algebra, sortConditions)
+            }
         }
         
         if case .variables(let projection) = projection {
@@ -623,10 +626,6 @@ public struct SPARQLParser {
         
         if distinct {
             algebra = .distinct(algebra)
-        }
-        
-        if sortConditions.count > 0 {
-            algebra = .order(algebra, sortConditions)
         }
         
         if try attempt(token: .keyword("LIMIT")) {
