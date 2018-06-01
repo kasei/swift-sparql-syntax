@@ -156,6 +156,28 @@ public indirect enum Algebra {
             self.ascending = ascending
             self.expression = expression
         }
+        
+        public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
+            var tokens = [SPARQLToken]()
+            var exprTokens = try Array(expression.sparqlTokens())
+            if !(exprTokens.prefix(upTo: 1) == [.lparen]) {
+                switch expression {
+                case .call(_, _):
+                    break
+                default:
+                    exprTokens = [.lparen] + exprTokens + [.rparen]
+                }
+            }
+            if ascending {
+                tokens.append(contentsOf: exprTokens)
+            } else {
+                tokens.append(.keyword("DESC"))
+                tokens.append(.lparen)
+                tokens.append(contentsOf: exprTokens)
+                tokens.append(.rparen)
+            }
+            return AnySequence(tokens)
+        }
     }
     
     public struct AggregationMapping: Equatable, Codable {
