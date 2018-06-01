@@ -162,7 +162,7 @@ public indirect enum Algebra {
             var exprTokens = try Array(expression.sparqlTokens())
             if !(exprTokens.prefix(upTo: 1) == [.lparen]) {
                 switch expression {
-                case .call(_, _):
+                case .call(_, _), .node(.variable(_)):
                     break
                 default:
                     exprTokens = [.lparen] + exprTokens + [.rparen]
