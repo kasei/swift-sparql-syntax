@@ -180,13 +180,17 @@ public indirect enum Algebra {
         }
     }
     
-    public struct AggregationMapping: Equatable, Codable {
+    public struct AggregationMapping: Equatable, Codable, CustomStringConvertible {
         public var aggregation: Aggregation
         public var variableName: String
         
         public init(aggregation: Aggregation, variableName: String) {
             self.aggregation = aggregation
             self.variableName = variableName
+        }
+        
+        public var description: String {
+            return "Agg[?\(variableName)←\(aggregation)]"
         }
     }
     
@@ -792,6 +796,22 @@ public extension Algebra {
 }
 
 public extension Algebra {
+    func renameAggregateVariable(from: String, to: String) -> Algebra {
+        switch self {
+        case let .aggregate(child, groups, aggs):
+            var rewritten = [Algebra.AggregationMapping]()
+            for a in aggs {
+                if a.variableName == from {
+                    rewritten.append(AggregationMapping(aggregation: a.aggregation, variableName: to))
+                } else {
+                    rewritten.append(a)
+                }
+            }
+            return .aggregate(child, groups, rewritten)
+        default:
+            return self
+        }
+    }
     func replace(_ map: [String:Term]) throws -> Algebra {
         let a = try self.replace({ (e) -> Expression? in
             return try e.replace(map)

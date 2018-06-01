@@ -595,7 +595,10 @@ public struct SPARQLParser {
                 throw parseError("Cannot bind an already used variable (?\(name) in a select expression")
             }
         }
-        algebra = projectExpressions.reduce(algebra) { .extend($0, $1.0, $1.1) }
+        
+        algebra = projectExpressions.reduce(algebra) {
+            addAggregationExtension(to: $0, expression: $1.0, variableName: $1.1)
+        }
         
         if let values = valuesBlock {
             algebra = .innerJoin(algebra, values)
@@ -639,6 +642,19 @@ public struct SPARQLParser {
             }
         }
         return algebra
+    }
+    
+    private func addAggregationExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
+        if case .node(.variable(let name, _)) = expression {
+            if case let .aggregate(child, groups, aggs) = algebra {
+                // TODO: if the expression is a simple renaming of variables,
+                // rewrite the aggregation algebra to inline the final variable
+                // name directly
+                print("*** TODO: remove aggregate variable renaming")
+                return algebra.renameAggregateVariable(from: name, to: variableName)
+            }
+        }
+        return .extend(algebra, expression, variableName)
     }
     
     private mutating func parseValuesClause() throws -> Algebra? {

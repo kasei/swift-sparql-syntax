@@ -126,7 +126,6 @@ public struct Query : Codable, Equatable {
                     a = b
                 }
                 if !(Set(vars).isSubset(of: a.projectableVariables)) {
-                    print(a.serialize())
                     throw SPARQLSyntaxError.parsingError("Cannot project non-grouped variable(s) \(vars) in aggregation query. Projectable variables are: \(a.projectableVariables)")
                 }
             }

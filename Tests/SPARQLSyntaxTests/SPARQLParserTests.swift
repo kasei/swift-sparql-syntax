@@ -289,28 +289,18 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?z) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case .project(let extend, let projection) = a else {
+            guard case .project(let agg, let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
             
-            guard case .extend(let agg, .node(.variable(".agg-1", _)), "z") = extend else {
-                XCTFail("Unexpected algebra: \(extend.serialize())")
-                return
-            }
-            
-            guard case .aggregate(_, let groups, let aggs) = agg else {
+            let aggMap = Algebra.AggregationMapping(aggregation: .sum(.node(.variable("y", binding: true)), false), variableName: "z")
+            guard case .aggregate(_, let groups, [aggMap]) = agg else {
                 XCTFail("Unexpected algebra: \(agg.serialize())")
                 return
             }
             
-            XCTAssertEqual(aggs.count, 1)
             XCTAssertEqual(projection, ["x", "z"])
-            let aggMap = aggs[0]
-            guard case .sum(_) = aggMap.aggregation, aggMap.variableName == ".agg-1" else {
-                XCTFail("Unexpected aggregation: \(aggs[0])")
-                return
-            }
             let expected: [Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
@@ -322,39 +312,20 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?sum) (AVG(?y) AS ?avg) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case .project(let extend1, let projection) = a else {
+            guard case .project(let agg, let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
             
-            guard case .extend(let extend2, .node(.variable(".agg-2", _)), "avg") = extend1 else {
-                XCTFail("Unexpected algebra: \(extend1.serialize())")
-                return
-            }
-            
-            guard case .extend(let agg, .node(.variable(".agg-1", _)), "sum") = extend2 else {
-                XCTFail("Unexpected algebra: \(extend2.serialize())")
-                return
-            }
-            
-            guard case .aggregate(_, let groups, let aggs) = agg else {
+            let aggMap1 = Algebra.AggregationMapping(aggregation: .sum(.node(.variable("y", binding: true)), false), variableName: "sum")
+            let aggMap2 = Algebra.AggregationMapping(aggregation: .avg(.node(.variable("y", binding: true)), false), variableName: "avg")
+
+            guard case .aggregate(_, let groups, [aggMap1, aggMap2]) = agg else {
                 XCTFail("Unexpected algebra: \(agg.serialize())")
                 return
             }
             
-            XCTAssertEqual(aggs.count, 2)
             XCTAssertEqual(projection, ["x", "sum", "avg"])
-            let aggMap0 = aggs[0]
-            guard case .sum(_) = aggMap0.aggregation, aggMap0.variableName == ".agg-1" else {
-                XCTFail("Unexpected aggregation: \(aggs[0])")
-                return
-            }
-
-            let aggMap1 = aggs[1]
-            guard case .avg(_) = aggMap1.aggregation, aggMap1.variableName == ".agg-2" else {
-                XCTFail("Unexpected aggregation: \(aggs[1])")
-                return
-            }
             let expected: [Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
@@ -687,7 +658,6 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT ?s (MIN(?p) AS ?minpred) ?o WHERE { ?s ?p ?o } GROUP BY ?s") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
-                print("--> \(e)")
                 XCTAssertTrue(m.contains("Cannot project non-grouped variable(s)"))
             } else {
                 XCTFail()
