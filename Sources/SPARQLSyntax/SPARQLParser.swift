@@ -277,12 +277,6 @@ public struct SPARQLParser {
         algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
         
         let query = try Query(form: .select(projection), algebra: algebra, dataset: dataset, base: self.base)
-        if star {
-            if algebra.isAggregation {
-                throw parseError("Aggregation queries cannot use a `SELECT *`")
-            }
-        }
-        
         return query
     }
     

@@ -114,11 +114,18 @@ public struct Query : Codable, Equatable {
         self.algebra = algebra
         self.dataset = dataset
         
-        if case .select(.variables(let vars)) = form {
+        switch form {
+        case .select(.star):
+            if algebra.isAggregation {
+                throw SPARQLSyntaxError.parsingError("Aggregation queries cannot use a `SELECT *`")
+            }
+        case .select(.variables(let vars)):
             let vset = Set(vars)
             if vars.count != vset.count {
                 throw SPARQLSyntaxError.parsingError("Cannot project variables more than once in a SELECT query")
             }
+        default:
+            break
         }
     }
 }
