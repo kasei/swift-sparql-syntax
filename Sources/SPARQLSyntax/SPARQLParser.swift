@@ -614,11 +614,6 @@ public struct SPARQLParser {
         }
         
         if case .variables(let projection) = projection {
-            if algebra.isAggregation {
-                if !(Set(projection).isSubset(of: algebra.projectableVariables)) {
-                    throw parseError("Cannot project non-grouped variable in aggregation query")
-                }
-            }
             algebra = .project(algebra, Set(projection))
         }
         

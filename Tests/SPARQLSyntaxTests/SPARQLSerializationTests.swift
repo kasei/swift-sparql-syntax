@@ -503,7 +503,7 @@ class SPARQLSerializationTests: XCTestCase {
                     Algebra.AggregationMapping(aggregation: .avg(.node(.variable("o", binding: true)), false), variableName: "avg")
                 ]
             ),
-            Set(["o"])
+            Set(["sum", "avg"])
         )
         let q = try Query(form: .select(.variables(["sum", "avg"])), algebra: algebra, dataset: Dataset())
         let s = SPARQLSerializer()
