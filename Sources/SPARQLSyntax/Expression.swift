@@ -190,10 +190,135 @@ extension Expression: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
         switch type {
-//        case "variable":
-//            let binding = try container.decode(Bool.self, forKey: .binding)
-//            let name = try container.decode(String.self, forKey: .variable)
-//            self = .variable(name, binding: binding)
+        case "node":
+            let node = try container.decode(Node.self, forKey: .node)
+            self = .node(node)
+        case "aggregate":
+            let agg = try container.decode(Aggregation.self, forKey: .aggregate)
+            self = .aggregate(agg)
+        case "neg":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .neg(lhs)
+        case "not":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .not(lhs)
+        case "isiri":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .isiri(lhs)
+        case "isblank":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .isblank(lhs)
+        case "isliteral":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .isliteral(lhs)
+        case "isnumeric":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .isnumeric(lhs)
+        case "lang":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .lang(lhs)
+        case "langmatches":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .langmatches(lhs, rhs)
+        case "datatype":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .datatype(lhs)
+        case "sameterm":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .sameterm(lhs, rhs)
+        case "bound":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .bound(lhs)
+        case "bool":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .boolCast(lhs)
+        case "int":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .intCast(lhs)
+        case "float":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .floatCast(lhs)
+        case "double":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .doubleCast(lhs)
+        case "decimal":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .decimalCast(lhs)
+        case "dateTime":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .dateTimeCast(lhs)
+        case "date":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .dateCast(lhs)
+        case "string":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .stringCast(lhs)
+        case "eq":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .eq(lhs, rhs)
+        case "ne":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .ne(lhs, rhs)
+        case "lt":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .lt(lhs, rhs)
+        case "le":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .le(lhs, rhs)
+        case "gt":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .gt(lhs, rhs)
+        case "ge":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .ge(lhs, rhs)
+        case "add":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .add(lhs, rhs)
+        case "sub":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .sub(lhs, rhs)
+        case "div":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .div(lhs, rhs)
+        case "mul":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .mul(lhs, rhs)
+        case "and":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .and(lhs, rhs)
+        case "or":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .or(lhs, rhs)
+        case "between":
+            let value = try container.decode(Expression.self, forKey: .value)
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let rhs = try container.decode(Expression.self, forKey: .rhs)
+            self = .between(value, lhs, rhs)
+        case "valuein":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            let exprs = try container.decode([Expression].self, forKey: .expressions)
+            self = .valuein(lhs, exprs)
+        case "call":
+            let name = try container.decode(String.self, forKey: .name)
+            let exprs = try container.decode([Expression].self, forKey: .expressions)
+            self = .call(name, exprs)
+        case "exists":
+            let algebra = try container.decode(Algebra.self, forKey: .algebra)
+            self = .exists(algebra)
         default:
             throw SPARQLSyntaxError.serializationError("Unexpected expression type '\(type)' found")
         }
