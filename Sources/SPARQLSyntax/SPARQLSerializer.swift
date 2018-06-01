@@ -426,13 +426,24 @@ extension PropertyPath {
 extension Expression {
     public var needsSurroundingParentheses: Bool {
         switch self {
-        case .isiri(_), .isblank(_), .isliteral(_), .isnumeric(_), .exists(_), .not(.exists(_)), .call(_):
+        case .node(_), .isiri(_), .isblank(_), .isliteral(_), .isnumeric(_), .exists(_), .not(.exists(_)), .call(_):
             return false
         default:
             return true
         }
     }
     
+    internal func parenthesizedSparqlTokens() throws -> AnySequence<SPARQLToken> {
+        switch self {
+        case let e where e.needsSurroundingParentheses:
+            let tokens = try Array(sparqlTokens())
+            let p = [.lparen] + tokens + [.rparen]
+            return AnySequence(p)
+        default:
+            return try sparqlTokens()
+        }
+    }
+
     public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         switch self {
@@ -542,53 +553,53 @@ extension Expression {
             tokens.append(contentsOf: try e.sparqlTokens())
             tokens.append(.rparen)
         case .eq(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.equals)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .ne(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.notequals)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .lt(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.lt)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .le(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.le)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .gt(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.gt)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .ge(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.ge)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .add(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.plus)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .sub(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.minus)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .div(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.slash)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .mul(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.star)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .and(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.andand)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .or(let lhs, let rhs):
-            tokens.append(contentsOf: try lhs.sparqlTokens())
+            tokens.append(contentsOf: try lhs.parenthesizedSparqlTokens())
             tokens.append(.oror)
-            tokens.append(contentsOf: try rhs.sparqlTokens())
+            tokens.append(contentsOf: try rhs.parenthesizedSparqlTokens())
         case .between(let e, let lhs, let rhs):
             let expr : Expression = .and(.ge(e, lhs), .le(e, rhs))
             return try expr.sparqlTokens()
@@ -795,13 +806,7 @@ extension Algebra {
             tokens.append(contentsOf: try rhs.sparqlTokens(depth: depth+1))
             if expr != .node(.bound(Term.trueValue)) {
                 tokens.append(.keyword("FILTER"))
-                if expr.needsSurroundingParentheses {
-                    tokens.append(.lparen)
-                    tokens.append(contentsOf: try expr.sparqlTokens())
-                    tokens.append(.rparen)
-                } else {
-                    tokens.append(contentsOf: try expr.sparqlTokens())
-                }
+                tokens.append(contentsOf: try expr.parenthesizedSparqlTokens())
             }
             tokens.append(.rbrace)
             return AnySequence(tokens)
