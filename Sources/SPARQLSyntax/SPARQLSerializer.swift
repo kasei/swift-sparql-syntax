@@ -232,8 +232,8 @@ public struct SPARQLSerializer {
             case (_, .prefixname, .lparen):
                 // function call; supress space between function IRI and opening paren
                 outputArray.append((t, .tokenString("\(t.sparql)")))
-            case (_, _, .hathat):
-                // no space in between any token and a ^^
+            case (_, _, .hathat), (_, _, .lang(_)):
+                // no space in between any token and a ^^ or @lang
                 outputArray.append((t, .tokenString("\(t.sparql)")))
             default:
                 //                 $ $                -> $ ' '

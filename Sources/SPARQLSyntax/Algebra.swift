@@ -721,8 +721,8 @@ public extension Algebra {
     
     public var projectableVariables : Set<String> {
         switch self {
-        case .aggregate(_, let groups, _):
-            var vars = Set<String>()
+        case let .aggregate(_, groups, aggs):
+            var vars = Set(aggs.map { $0.variableName })
             for g in groups {
                 if case .node(.variable(let v, _)) = g {
                     vars.insert(v)
@@ -730,6 +730,9 @@ public extension Algebra {
             }
             return vars
             
+        case .project(_, let v):
+            return v
+
         case .extend(let child, _, let v):
             return Set([v]).union(child.projectableVariables)
             

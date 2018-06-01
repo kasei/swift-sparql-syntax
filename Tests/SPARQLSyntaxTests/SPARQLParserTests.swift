@@ -687,7 +687,8 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT ?s (MIN(?p) AS ?minpred) ?o WHERE { ?s ?p ?o } GROUP BY ?s") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
-                XCTAssertTrue(m.contains("Cannot project non-grouped variable in aggregation query"))
+                print("--> \(e)")
+                XCTAssertTrue(m.contains("Cannot project non-grouped variable(s)"))
             } else {
                 XCTFail()
             }
@@ -857,7 +858,6 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
             XCTAssertEqual(silent, true)
-            print(a.serialize())
         } catch let e {
             XCTFail("\(e)")
         }

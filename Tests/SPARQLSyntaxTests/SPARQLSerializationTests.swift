@@ -505,9 +505,9 @@ class SPARQLSerializationTests: XCTestCase {
             ),
             Set(["sum", "avg"])
         )
-        let q = try Query(form: .select(.variables(["sum", "avg"])), algebra: algebra, dataset: Dataset())
-        let s = SPARQLSerializer()
         do {
+            let q = try Query(form: .select(.variables(["sum", "avg"])), algebra: algebra, dataset: Dataset())
+            let s = SPARQLSerializer()
             let query = try s.serializePretty(q.sparqlTokens())
             let expected = """
             SELECT (SUM(?o) AS ?sum) (AVG(?o) AS ?avg) WHERE {
