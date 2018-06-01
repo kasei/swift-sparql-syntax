@@ -227,7 +227,6 @@ public struct SPARQLParser {
     private mutating func parseSelectQuery() throws -> Query {
         try expect(token: .keyword("SELECT"))
         var distinct = false
-        var star = false
         var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
         
@@ -239,7 +238,6 @@ public struct SPARQLParser {
         var projection: SelectProjection
         if try attempt(token: .star) {
             projection = .star
-            star = true
         } else {
             var projectionVariables = [String]()
             LOOP: while true {
