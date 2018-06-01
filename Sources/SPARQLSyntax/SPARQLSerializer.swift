@@ -372,6 +372,17 @@ extension QuadPattern {
 }
 
 extension PropertyPath {
+    private var parenthesizedSparqlTokens: AnySequence<SPARQLToken> {
+        switch self {
+        case .link(_):
+            return sparqlTokens
+        default:
+            let tokens = Array(sparqlTokens)
+            let p = [.lparen] + tokens + [.rparen]
+            return AnySequence(p)
+        }
+    }
+    
     public var sparqlTokens: AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         switch self {
@@ -379,7 +390,7 @@ extension PropertyPath {
             tokens.append(contentsOf: term.sparqlTokens)
         case .inv(let path):
             tokens.append(.hat)
-            tokens.append(contentsOf: path.sparqlTokens)
+            tokens.append(contentsOf: path.parenthesizedSparqlTokens)
         case .nps(let terms):
             tokens.append(.bang)
             tokens.append(.lparen)
@@ -391,27 +402,21 @@ extension PropertyPath {
             }
             tokens.append(.rparen)
         case .alt(let lhs, let rhs):
-            tokens.append(contentsOf: lhs.sparqlTokens)
+            tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
             tokens.append(.or)
-            tokens.append(contentsOf: rhs.sparqlTokens)
+            tokens.append(contentsOf: rhs.parenthesizedSparqlTokens)
         case .seq(let lhs, let rhs):
-            tokens.append(contentsOf: lhs.sparqlTokens)
+            tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
             tokens.append(.slash)
-            tokens.append(contentsOf: rhs.sparqlTokens)
+            tokens.append(contentsOf: rhs.parenthesizedSparqlTokens)
         case .plus(let path):
-            tokens.append(.lparen)
-            tokens.append(contentsOf: path.sparqlTokens)
-            tokens.append(.rparen)
+            tokens.append(contentsOf: path.parenthesizedSparqlTokens)
             tokens.append(.plus)
         case .star(let path):
-            tokens.append(.lparen)
-            tokens.append(contentsOf: path.sparqlTokens)
-            tokens.append(.rparen)
+            tokens.append(contentsOf: path.parenthesizedSparqlTokens)
             tokens.append(.star)
         case .zeroOrOne(let path):
-            tokens.append(.lparen)
-            tokens.append(contentsOf: path.sparqlTokens)
-            tokens.append(.rparen)
+            tokens.append(contentsOf: path.parenthesizedSparqlTokens)
             tokens.append(.question)
         }
         return AnySequence(tokens)
@@ -1027,14 +1032,7 @@ extension Query {
                 tokens.append(.keyword("ORDER"))
                 tokens.append(.keyword("BY"))
                 for cmp in cmps {
-                    if cmp.ascending {
-                        tokens.append(contentsOf: try cmp.expression.sparqlTokens())
-                    } else {
-                        tokens.append(.keyword("DESC"))
-                        tokens.append(.lparen)
-                        tokens.append(contentsOf: try cmp.expression.sparqlTokens())
-                        tokens.append(.rparen)
-                    }
+                    tokens.append(contentsOf: try cmp.sparqlTokens())
                 }
             }
         default:

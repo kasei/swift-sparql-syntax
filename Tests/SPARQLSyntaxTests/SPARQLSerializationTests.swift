@@ -460,4 +460,36 @@ class SPARQLSerializationTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testPrecedenceParenthsesSerialization() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT * WHERE {
+            ?s ex:value/ex:value|ex:value ?o .
+        }
+        ORDER BY ("xyz")
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+//                        print("===============")
+//                        print("\(q.serialize())")
+//                        print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT * WHERE {
+                ?s (<http://example.org/value> / <http://example.org/value>) | <http://example.org/value> ?o .
+            }
+            ORDER BY ("xyz")
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }
