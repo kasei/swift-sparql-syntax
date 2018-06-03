@@ -8,6 +8,272 @@
 
 import Foundation
 
+// swiftlint:disable cyclomatic_complexity
+// swiftlint:disable:next type_body_length
+public indirect enum Expression: CustomStringConvertible {
+    case node(Node)
+    case aggregate(Aggregation)
+    case neg(Expression)
+    case not(Expression)
+    case isiri(Expression)
+    case isblank(Expression)
+    case isliteral(Expression)
+    case isnumeric(Expression)
+    case lang(Expression)
+    case langmatches(Expression, Expression)
+    case datatype(Expression)
+    case sameterm(Expression, Expression)
+    case bound(Expression)
+    case boolCast(Expression)
+    case intCast(Expression)
+    case floatCast(Expression)
+    case doubleCast(Expression)
+    case decimalCast(Expression)
+    case dateTimeCast(Expression)
+    case dateCast(Expression)
+    case stringCast(Expression)
+    case eq(Expression, Expression)
+    case ne(Expression, Expression)
+    case lt(Expression, Expression)
+    case le(Expression, Expression)
+    case gt(Expression, Expression)
+    case ge(Expression, Expression)
+    case add(Expression, Expression)
+    case sub(Expression, Expression)
+    case div(Expression, Expression)
+    case mul(Expression, Expression)
+    case and(Expression, Expression)
+    case or(Expression, Expression)
+    case between(Expression, Expression, Expression)
+    case valuein(Expression, [Expression])
+    case call(String, [Expression])
+    case exists(Algebra)
+    
+    public var variables: Set<String> {
+        switch self {
+        case .node(.variable(let s, binding: _)):
+            return Set([s])
+        case .node(_):
+            return Set()
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
+            return expr.variables
+        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
+            return lhs.variables.union(rhs.variables)
+        case .between(let a, let b, let c):
+            return a.variables.union(b.variables).union(c.variables)
+        case .call(_, let exprs):
+            return exprs.reduce(Set()) { $0.union($1.variables) }
+        case .valuein(let expr, let exprs):
+            return exprs.reduce(expr.variables) { $0.union($1.variables) }
+        case .aggregate(let a):
+            return a.variables
+        case .exists(let p):
+            return p.inscope
+        }
+    }
+    
+    public var hasAggregation: Bool {
+        switch self {
+        case .aggregate(_):
+            return true
+        case .node(_), .exists(_):
+            return false
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
+            return expr.hasAggregation
+        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
+            return lhs.hasAggregation || rhs.hasAggregation
+        case .between(let a, let b, let c):
+            return a.hasAggregation || b.hasAggregation || c.hasAggregation
+        case .call(_, let exprs):
+            return exprs.reduce(false) { $0 || $1.hasAggregation }
+        case .valuein(let expr, let exprs):
+            return exprs.reduce(expr.hasAggregation) { $0 || $1.hasAggregation }
+        }
+    }
+    
+    func removeAggregations(_ counter: AnyIterator<Int>, mapping: inout [String:Aggregation]) -> Expression {
+        switch self {
+        case .node(_), .exists(_):
+            return self
+        case .neg(let expr):
+            return .neg(expr.removeAggregations(counter, mapping: &mapping))
+        case .not(let expr):
+            return .not(expr.removeAggregations(counter, mapping: &mapping))
+        case .isiri(let expr):
+            return .isiri(expr.removeAggregations(counter, mapping: &mapping))
+        case .isblank(let expr):
+            return .isblank(expr.removeAggregations(counter, mapping: &mapping))
+        case .isliteral(let expr):
+            return .isliteral(expr.removeAggregations(counter, mapping: &mapping))
+        case .isnumeric(let expr):
+            return .isnumeric(expr.removeAggregations(counter, mapping: &mapping))
+        case .lang(let expr):
+            return .lang(expr.removeAggregations(counter, mapping: &mapping))
+        case .langmatches(let expr, let pattern):
+            return .langmatches(expr.removeAggregations(counter, mapping: &mapping), pattern.removeAggregations(counter, mapping: &mapping))
+        case .sameterm(let expr, let pattern):
+            return .sameterm(expr.removeAggregations(counter, mapping: &mapping), pattern.removeAggregations(counter, mapping: &mapping))
+        case .datatype(let expr):
+            return .datatype(expr.removeAggregations(counter, mapping: &mapping))
+        case .bound(let expr):
+            return .bound(expr.removeAggregations(counter, mapping: &mapping))
+        case .boolCast(let expr):
+            return .boolCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .intCast(let expr):
+            return .intCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .floatCast(let expr):
+            return .floatCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .doubleCast(let expr):
+            return .doubleCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .decimalCast(let expr):
+            return .decimalCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .dateTimeCast(let expr):
+            return .dateTimeCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .dateCast(let expr):
+            return .dateCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .stringCast(let expr):
+            return .stringCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .call(let f, let exprs):
+            return .call(f, exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
+        case .eq(let lhs, let rhs):
+            return .eq(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .ne(let lhs, let rhs):
+            return .ne(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .lt(let lhs, let rhs):
+            return .lt(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .le(let lhs, let rhs):
+            return .le(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .gt(let lhs, let rhs):
+            return .gt(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .ge(let lhs, let rhs):
+            return .ge(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .add(let lhs, let rhs):
+            return .add(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .sub(let lhs, let rhs):
+            return .sub(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .div(let lhs, let rhs):
+            return .div(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .mul(let lhs, let rhs):
+            return .mul(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .and(let lhs, let rhs):
+            return .and(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .or(let lhs, let rhs):
+            return .or(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
+        case .between(let a, let b, let c):
+            return .between(a.removeAggregations(counter, mapping: &mapping), b.removeAggregations(counter, mapping: &mapping), c.removeAggregations(counter, mapping: &mapping))
+        case .aggregate(let agg):
+            guard let c = counter.next() else { fatalError("No fresh variable available") }
+            let name = ".agg-\(c)"
+            mapping[name] = agg
+            let node: Node = .variable(name, binding: true)
+            return .node(node)
+        case .valuein(let expr, let exprs):
+            return .valuein(expr.removeAggregations(counter, mapping: &mapping), exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
+        }
+    }
+    
+    public var isNumeric: Bool {
+        switch self {
+        case .node(.bound(let term)) where term.isNumeric:
+            return true
+        case .neg(let expr):
+            return expr.isNumeric
+        case .add(let l, let r), .sub(let l, let r), .div(let l, let r), .mul(let l, let r):
+            return l.isNumeric && r.isNumeric
+        case .intCast(let expr), .floatCast(let expr), .doubleCast(let expr):
+            return expr.isNumeric
+        default:
+            return false
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .aggregate(let a):
+            return a.description
+        case .node(let node):
+            return node.description
+        case .eq(let lhs, let rhs):
+            return "(\(lhs) == \(rhs))"
+        case .ne(let lhs, let rhs):
+            return "(\(lhs) != \(rhs))"
+        case .gt(let lhs, let rhs):
+            return "(\(lhs) > \(rhs))"
+        case .between(let val, let lower, let upper):
+            return "(\(val) BETWEEN \(lower) AND \(upper))"
+        case .lt(let lhs, let rhs):
+            return "(\(lhs) < \(rhs))"
+        case .ge(let lhs, let rhs):
+            return "(\(lhs) >= \(rhs))"
+        case .le(let lhs, let rhs):
+            return "(\(lhs) <= \(rhs))"
+        case .add(let lhs, let rhs):
+            return "(\(lhs) + \(rhs))"
+        case .sub(let lhs, let rhs):
+            return "(\(lhs) - \(rhs))"
+        case .mul(let lhs, let rhs):
+            return "(\(lhs) * \(rhs))"
+        case .div(let lhs, let rhs):
+            return "(\(lhs) / \(rhs))"
+        case .neg(let expr):
+            return "-(\(expr))"
+        case .and(let lhs, let rhs):
+            return "(\(lhs) && \(rhs))"
+        case .or(let lhs, let rhs):
+            return "(\(lhs) || \(rhs))"
+        case .isiri(let expr):
+            return "ISIRI(\(expr))"
+        case .isblank(let expr):
+            return "ISBLANK(\(expr))"
+        case .isliteral(let expr):
+            return "ISLITERAL(\(expr))"
+        case .isnumeric(let expr):
+            return "ISNUMERIC(\(expr))"
+        case .boolCast(let expr):
+            return "xsd:boolean(\(expr.description))"
+        case .intCast(let expr):
+            return "xsd:integer(\(expr.description))"
+        case .floatCast(let expr):
+            return "xsd:float(\(expr.description))"
+        case .doubleCast(let expr):
+            return "xsd:double(\(expr.description))"
+        case .decimalCast(let expr):
+            return "xsd:decimal(\(expr.description))"
+        case .dateTimeCast(let expr):
+            return "xsd:dateTime(\(expr.description))"
+        case .dateCast(let expr):
+            return "xsd:date(\(expr.description))"
+        case .stringCast(let expr):
+            return "xsd:string(\(expr.description))"
+        case .call(let iri, let exprs):
+            let strings = exprs.map { $0.description }
+            return "<\(iri)>(\(strings.joined(separator: ",")))"
+        case .lang(let expr):
+            return "LANG(\(expr))"
+        case .langmatches(let expr, let m):
+            return "LANGMATCHES(\(expr), \"\(m)\")"
+        case .sameterm(let lhs, let rhs):
+            return "SAMETERM(\(lhs), \(rhs))"
+        case .datatype(let expr):
+            return "DATATYPE(\(expr))"
+        case .bound(let expr):
+            return "BOUND(\(expr))"
+        case .not(.valuein(let expr, let exprs)):
+            let strings = exprs.map { $0.description }
+            return "\(expr) NOT IN (\(strings.joined(separator: ",")))"
+        case .valuein(let expr, let exprs):
+            let strings = exprs.map { $0.description }
+            return "\(expr) IN (\(strings.joined(separator: ",")))"
+        case .not(.exists(let child)):
+            return "NOT EXISTS { \(child) }"
+        case .not(let expr):
+            return "NOT(\(expr))"
+        case .exists(let child):
+            return "EXISTS { \(child) }"
+        }
+    }
+}
+
 extension Expression: Codable {
     private enum CodingKeys: String, CodingKey {
         case type
@@ -291,272 +557,6 @@ extension Expression: Codable {
         case let .exists(algebra):
             try container.encode("exists", forKey: .type)
             try container.encode(algebra, forKey: .algebra)
-        }
-    }
-}
-
-// swiftlint:disable cyclomatic_complexity
-// swiftlint:disable:next type_body_length
-public indirect enum Expression: CustomStringConvertible {
-    case node(Node)
-    case aggregate(Aggregation)
-    case neg(Expression)
-    case not(Expression)
-    case isiri(Expression)
-    case isblank(Expression)
-    case isliteral(Expression)
-    case isnumeric(Expression)
-    case lang(Expression)
-    case langmatches(Expression, Expression)
-    case datatype(Expression)
-    case sameterm(Expression, Expression)
-    case bound(Expression)
-    case boolCast(Expression)
-    case intCast(Expression)
-    case floatCast(Expression)
-    case doubleCast(Expression)
-    case decimalCast(Expression)
-    case dateTimeCast(Expression)
-    case dateCast(Expression)
-    case stringCast(Expression)
-    case eq(Expression, Expression)
-    case ne(Expression, Expression)
-    case lt(Expression, Expression)
-    case le(Expression, Expression)
-    case gt(Expression, Expression)
-    case ge(Expression, Expression)
-    case add(Expression, Expression)
-    case sub(Expression, Expression)
-    case div(Expression, Expression)
-    case mul(Expression, Expression)
-    case and(Expression, Expression)
-    case or(Expression, Expression)
-    case between(Expression, Expression, Expression)
-    case valuein(Expression, [Expression])
-    case call(String, [Expression])
-    case exists(Algebra)
-    
-    public var variables: Set<String> {
-        switch self {
-        case .node(.variable(let s, binding: _)):
-            return Set([s])
-        case .node(_):
-            return Set()
-        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
-            return expr.variables
-        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
-            return lhs.variables.union(rhs.variables)
-        case .between(let a, let b, let c):
-            return a.variables.union(b.variables).union(c.variables)
-        case .call(_, let exprs):
-            return exprs.reduce(Set()) { $0.union($1.variables) }
-        case .valuein(let expr, let exprs):
-            return exprs.reduce(expr.variables) { $0.union($1.variables) }
-        case .aggregate(let a):
-            return a.variables
-        case .exists(let p):
-            return p.inscope
-        }
-    }
-    
-    public var hasAggregation: Bool {
-        switch self {
-        case .aggregate(_):
-            return true
-        case .node(_), .exists(_):
-            return false
-        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
-            return expr.hasAggregation
-        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
-            return lhs.hasAggregation || rhs.hasAggregation
-        case .between(let a, let b, let c):
-            return a.hasAggregation || b.hasAggregation || c.hasAggregation
-        case .call(_, let exprs):
-            return exprs.reduce(false) { $0 || $1.hasAggregation }
-        case .valuein(let expr, let exprs):
-            return exprs.reduce(expr.hasAggregation) { $0 || $1.hasAggregation }
-        }
-    }
-    
-    func removeAggregations(_ counter: AnyIterator<Int>, mapping: inout [String:Aggregation]) -> Expression {
-        switch self {
-        case .node(_), .exists(_):
-            return self
-        case .neg(let expr):
-            return .neg(expr.removeAggregations(counter, mapping: &mapping))
-        case .not(let expr):
-            return .not(expr.removeAggregations(counter, mapping: &mapping))
-        case .isiri(let expr):
-            return .isiri(expr.removeAggregations(counter, mapping: &mapping))
-        case .isblank(let expr):
-            return .isblank(expr.removeAggregations(counter, mapping: &mapping))
-        case .isliteral(let expr):
-            return .isliteral(expr.removeAggregations(counter, mapping: &mapping))
-        case .isnumeric(let expr):
-            return .isnumeric(expr.removeAggregations(counter, mapping: &mapping))
-        case .lang(let expr):
-            return .lang(expr.removeAggregations(counter, mapping: &mapping))
-        case .langmatches(let expr, let pattern):
-            return .langmatches(expr.removeAggregations(counter, mapping: &mapping), pattern.removeAggregations(counter, mapping: &mapping))
-        case .sameterm(let expr, let pattern):
-            return .sameterm(expr.removeAggregations(counter, mapping: &mapping), pattern.removeAggregations(counter, mapping: &mapping))
-        case .datatype(let expr):
-            return .datatype(expr.removeAggregations(counter, mapping: &mapping))
-        case .bound(let expr):
-            return .bound(expr.removeAggregations(counter, mapping: &mapping))
-        case .boolCast(let expr):
-            return .boolCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .intCast(let expr):
-            return .intCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .floatCast(let expr):
-            return .floatCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .doubleCast(let expr):
-            return .doubleCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .decimalCast(let expr):
-            return .decimalCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .dateTimeCast(let expr):
-            return .dateTimeCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .dateCast(let expr):
-            return .dateCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .stringCast(let expr):
-            return .stringCast(expr.removeAggregations(counter, mapping: &mapping))
-        case .call(let f, let exprs):
-            return .call(f, exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
-        case .eq(let lhs, let rhs):
-            return .eq(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .ne(let lhs, let rhs):
-            return .ne(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .lt(let lhs, let rhs):
-            return .lt(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .le(let lhs, let rhs):
-            return .le(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .gt(let lhs, let rhs):
-            return .gt(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .ge(let lhs, let rhs):
-            return .ge(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .add(let lhs, let rhs):
-            return .add(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .sub(let lhs, let rhs):
-            return .sub(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .div(let lhs, let rhs):
-            return .div(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .mul(let lhs, let rhs):
-            return .mul(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .and(let lhs, let rhs):
-            return .and(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .or(let lhs, let rhs):
-            return .or(lhs.removeAggregations(counter, mapping: &mapping), rhs.removeAggregations(counter, mapping: &mapping))
-        case .between(let a, let b, let c):
-            return .between(a.removeAggregations(counter, mapping: &mapping), b.removeAggregations(counter, mapping: &mapping), c.removeAggregations(counter, mapping: &mapping))
-        case .aggregate(let agg):
-            guard let c = counter.next() else { fatalError("No fresh variable available") }
-            let name = ".agg-\(c)"
-            mapping[name] = agg
-            let node: Node = .variable(name, binding: true)
-            return .node(node)
-        case .valuein(let expr, let exprs):
-            return .valuein(expr.removeAggregations(counter, mapping: &mapping), exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
-        }
-    }
-    
-    public var isNumeric: Bool {
-        switch self {
-        case .node(.bound(let term)) where term.isNumeric:
-            return true
-        case .neg(let expr):
-            return expr.isNumeric
-        case .add(let l, let r), .sub(let l, let r), .div(let l, let r), .mul(let l, let r):
-            return l.isNumeric && r.isNumeric
-        case .intCast(let expr), .floatCast(let expr), .doubleCast(let expr):
-            return expr.isNumeric
-        default:
-            return false
-        }
-    }
-    
-    public var description: String {
-        switch self {
-        case .aggregate(let a):
-            return a.description
-        case .node(let node):
-            return node.description
-        case .eq(let lhs, let rhs):
-            return "(\(lhs) == \(rhs))"
-        case .ne(let lhs, let rhs):
-            return "(\(lhs) != \(rhs))"
-        case .gt(let lhs, let rhs):
-            return "(\(lhs) > \(rhs))"
-        case .between(let val, let lower, let upper):
-            return "(\(val) BETWEEN \(lower) AND \(upper))"
-        case .lt(let lhs, let rhs):
-            return "(\(lhs) < \(rhs))"
-        case .ge(let lhs, let rhs):
-            return "(\(lhs) >= \(rhs))"
-        case .le(let lhs, let rhs):
-            return "(\(lhs) <= \(rhs))"
-        case .add(let lhs, let rhs):
-            return "(\(lhs) + \(rhs))"
-        case .sub(let lhs, let rhs):
-            return "(\(lhs) - \(rhs))"
-        case .mul(let lhs, let rhs):
-            return "(\(lhs) * \(rhs))"
-        case .div(let lhs, let rhs):
-            return "(\(lhs) / \(rhs))"
-        case .neg(let expr):
-            return "-(\(expr))"
-        case .and(let lhs, let rhs):
-            return "(\(lhs) && \(rhs))"
-        case .or(let lhs, let rhs):
-            return "(\(lhs) || \(rhs))"
-        case .isiri(let expr):
-            return "ISIRI(\(expr))"
-        case .isblank(let expr):
-            return "ISBLANK(\(expr))"
-        case .isliteral(let expr):
-            return "ISLITERAL(\(expr))"
-        case .isnumeric(let expr):
-            return "ISNUMERIC(\(expr))"
-        case .boolCast(let expr):
-            return "xsd:boolean(\(expr.description))"
-        case .intCast(let expr):
-            return "xsd:integer(\(expr.description))"
-        case .floatCast(let expr):
-            return "xsd:float(\(expr.description))"
-        case .doubleCast(let expr):
-            return "xsd:double(\(expr.description))"
-        case .decimalCast(let expr):
-            return "xsd:decimal(\(expr.description))"
-        case .dateTimeCast(let expr):
-            return "xsd:dateTime(\(expr.description))"
-        case .dateCast(let expr):
-            return "xsd:date(\(expr.description))"
-        case .stringCast(let expr):
-            return "xsd:string(\(expr.description))"
-        case .call(let iri, let exprs):
-            let strings = exprs.map { $0.description }
-            return "<\(iri)>(\(strings.joined(separator: ",")))"
-        case .lang(let expr):
-            return "LANG(\(expr))"
-        case .langmatches(let expr, let m):
-            return "LANGMATCHES(\(expr), \"\(m)\")"
-        case .sameterm(let lhs, let rhs):
-            return "SAMETERM(\(lhs), \(rhs))"
-        case .datatype(let expr):
-            return "DATATYPE(\(expr))"
-        case .bound(let expr):
-            return "BOUND(\(expr))"
-        case .not(.valuein(let expr, let exprs)):
-            let strings = exprs.map { $0.description }
-            return "\(expr) NOT IN (\(strings.joined(separator: ",")))"
-        case .valuein(let expr, let exprs):
-            let strings = exprs.map { $0.description }
-            return "\(expr) IN (\(strings.joined(separator: ",")))"
-        case .not(.exists(let child)):
-            return "NOT EXISTS { \(child) }"
-        case .not(let expr):
-            return "NOT(\(expr))"
-        case .exists(let child):
-            return "EXISTS { \(child) }"
         }
     }
 }

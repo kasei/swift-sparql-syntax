@@ -646,11 +646,7 @@ public struct SPARQLParser {
     
     private func addAggregationExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
         if case .node(.variable(let name, _)) = expression {
-            if case let .aggregate(child, groups, aggs) = algebra {
-                // TODO: if the expression is a simple renaming of variables,
-                // rewrite the aggregation algebra to inline the final variable
-                // name directly
-                print("*** TODO: remove aggregate variable renaming")
+            if case let .aggregate(_) = algebra {
                 return algebra.renameAggregateVariable(from: name, to: variableName)
             }
         }
