@@ -568,9 +568,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-                                    print("===============")
-                                    print("\(q.serialize())")
-                                    print("===============")
+//            print("===============")
+//            print("\(q.serialize())")
+//            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
@@ -579,6 +579,40 @@ class SPARQLSerializationTests: XCTestCase {
             }
             GROUP BY ?s
             HAVING (AVG(?o) > "10"^^<http://www.w3.org/2001/XMLSchema#integer>)
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testBuiltInFunctions() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT * {
+            ?s ex:value ?o
+            FILTER (DATATYPE(?o) = ex:foo)
+            FILTER BOUND(?o)
+            FILTER SAMETERM(?o, <http://example.org/foo>)
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            print("===============")
+            print("\(q.serialize())")
+            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT * WHERE {
+                ?s <http://example.org/value> ?o .
+                FILTER (((DATATYPE(?o) = <http://example.org/foo>) && BOUND(?o)) && SAMETERM(?o , <http://example.org/foo>))
+            }
             
             """
             //            print("got: \(query)")

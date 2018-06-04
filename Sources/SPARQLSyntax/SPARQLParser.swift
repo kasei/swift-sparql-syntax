@@ -37,7 +37,7 @@ private enum UnfinishedAlgebra {
             let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             if case let .filter(a, e) = algebra {
-                return .filter(a, .and(expr, e))
+                return .filter(a, .and(e, expr))
             } else {
                 return .filter(algebra, expr)
             }
