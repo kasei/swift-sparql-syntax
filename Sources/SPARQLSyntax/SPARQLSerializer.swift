@@ -453,7 +453,7 @@ extension Expression {
             return try a.sparqlTokens()
         case .neg(let e):
             tokens.append(.minus)
-            tokens.append(contentsOf: try e.sparqlTokens())
+            tokens.append(contentsOf: try e.parenthesizedSparqlTokens())
         case .not(.exists(let lhs)):
             tokens.append(.keyword("NOT"))
             tokens.append(.keyword("EXISTS"))
@@ -462,7 +462,7 @@ extension Expression {
             tokens.append(.rbrace)
         case .not(let e):
             tokens.append(.bang)
-            tokens.append(contentsOf: try e.sparqlTokens())
+            tokens.append(contentsOf: try e.parenthesizedSparqlTokens())
         case .isiri(let e):
             tokens.append(.keyword("ISIRI"))
             tokens.append(.lparen)
@@ -824,7 +824,12 @@ extension Algebra {
             var tokens = [SPARQLToken]()
             tokens.append(contentsOf: try lhs.sparqlTokens(depth: depth))
             tokens.append(.keyword("FILTER"))
-            if expr.needsSurroundingParentheses {
+            var addParens : Bool = expr.needsSurroundingParentheses
+            if case .node(_) = expr {
+                addParens = true
+            }
+            
+            if addParens {
                 tokens.append(.lparen)
                 tokens.append(contentsOf: try expr.sparqlTokens())
                 tokens.append(.rparen)

@@ -862,6 +862,9 @@ public struct SPARQLParser {
                 guard case .bound(let term) = node else {
                     throw parseError("Expecting term but got \(node)")
                 }
+                guard term.type != .blank else {
+                    throw parseError("Blank nodes cannot appear in VALUES blocks")
+                }
                 values.append(term)
             }
             t = try peekExpectedToken()

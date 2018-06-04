@@ -148,7 +148,7 @@ extension PropertyPath : Equatable {
 }
 
 public indirect enum Algebra {
-    public struct SortComparator : Equatable, Codable {
+    public struct SortComparator : Equatable, Codable, CustomStringConvertible {
         public var ascending: Bool
         public var expression: Expression
         
@@ -177,6 +177,11 @@ public indirect enum Algebra {
                 tokens.append(.rparen)
             }
             return AnySequence(tokens)
+        }
+
+        public var description: String {
+            let direction = ascending ? "ASC" : "DESC"
+            return "\(direction)(\(expression))"
         }
     }
     
@@ -747,20 +752,17 @@ public extension Algebra {
     
     internal var variableExtensions: [String:Expression] {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):
+        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_), .minus(_, _), .union(_, _), .aggregate(_):
             return [:]
             
-        case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .filter(let child, _):
+        case .project(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .filter(let child, _), .leftOuterJoin(let child, _, _):
             return child.variableExtensions
             
-        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
+        case .innerJoin(let lhs, let rhs):
             let le = lhs.variableExtensions
             let re = rhs.variableExtensions
             return le.merging(re) { (l,r) in l }
             
-        case .aggregate(_):
-            return [:]
-
         case let .extend(child, expr, name):
             var d = child.variableExtensions
             d[name] = expr

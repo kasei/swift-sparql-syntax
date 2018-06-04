@@ -632,6 +632,12 @@ extension Expression: Equatable {
             return true
         case (.exists(let l), .exists(let r)) where l == r:
             return true
+        case (.sameterm(let ll, let lr), .sameterm(let rl, let rr)) where ll == rl && lr == rr:
+            return true
+        case (.valuein(let ll, let lr), .valuein(let rl, let rr)) where ll == rl && lr == rr:
+            return true
+        case (.langmatches(let ll, let lr), .langmatches(let rl, let rr)) where ll == rl && lr == rr:
+            return true
         default:
             return false
         }
