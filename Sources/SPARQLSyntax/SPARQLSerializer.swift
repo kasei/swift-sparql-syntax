@@ -927,8 +927,10 @@ extension Algebra {
 extension Query {
     public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
         
+        var algebra = self.algebra
         var projectedExpressions = [String:[SPARQLToken]]()
         var groupTokens = [SPARQLToken]()
+        let aggMods = algebra.aggregationModifiers()
         if let a = algebra.aggregation, case let .aggregate(_, groups, aggs) = a {
             for aggMap in aggs {
                 let v = aggMap.variableName
@@ -945,6 +947,8 @@ extension Query {
                     try groupTokens.append(contentsOf: g.sparqlTokens())
                 }
             }
+            
+            algebra = algebra.removeAggregation()
         }
 
         let aggExtensions = algebra.variableExtensions
@@ -970,21 +974,20 @@ extension Query {
         switch self.form {
         case .select(.star):
             tokens.append(.keyword("SELECT"))
-            if self.algebra.distinct {
+            if algebra.distinct {
                 tokens.append(.keyword("DISTINCT"))
             }
             tokens.append(.star)
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
-            tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
+            tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         case .select(.variables(let vars)):
             tokens.append(.keyword("SELECT"))
-            if self.algebra.distinct {
+            if algebra.distinct {
                 tokens.append(.keyword("DISTINCT"))
             }
             
-            var algebra = self.algebra
             for v in vars {
                 if let replacement = aggExtensionTokens[v] {
                     tokens.append(.lparen)
@@ -1019,10 +1022,16 @@ extension Query {
             tokens.append(.lbrace)
             tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
+            if aggMods.having.count > 0 {
+                tokens.append(.keyword("HAVING"))
+                for expr in aggMods.having {
+                    tokens.append(contentsOf: try expr.parenthesizedSparqlTokens())
+                }
+            }
         case .ask:
             tokens.append(.keyword("ASK"))
             tokens.append(.lbrace)
-            tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
+            tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         case .describe(let nodes):
             tokens.append(.keyword("DESCRIBE"))
@@ -1031,7 +1040,7 @@ extension Query {
             }
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
-            tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
+            tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         case .construct(let patterns):
             tokens.append(.keyword("CONSTRUCT"))
@@ -1042,7 +1051,7 @@ extension Query {
             tokens.append(.rbrace)
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
-            tokens.append(contentsOf: try self.algebra.sparqlTokens(depth: 0))
+            tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
         }
         
@@ -1075,6 +1084,49 @@ extension Query {
             break
         }
         return AnySequence(tokens)
+    }
+}
+
+internal extension Algebra {
+    struct AggregationModifiers {
+        var having: [Expression]
+    }
+    
+    func aggregationModifiers() -> AggregationModifiers {
+        print("aggregationModifiers called on \(self)")
+        if self.isAggregation {
+            switch self {
+            case .aggregate(_):
+                return AggregationModifiers(having: [])
+            case let .filter(child, expr):
+                var mods = child.aggregationModifiers()
+                mods.having.append(expr)
+                return mods
+            case .project(let child, _), .slice(let child, _, _):
+                return child.aggregationModifiers()
+            default:
+                break
+            }
+        }
+        return AggregationModifiers(having: [])
+    }
+    
+    func removeAggregation() -> Algebra {
+        if self.isAggregation {
+            switch self {
+            case let .aggregate(child, _, _), let .filter(child, _):
+                return child.removeAggregation()
+            case let .extend(child, expr, name):
+                return .extend(child.removeAggregation(), expr, name)
+            case let .project(child, vars):
+                return .project(child.removeAggregation(), vars)
+            case let .slice(child, offset, limit):
+                return .slice(child.removeAggregation(), offset, limit)
+            default:
+                fatalError("Unexpected algebra claimed to have an aggregation operator: \(self)")
+            }
+        }
+        return self
     }
 }
 

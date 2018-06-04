@@ -523,4 +523,36 @@ class SPARQLSerializationTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+
+    func testAggregationHaving() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT (sum(?o) AS ?sum) {
+            ?s ex:value ?o
+        }
+        HAVING (?sum > 10)
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+//                        print("===============")
+//                        print("\(q.serialize())")
+//                        print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT (SUM(?o) AS ?sum) WHERE {
+                ?s <http://example.org/value> ?o .
+            }
+            HAVING (?sum > "10"^^<http://www.w3.org/2001/XMLSchema#integer>)
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }
