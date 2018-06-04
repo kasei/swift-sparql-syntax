@@ -1002,6 +1002,7 @@ extension Query {
                         }
                     })
                 } else if let replacement = projectedExpressions[v] {
+                    projectedExpressions.removeValue(forKey: v)
                     tokens.append(.lparen)
                     tokens.append(contentsOf: replacement)
                     tokens.append(contentsOf: [.keyword("AS"), ._var(v), .rparen])
@@ -1025,7 +1026,18 @@ extension Query {
             if aggMods.having.count > 0 {
                 tokens.append(.keyword("HAVING"))
                 for expr in aggMods.having {
-                    tokens.append(contentsOf: try expr.parenthesizedSparqlTokens())
+                    for t in try expr.parenthesizedSparqlTokens() {
+                        switch t {
+                        case ._var(let v):
+                            if let replacement = projectedExpressions[v] {
+                                tokens.append(contentsOf: replacement)
+                            } else {
+                                tokens.append(t)
+                            }
+                        default:
+                            tokens.append(t)
+                        }
+                    }
                 }
             }
         case .ask:
