@@ -585,10 +585,6 @@ public struct SPARQLParser {
             algebra = .aggregate(algebra, groups, aggregations)
         }
 
-        if let e = havingExpression {
-            algebra = .filter(algebra, e)
-        }
-
         let inScope = algebra.inscope
         for (_, name) in projectExpressions {
             if inScope.contains(name) {
@@ -598,6 +594,10 @@ public struct SPARQLParser {
         
         algebra = projectExpressions.reduce(algebra) {
             addAggregationExtension(to: $0, expression: $1.0, variableName: $1.1)
+        }
+        
+        if let e = havingExpression {
+            algebra = .filter(algebra, e)
         }
         
         if let values = valuesBlock {
