@@ -559,9 +559,9 @@ class SPARQLSerializationTests: XCTestCase {
     func testAggregationHavingUsingInlinedAgg() throws {
         let sparql = """
         PREFIX ex: <http://example.org/>
-        SELECT (sum(?o) AS ?sum) (avg(?o) AS ?avg) {
+        SELECT distinct (sum(?o) AS ?sum) (avg(?o) AS ?avg) {
             ?s ex:value ?o
-        }
+        } GROUP BY ?s
         HAVING (avg(?o) > 10)
         """
         guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
@@ -574,9 +574,10 @@ class SPARQLSerializationTests: XCTestCase {
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
-            SELECT (SUM(?o) AS ?sum) (AVG(?o) AS ?avg) WHERE {
+            SELECT DISTINCT (SUM(?o) AS ?sum) (AVG(?o) AS ?avg) WHERE {
                 ?s <http://example.org/value> ?o .
             }
+            GROUP BY ?s
             HAVING (AVG(?o) > "10"^^<http://www.w3.org/2001/XMLSchema#integer>)
             
             """

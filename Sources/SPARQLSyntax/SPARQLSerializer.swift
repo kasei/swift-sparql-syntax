@@ -1023,6 +1023,7 @@ extension Query {
             tokens.append(.lbrace)
             tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
+            tokens.append(contentsOf: groupTokens)
             if aggMods.having.count > 0 {
                 tokens.append(.keyword("HAVING"))
                 for expr in aggMods.having {
@@ -1067,8 +1068,6 @@ extension Query {
             tokens.append(.rbrace)
         }
         
-        tokens.append(contentsOf: groupTokens)
-        
         switch self.form {
         case .select(_):
             if let cmps = self.algebra.sortComparators {
@@ -1105,7 +1104,6 @@ internal extension Algebra {
     }
     
     func aggregationModifiers() -> AggregationModifiers {
-        print("aggregationModifiers called on \(self)")
         if self.isAggregation {
             switch self {
             case .aggregate(_):
@@ -1114,7 +1112,7 @@ internal extension Algebra {
                 var mods = child.aggregationModifiers()
                 mods.having.append(expr)
                 return mods
-            case .project(let child, _), .slice(let child, _, _):
+            case .project(let child, _), .slice(let child, _, _), .distinct(let child):
                 return child.aggregationModifiers()
             default:
                 break
@@ -1134,6 +1132,8 @@ internal extension Algebra {
                 return .project(child.removeAggregation(), vars)
             case let .slice(child, offset, limit):
                 return .slice(child.removeAggregation(), offset, limit)
+            case .distinct(let child):
+                return .distinct(child.removeAggregation())
             default:
                 fatalError("Unexpected algebra claimed to have an aggregation operator: \(self)")
             }
