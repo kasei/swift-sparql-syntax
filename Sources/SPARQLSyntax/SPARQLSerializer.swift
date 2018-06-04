@@ -1112,7 +1112,7 @@ internal extension Algebra {
                 var mods = child.aggregationModifiers()
                 mods.having.append(expr)
                 return mods
-            case .project(let child, _), .slice(let child, _, _), .distinct(let child):
+            case .project(let child, _), .slice(let child, _, _), .distinct(let child), .order(let child, _):
                 return child.aggregationModifiers()
             default:
                 break
@@ -1134,6 +1134,8 @@ internal extension Algebra {
                 return .slice(child.removeAggregation(), offset, limit)
             case .distinct(let child):
                 return .distinct(child.removeAggregation())
+            case .order(let child, let cmps):
+                return .order(child.removeAggregation(), cmps)
             default:
                 fatalError("Unexpected algebra claimed to have an aggregation operator: \(self)")
             }
