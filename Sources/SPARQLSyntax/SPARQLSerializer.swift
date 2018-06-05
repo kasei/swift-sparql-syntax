@@ -426,7 +426,7 @@ extension PropertyPath {
 extension Expression {
     public var needsSurroundingParentheses: Bool {
         switch self {
-        case .node(_), .isiri(_), .isblank(_), .isliteral(_), .isnumeric(_), .exists(_), .not(.exists(_)), .call(_), .datatype(_), .lang(_), .langmatches(_, _), .datatype(_), .sameterm(_, _), .bound(_):
+        case .node(_), .isiri(_), .isblank(_), .isliteral(_), .isnumeric(_), .exists(_), .not(.exists(_)), .call(_), .datatype(_), .lang(_), .langmatches(_, _), .sameterm(_, _), .bound(_):
             return false
         default:
             return true

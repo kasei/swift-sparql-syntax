@@ -498,9 +498,11 @@ extension Algebra : Equatable {
             return true
         case (.path(let ls, let lp, let lo), .path(let rs, let rp, let ro)) where ls == rs && lp == rp && lo == ro:
             return true
-        case (.aggregate(let ls, let lp, let lo), .aggregate(let rs, let rp, let ro)) where ls == rs && lp == rp:
+        case (.aggregate(let la, let lg, let lo), .aggregate(let ra, let rg, let ro)) where la == ra && lg == rg:
             guard lo.count == ro.count else { return false }
-            for (l, r) in zip(lo, ro) {
+            let lsorted = lo.sorted { $0.variableName < $1.variableName }
+            let rsorted = ro.sorted { $0.variableName < $1.variableName }
+            for (l, r) in zip(lsorted, rsorted) {
                 guard l == r else { return false }
             }
             return true
