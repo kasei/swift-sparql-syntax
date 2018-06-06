@@ -164,6 +164,8 @@ public indirect enum Algebra {
                 switch expression {
                 case .call(_, _), .node(.variable(_)):
                     break
+                case let e where e.isBuiltInCall:
+                    break
                 default:
                     exprTokens = [.lparen] + exprTokens + [.rparen]
                 }

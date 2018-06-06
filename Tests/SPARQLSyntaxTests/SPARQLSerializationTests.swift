@@ -603,9 +603,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-            print("===============")
-            print("\(q.serialize())")
-            print("===============")
+//            print("===============")
+//            print("\(q.serialize())")
+//            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
@@ -613,6 +613,37 @@ class SPARQLSerializationTests: XCTestCase {
                 ?s <http://example.org/value> ?o .
                 FILTER (((DATATYPE(?o) = <http://example.org/foo>) && BOUND(?o)) && SAMETERM(?o , <http://example.org/foo>))
             }
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testOrderByClause() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT * {
+            ?s ex:value ?o
+        } ORDER BY DATATYPE(?o)
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+//            print("===============")
+//            print("\(q.serialize())")
+//            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT * WHERE {
+                ?s <http://example.org/value> ?o .
+            }
+            ORDER BY DATATYPE(?o)
             
             """
             //            print("got: \(query)")

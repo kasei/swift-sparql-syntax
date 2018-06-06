@@ -171,7 +171,16 @@ public indirect enum Expression: CustomStringConvertible {
             return .valuein(expr.removeAggregations(counter, mapping: &mapping), exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
         }
     }
-    
+
+    var isBuiltInCall: Bool {
+        switch self {
+        case .aggregate(_), .stringCast(_), .lang(_), .langmatches(_), .datatype(_), .bound(_), .call("IRI", _), .call("BNODE", _), .call("RAND", _), .call("ABS", _), .call("CEIL", _), .call("FLOOR", _), .call("ROUND", _), .call("CONCAT", _), .call("STRLEN", _), .call("UCASE", _), .call("LCASE", _), .call("ENCODE_FOR_URI", _), .call("CONTAINS", _), .call("STRSTARTS", _), .call("STRENDS", _), .call("STRBEFORE", _), .call("STRAFTER", _), .call("YEAR", _), .call("MONTH", _), .call("DAY", _), .call("HOURS", _), .call("MINUTES", _), .call("SECONDS", _), .call("TIMEZONE", _), .call("TZ", _), .call("NOW", _), .call("UUID", _), .call("STRUUID", _), .call("MD5", _), .call("SHA1", _), .call("SHA256", _), .call("SHA384", _), .call("SHA512", _), .call("COALESCE", _), .call("IF", _), .call("STRLANG", _), .call("STRDT", _), .sameterm(_, _), .isiri(_), .isblank(_), .isliteral(_), .isnumeric(_), .call("REGEX", _), .exists(_), .not(.exists(_)):
+            return true
+        default:
+            return false
+        }
+    }
+
     public var isNumeric: Bool {
         switch self {
         case .node(.bound(let term)) where term.isNumeric:

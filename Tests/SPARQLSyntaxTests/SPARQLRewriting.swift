@@ -66,7 +66,6 @@ class SPARQLNodeReplacementTests: XCTestCase {
             let replaced = try a.rewrite({ (a) -> RewriteStatus<Algebra> in
                 switch a {
                 case let .extend(a, e, _):
-                    print(">>> \(a)")
                     return .rewriteChildren(.extend(a, e, "XXX"))
                 case .triple(let tp):
                     let p = TriplePattern(subject: tp.subject, predicate: tp.predicate, object: .bound(Term(integer: 8)))
