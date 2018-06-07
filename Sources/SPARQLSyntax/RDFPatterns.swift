@@ -174,7 +174,7 @@ public struct QuadPattern: Codable, TermPattern, CustomStringConvertible {
         return QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
     }
 
-    func expand(_ values: [String:Term]) -> QuadPattern {
+    public func expand(_ values: [String:Term]) -> QuadPattern {
         var qp = self
         for p in QuadPattern.keyPaths {
             let n = self[keyPath: p]
