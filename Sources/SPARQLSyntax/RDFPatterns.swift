@@ -145,8 +145,16 @@ public struct QuadPattern: Codable, TermPattern, CustomStringConvertible {
     public var object: Node
     public var graph: Node
     public typealias GroundType = Quad
+    public static var keyPaths: [WritableKeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
     public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Quad.subject, \Quad.predicate, \Quad.object, \Quad.graph]
     static var groundKeyNames = ["subject", "predicate", "object", "graph"]
+
+    public init(triplePattern tp: TriplePattern, graph: Node) {
+        self.subject = tp.subject
+        self.predicate = tp.predicate
+        self.object = tp.object
+        self.graph = graph
+    }
     
     public init(subject: Node, predicate: Node, object: Node, graph: Node) {
         self.subject = subject
@@ -166,7 +174,19 @@ public struct QuadPattern: Codable, TermPattern, CustomStringConvertible {
         return QuadPattern(subject: subject, predicate: predicate, object: object, graph: graph)
     }
 
-    
+    func expand(_ values: [String:Term]) -> QuadPattern {
+        var qp = self
+        for p in QuadPattern.keyPaths {
+            let n = self[keyPath: p]
+            if case .variable(let name, _) = n {
+                if let term = values[name] {
+                    qp[keyPath: p] = .bound(term)
+                }
+            }
+        }
+        return qp
+    }
+
     public var bindingAllVariables: QuadPattern {
         let nodes = self.map { (n) -> Node in
             switch n {
