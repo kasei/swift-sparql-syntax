@@ -207,7 +207,7 @@ public indirect enum Algebra : Hashable {
     case slice(Algebra, Int?, Int?)
     case order(Algebra, [SortComparator])
     case path(Node, PropertyPath, Node)
-    case aggregate(Algebra, [Expression], [AggregationMapping])
+    case aggregate(Algebra, [Expression], Set<AggregationMapping>)
     case window(Algebra, [Expression], [WindowFunctionMapping])
     case subquery(Query)
 }
@@ -321,7 +321,7 @@ extension Algebra : Codable {
         case "aggregate":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
             let groups = try container.decode([Expression].self, forKey: .groups)
-            let aggs = try container.decode([AggregationMapping].self, forKey: .aggregations)
+            let aggs = try container.decode(Set<AggregationMapping>.self, forKey: .aggregations)
             self = .aggregate(lhs, groups, aggs)
         case "window":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
@@ -714,12 +714,12 @@ public extension Algebra {
     func renameAggregateVariable(from: String, to: String) -> Algebra {
         switch self {
         case let .aggregate(child, groups, aggs):
-            var rewritten = [Algebra.AggregationMapping]()
+            var rewritten = Set<Algebra.AggregationMapping>()
             for a in aggs {
                 if a.variableName == from {
-                    rewritten.append(AggregationMapping(aggregation: a.aggregation, variableName: to))
+                    rewritten.insert(AggregationMapping(aggregation: a.aggregation, variableName: to))
                 } else {
-                    rewritten.append(a)
+                    rewritten.insert(a)
                 }
             }
             return .aggregate(child, groups, rewritten)
@@ -834,7 +834,7 @@ public extension Algebra {
                 let aggs = try aggs.map { (data) -> AggregationMapping in
                     return try AggregationMapping(aggregation: data.aggregation.replace(map), variableName: data.variableName)
                 }
-                return try .aggregate(a.replace(map), exprs, aggs)
+                return try .aggregate(a.replace(map), exprs, Set(aggs))
             case .window(let a, let exprs, let funcs):
                 let exprs = try exprs.map { (expr) in
                     return try expr.replace(map)
@@ -896,7 +896,7 @@ public extension Algebra {
             let aggs = try aggs.map { data in
                 return try AggregationMapping(aggregation: data.aggregation.replace(map), variableName: data.variableName)
             }
-            return try .aggregate(a.replace(map), exprs, aggs)
+            return try .aggregate(a.replace(map), exprs, Set(aggs))
         case .window(let a, let exprs, let funcs):
             //     case window(Algebra, [Expression], [WindowFunctionMapping])
             let exprs = try exprs.map { (expr) in

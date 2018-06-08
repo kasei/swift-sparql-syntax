@@ -582,7 +582,7 @@ public struct SPARQLParser {
         }
 
         if applyAggregation {
-            algebra = .aggregate(algebra, groups, aggregations)
+            algebra = .aggregate(algebra, groups, Set(aggregations))
         }
 
         let inScope = algebra.inscope
