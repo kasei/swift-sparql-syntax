@@ -31,7 +31,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
             let a = try p.parseAlgebra()
             let replaced = try a.replace(["o": Term(integer: 8)])
             let tp = TriplePattern(
-                subject: .variable(".blank.b1", binding: true),
+                subject: .variable(".blank.b1", binding: false),
                 predicate: .bound(Term(iri: "http://example.org/value")),
                 object: .bound(Term(integer: 8))
             )
@@ -75,7 +75,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
                 }
             })
             let tp = TriplePattern(
-                subject: .variable(".blank.b1", binding: true),
+                subject: .variable(".blank.b1", binding: false),
                 predicate: .bound(Term(iri: "http://example.org/value")),
                 object: .bound(Term(integer: 8))
             )

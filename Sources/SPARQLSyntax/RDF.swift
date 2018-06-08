@@ -87,7 +87,7 @@ extension TermType: Equatable {
     }
 }
 
-public struct Term: CustomStringConvertible, Codable {
+public struct Term: CustomStringConvertible, Hashable, Codable {
     public var value: String
     public var type: TermType
     public var _doubleValue: Double?
@@ -403,21 +403,6 @@ extension Term: Equatable {
             return self == term
         }
     }
-    
-    public static func == (lhs: Term, rhs: Term) -> Bool {
-        switch (lhs.type, rhs.type) {
-        case (.iri, .iri), (.blank, .blank):
-            let lu = lhs.value.unicodeScalars
-            let ru = rhs.value.unicodeScalars
-            return lu.elementsEqual(ru)
-        case (.language(let l), .language(let r)) where l.lowercased() == r.lowercased():
-            return lhs.value == rhs.value
-        case (.datatype(let l), .datatype(let r)) where l == r:
-            return lhs.value == rhs.value
-        default:
-            return false
-        }
-    }
 }
 
 extension Term {
@@ -471,12 +456,6 @@ extension Term {
     
     public var numericValue: Double {
         return _doubleValue ?? 0.0
-    }
-}
-
-extension Term: Hashable {
-    public var hashValue: Int {
-        return self.value.hashValue
     }
 }
 
@@ -549,7 +528,7 @@ extension Quad: Sequence {
     }
 }
 
-public enum Node {
+public enum Node : Equatable, Hashable {
     case bound(Term)
     case variable(String, binding: Bool)
     
@@ -608,19 +587,6 @@ extension Node: CustomStringConvertible {
             return t.description
         case .variable(let name, _):
             return "?\(name)"
-        }
-    }
-}
-
-extension Node: Equatable {
-    public static func == (lhs: Node, rhs: Node) -> Bool {
-        switch (lhs, rhs) {
-        case (.bound(let l), .bound(let r)) where l == r:
-            return true
-        case (.variable(let l, _), .variable(let r, _)) where l == r:
-            return true
-        default:
-            return false
         }
     }
 }

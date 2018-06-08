@@ -45,7 +45,7 @@ extension TermPattern {
     }
 }
 
-public struct TriplePattern: Codable, TermPattern, CustomStringConvertible {
+public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
     public var subject: Node
     public var predicate: Node
     public var object: Node
@@ -92,15 +92,6 @@ extension TriplePattern: Sequence {
     }
 }
 
-extension TriplePattern : Equatable {
-    public static func == (lhs: TriplePattern, rhs: TriplePattern) -> Bool {
-        guard lhs.subject == rhs.subject else { return false }
-        guard lhs.predicate == rhs.predicate else { return false }
-        guard lhs.object == rhs.object else { return false }
-        return true
-    }
-}
-
 extension TriplePattern {
     public var ground: GroundType? {
         guard case let .bound(s) = subject, case let .bound(p) = predicate, case let .bound(o) = object else { return nil }
@@ -139,7 +130,7 @@ extension TriplePattern {
     }
 }
 
-public struct QuadPattern: Codable, TermPattern, CustomStringConvertible {
+public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
     public var subject: Node
     public var predicate: Node
     public var object: Node
@@ -207,16 +198,6 @@ public struct QuadPattern: Codable, TermPattern, CustomStringConvertible {
 extension QuadPattern: Sequence {
     public func makeIterator() -> IndexingIterator<[Node]> {
         return [subject, predicate, object, graph].makeIterator()
-    }
-}
-
-extension QuadPattern : Equatable {
-    public static func == (lhs: QuadPattern, rhs: QuadPattern) -> Bool {
-        guard lhs.subject == rhs.subject else { return false }
-        guard lhs.predicate == rhs.predicate else { return false }
-        guard lhs.object == rhs.object else { return false }
-        guard lhs.graph == rhs.graph else { return false }
-        return true
     }
 }
 

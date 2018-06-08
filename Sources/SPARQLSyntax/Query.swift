@@ -1,6 +1,6 @@
 import Foundation
 
-public enum SelectProjection : Equatable {
+public enum SelectProjection : Equatable, Hashable {
     case star
     case variables([String])
 }
@@ -35,7 +35,7 @@ extension SelectProjection: Codable {
     }
 }
 
-public enum QueryForm : Equatable {
+public enum QueryForm : Equatable, Hashable {
     case select(SelectProjection)
     case ask
     case construct([TriplePattern])
@@ -88,7 +88,7 @@ extension QueryForm: Codable {
     }
 }
 
-public struct Dataset : Codable, Equatable {
+public struct Dataset : Codable, Equatable, Hashable {
     public var defaultGraphs: [Term]
     public var namedGraphs: [Term]
     
@@ -102,7 +102,7 @@ public struct Dataset : Codable, Equatable {
     }
 }
 
-public struct Query : Codable, Equatable {
+public struct Query : Codable, Hashable, Equatable {
     public var base: String?
     public var form: QueryForm
     public var algebra: Algebra

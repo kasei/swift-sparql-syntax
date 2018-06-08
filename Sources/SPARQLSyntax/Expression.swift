@@ -10,7 +10,7 @@ import Foundation
 
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
-public indirect enum Expression: CustomStringConvertible {
+public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
     case node(Node)
     case aggregate(Aggregation)
     case neg(Expression)
@@ -566,89 +566,6 @@ extension Expression: Codable {
         case let .exists(algebra):
             try container.encode("exists", forKey: .type)
             try container.encode(algebra, forKey: .algebra)
-        }
-    }
-}
-
-extension Expression: Equatable {
-    public static func == (lhs: Expression, rhs: Expression) -> Bool {
-        switch (lhs, rhs) {
-        case (.aggregate(let l), .aggregate(let r)) where l == r:
-            return true
-        case (.node(let l), .node(let r)) where l == r:
-            return true
-        case (.eq(let ll, let lr), .eq(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.ne(let ll, let lr), .ne(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.gt(let ll, let lr), .gt(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.lt(let ll, let lr), .lt(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.ge(let ll, let lr), .ge(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.le(let ll, let lr), .le(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.add(let ll, let lr), .add(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.sub(let ll, let lr), .sub(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.mul(let ll, let lr), .mul(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.div(let ll, let lr), .div(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.between(let l), .between(let r)) where l == r:
-            return true
-        case (.neg(let l), .neg(let r)) where l == r:
-            return true
-        case (.and(let ll, let lr), .and(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.or(let ll, let lr), .or(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.not(let l), .not(let r)) where l == r:
-            return true
-        case (.isiri(let l), .isiri(let r)) where l == r:
-            return true
-        case (.isblank(let l), .isblank(let r)) where l == r:
-            return true
-        case (.isliteral(let l), .isliteral(let r)) where l == r:
-            return true
-        case (.isnumeric(let l), .isnumeric(let r)) where l == r:
-            return true
-        case (.boolCast(let l), .boolCast(let r)) where l == r:
-            return true
-        case (.intCast(let l), .intCast(let r)) where l == r:
-            return true
-        case (.floatCast(let l), .floatCast(let r)) where l == r:
-            return true
-        case (.doubleCast(let l), .doubleCast(let r)) where l == r:
-            return true
-        case (.decimalCast(let l), .decimalCast(let r)) where l == r:
-            return true
-        case (.dateTimeCast(let l), .dateTimeCast(let r)) where l == r:
-            return true
-        case (.dateCast(let l), .dateCast(let r)) where l == r:
-            return true
-        case (.stringCast(let l), .stringCast(let r)) where l == r:
-            return true
-        case (.call(let l, let largs), .call(let r, let rargs)) where l == r && largs == rargs:
-            return true
-        case (.lang(let l), .lang(let r)) where l == r:
-            return true
-        case (.datatype(let l), .datatype(let r)) where l == r:
-            return true
-        case (.bound(let l), .bound(let r)) where l == r:
-            return true
-        case (.exists(let l), .exists(let r)) where l == r:
-            return true
-        case (.sameterm(let ll, let lr), .sameterm(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.valuein(let ll, let lr), .valuein(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        case (.langmatches(let ll, let lr), .langmatches(let rl, let rr)) where ll == rl && lr == rr:
-            return true
-        default:
-            return false
         }
     }
 }

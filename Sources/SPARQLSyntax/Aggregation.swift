@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum Aggregation {
+public enum Aggregation : Equatable, Hashable {
     case countAll
     case count(Expression, Bool)
     case sum(Expression, Bool)
@@ -109,31 +109,6 @@ extension Aggregation: Codable {
             try container.encode(expr, forKey: .expression)
             try container.encode(distinct, forKey: .distinct)
             try container.encode(sep, forKey: .string)
-        }
-    }
-}
-
-extension Aggregation: Equatable {
-    public static func == (lhs: Aggregation, rhs: Aggregation) -> Bool {
-        switch (lhs, rhs) {
-        case (.countAll, .countAll):
-            return true
-        case (.count(let l), .count(let r)) where l == r:
-            return true
-        case (.sum(let l), .sum(let r)) where l == r:
-            return true
-        case (.avg(let l), .avg(let r)) where l == r:
-            return true
-        case (.min(let l), .min(let r)) where l == r:
-            return true
-        case (.max(let l), .max(let r)) where l == r:
-            return true
-        case (.sample(let l), .sample(let r)) where l == r:
-            return true
-        case (.groupConcat(let l), .groupConcat(let r)) where l == r:
-            return true
-        default:
-            return false
         }
     }
 }
