@@ -65,17 +65,12 @@ func warn(_ items: String...) {
 
 func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, includeComments: Bool = false) throws {
     let url = URL(fileURLWithPath: qfile)
-    let sparql = try Data(contentsOf: url)
-    let stream = InputStream(data: sparql)
-    stream.open()
-    let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
-    let s = SPARQLSerializer()
-    let tokens: UnfoldSequence<SPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.next() }
-    if pretty {
-        print(s.serializePretty(tokens))
-    } else {
-        print(s.serialize(tokens))
+    let data = try Data(contentsOf: url)
+    guard let sparql = String(data: data, encoding: .utf8) else {
+        fatalError("Failed to decode SPARQL query as utf8")
     }
+    let s = SPARQLSerializer(prettyPrint: pretty)
+    print(s.reformat(sparql))
 }
 
 func data(fromFileOrString qfile: String) throws -> (Data, String?) {
@@ -146,13 +141,9 @@ if let op = args.next() {
                 print(query.serialize())
             }
             if printSPARQL {
-                let s = SPARQLSerializer()
+                let s = SPARQLSerializer(prettyPrint: pretty)
                 let tokens  = try query.sparqlTokens()
-                if pretty {
-                    print(s.serializePretty(tokens))
-                } else {
-                    print(s.serialize(tokens))
-                }
+                print(s.serialize(tokens))
             }
         } catch let e {
             warn("*** Failed to parse query: \(e)")

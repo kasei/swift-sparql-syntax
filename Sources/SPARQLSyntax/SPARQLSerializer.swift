@@ -9,7 +9,47 @@
 import Foundation
 
 public struct SPARQLSerializer {
-    public init() {}
+    var prettyPrint: Bool
+    
+    public init(prettyPrint: Bool = false) {
+        self.prettyPrint = prettyPrint
+    }
+    
+    public func reformat(_ sparql: String) -> String {
+        guard let data = sparql.data(using: .utf8) else {
+            return sparql
+        }
+        let stream = InputStream(data: data)
+        stream.open()
+        let lexer = SPARQLLexer(source: stream, includeComments: true)
+        var tokens = [PositionedToken]()
+        do {
+            while true {
+                if let pt = try lexer.getToken() {
+                    tokens.append(pt)
+                } else {
+                    let formatted = self.serialize(tokens.map { $0.token })
+                    return formatted
+                }
+            }
+        } catch {
+            let offset: Int
+            if let pt = tokens.last {
+                offset = Int(pt.endCharacter) + 1
+            } else {
+                offset = Int(lexer.character)
+            }
+//            print("*** Error found at offset \(offset): \(error)")
+            let index = sparql.index(sparql.startIndex, offsetBy: offset)
+            let prefix = self.serialize(tokens.map { $0.token })
+                .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+//            print("Reformatted prefix: <<<\(prefix)>>>")
+            let suffix = sparql[index...]
+//            print("Rest of string: <<<\(suffix)>>>")
+            let formatted = "\(prefix) \(suffix)"
+            return formatted
+        }
+    }
     
     public func serialize(_ algebra: Algebra) throws -> String {
         return try self.serialize(algebra.sparqlQueryTokens())
@@ -20,13 +60,26 @@ public struct SPARQLSerializer {
         self.serialize(tokens, to: &s)
         return s
     }
-    
+
     public func serialize<S: Sequence, Target: TextOutputStream>(_ tokens: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
+        if prettyPrint {
+            serializePretty(tokens, to: &output)
+        } else {
+            serializePlain(tokens, to: &output)
+        }
+    }
+    
+    internal func serializePlain<S: Sequence, Target: TextOutputStream>(_ tokens: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
+        var lastWasWhitespace = false
         for (i, token) in tokens.enumerated() {
             if i > 0 {
-                print(" ", terminator: "", to: &output)
+                if !lastWasWhitespace {
+                    print(" ", terminator: "", to: &output)
+                }
             }
-            print("\(token.sparql)", terminator: "", to: &output)
+            let string = "\(token.sparql)"
+            print(string, terminator: "", to: &output)
+            lastWasWhitespace = string.hasSuffix("\n") || string.hasSuffix(" ")
         }
     }
     
@@ -104,14 +157,14 @@ public struct SPARQLSerializer {
         }
     }
     
-    public func serializePretty<S: Sequence>(_ tokenSequence: S) -> String where S.Iterator.Element == SPARQLToken {
+    internal func serializePretty<S: Sequence>(_ tokenSequence: S) -> String where S.Iterator.Element == SPARQLToken {
         var s = ""
         self.serializePretty(tokenSequence, to: &s)
         return s
     }
     
     // swiftlint:disable:next cyclomatic_complexity
-    public func serializePretty<S: Sequence, Target: TextOutputStream>(_ tokenSequence: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
+    internal func serializePretty<S: Sequence, Target: TextOutputStream>(_ tokenSequence: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
         var tokens = Array(tokenSequence)
         tokens.append(.ws)
         var pretty = ""
@@ -165,7 +218,12 @@ public struct SPARQLSerializer {
                 outputArray.append((t, .spaceSeparator))
             case (_, .comment(let c), _):
                 if c.count > 0 {
-                    outputArray.append((t, .tokenString("\(t.sparql)")))
+                    var string = "\(t.sparql)"
+                    if string.hasSuffix("\n") {
+                        string.removeLast()
+                    }
+                    
+                    outputArray.append((t, .tokenString(string)))
                     outputArray.append((t, .newline(pstate.indentLevel)))
                 }
             case(_, .bang, _):
