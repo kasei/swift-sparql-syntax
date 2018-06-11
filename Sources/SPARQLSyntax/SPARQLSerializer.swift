@@ -1082,7 +1082,6 @@ extension Query {
             tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
             
-            print("\(projectedExpressions)")
             for t in groupTokens {
                 switch t {
                 case ._var(let v):
