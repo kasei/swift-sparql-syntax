@@ -470,7 +470,7 @@ public struct SPARQLParser {
         return try .subquery(Query(form: .select(projection), algebra: algebra, dataset: nil))
     }
     
-    private mutating func parseGroupCondition(_ algebra: inout Algebra) throws -> Node? {
+    private mutating func parseGroupCondition(_ algebra: inout Algebra) throws -> Expression? {
         var node: Node
         if try attempt(token: .lparen) {
             let expr = try parseExpression()
@@ -480,14 +480,12 @@ public struct SPARQLParser {
                     throw parseError("Expecting GROUP variable name but got \(node)")
                 }
                 algebra = .extend(algebra, expr, name)
+                try expect(token: .rparen)
+                return .node(node)
             } else {
-                guard let c = freshCounter.next() else { fatalError("No fresh variable available") }
-                let name = ".group-\(c)"
-                algebra = .extend(algebra, expr, name)
-                node = .variable(name, binding: true)
+                try expect(token: .rparen)
+                return expr
             }
-            try expect(token: .rparen)
-            return node
         } else {
             guard let t = peekToken() else { return nil }
             if case ._var(_) = t {
@@ -495,14 +493,10 @@ public struct SPARQLParser {
                 guard case .variable(_) = node else {
                     throw parseError("Expecting GROUP variable but got \(node)")
                 }
-                return node
+                return .node(node)
             } else {
                 let expr = try parseBuiltInCall()
-                guard let c = freshCounter.next() else { fatalError("No fresh variable available") }
-                let name = ".group-\(c)"
-                algebra = .extend(algebra, expr, name)
-                node = .variable(name, binding: true)
-                return node
+                return expr
             }
         }
     }
@@ -560,8 +554,8 @@ public struct SPARQLParser {
         if try attempt(token: .keyword("GROUP")) {
             applyAggregation = true
             try expect(token: .keyword("BY"))
-            while let n = try? parseGroupCondition(&algebra), let node = n {
-                groups.append(.node(node))
+            while let e = try? parseGroupCondition(&algebra), let expr = e {
+                groups.append(expr)
             }
         }
         

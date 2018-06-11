@@ -568,9 +568,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-//            print("===============")
-//            print("\(q.serialize())")
-//            print("===============")
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
@@ -588,7 +588,39 @@ class SPARQLSerializationTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
 
+    func testAggregationComplexGrouping() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT distinct (sum(?o) AS ?sum) (avg(?o) AS ?avg) {
+            ?s ex:value ?o
+        } GROUP BY isLiteral(?o)
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+//                        print("===============")
+//                        print("\(q.serialize())")
+//                        print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT DISTINCT (SUM(?o) AS ?sum) (AVG(?o) AS ?avg) WHERE {
+                ?s <http://example.org/value> ?o .
+            }
+            GROUP BY ISLITERAL(?o)
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
     func testBuiltInFunctions() throws {
         let sparql = """
         PREFIX ex: <http://example.org/>

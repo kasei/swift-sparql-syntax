@@ -1081,7 +1081,21 @@ extension Query {
             tokens.append(.lbrace)
             tokens.append(contentsOf: try algebra.sparqlTokens(depth: 0))
             tokens.append(.rbrace)
-            tokens.append(contentsOf: groupTokens)
+            
+            print("\(projectedExpressions)")
+            for t in groupTokens {
+                switch t {
+                case ._var(let v):
+                    if let replacement = projectedExpressions[v] {
+                        tokens.append(contentsOf: replacement)
+                    } else {
+                        tokens.append(t)
+                    }
+                default:
+                    tokens.append(t)
+                }
+            }
+
             if aggMods.having.count > 0 {
                 tokens.append(.keyword("HAVING"))
                 for expr in aggMods.having {
