@@ -666,9 +666,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-//            print("===============")
-//            print("\(q.serialize())")
-//            print("===============")
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
@@ -683,6 +683,64 @@ class SPARQLSerializationTests: XCTestCase {
             XCTAssertEqual(query, expected)
         } catch let e {
             XCTFail("\(e)")
+        }
+    }
+
+    func testServiceExtend() throws {
+        let expr : Expression = .node(.bound(Term(string: "xyz")))
+        let url = URL(string: "http://example.org/")!
+        let algebra: Algebra = .project(
+            .service(
+                url,
+                .extend(
+                    .joinIdentity,
+                    expr,
+                    "x"
+                ),
+                false
+            ),
+            Set(["x", "s"])
+        )
+        do {
+            let query = try Query(form: .select(.variables(["x", "s"])), algebra: algebra)
+            let s = SPARQLSerializer()
+            let sparql = s.serialize(try query.sparqlTokens())
+            let expected = "SELECT ?x ?s WHERE { SERVICE <http://example.org/> { { } BIND ( \"xyz\" AS ?x ) } }"
+            
+            XCTAssertEqual(sparql, expected)
+        } catch {
+            XCTFail()
+        }
+    }
+
+    func testAggregationExtend() throws {
+        let expr : Expression = .node(.bound(Term(string: "xyz")))
+        let algebra: Algebra = .distinct(
+            .project(
+                .aggregate(
+                    .extend(
+                        .joinIdentity,
+                        expr,
+                        "o"
+                    ),
+                    [],
+                    [
+                        Algebra.AggregationMapping(aggregation: .sum(.node(.variable("o", binding: true)), false), variableName: "sum"),
+                        Algebra.AggregationMapping(aggregation: .avg(.node(.variable("o", binding: true)), false), variableName: "avg")
+                    ]
+                ),
+                Set(["sum", "avg", "o"])
+            )
+        )
+        do {
+            let query = try Query(form: .select(.variables(["sum", "avg", "o"])), algebra: algebra)
+            let s = SPARQLSerializer()
+            let sparql = s.serialize(try query.sparqlTokens())
+            let expected = "SELECT DISTINCT ( SUM ( ?o ) AS ?sum ) ( AVG ( ?o ) AS ?avg ) ?o WHERE { { } BIND ( \"xyz\" AS ?o ) }"
+            
+            XCTAssertEqual(sparql, expected)
+        } catch {
+            XCTFail("\(error)")
         }
     }
 }

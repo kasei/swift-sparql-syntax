@@ -662,7 +662,7 @@ extension Expression {
             let expr : Expression = .and(.ge(e, lhs), .le(e, rhs))
             return try expr.sparqlTokens()
         case .valuein(let e, let values):
-            tokens.append(contentsOf: try e.sparqlTokens())
+            tokens.append(contentsOf: try e.parenthesizedSparqlTokens())
             tokens.append(.keyword("IN"))
             tokens.append(.lparen)
             for (i, v) in values.enumerated() {
@@ -989,6 +989,7 @@ extension Query {
         var projectedExpressions = [String:[SPARQLToken]]()
         var groupTokens = [SPARQLToken]()
         let aggMods = algebra.aggregationModifiers()
+        let aggExtensions = algebra.variableExtensions
         if let a = algebra.aggregation, case let .aggregate(_, groups, aggs) = a {
             for aggMap in aggs {
                 let v = aggMap.variableName
@@ -1009,7 +1010,6 @@ extension Query {
             algebra = algebra.removeAggregation()
         }
 
-        let aggExtensions = algebra.variableExtensions
         var aggExtensionTokens = [String : [SPARQLToken]]()
         for (name,e) in aggExtensions {
             let tokens = try Array(e.sparqlTokens())
