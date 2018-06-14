@@ -62,7 +62,7 @@ public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
     }
 }
 
-public enum TermType: Hashable {
+public enum TermType {
     case blank
     case iri
     case language(String)
@@ -134,7 +134,7 @@ extension TermType {
     }
 }
 
-extension TermType: Equatable {
+extension TermType: Hashable {
     public static func == (lhs: TermType, rhs: TermType) -> Bool {
         switch (lhs, rhs) {
         case (.iri, .iri), (.blank, .blank):
@@ -145,6 +145,21 @@ extension TermType: Equatable {
             return l == r
         default:
             return false
+        }
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .language(let l):
+            hasher.combine("language")
+            hasher.combine(l.lowercased())
+        case .datatype(let dt):
+            hasher.combine("datatype")
+            hasher.combine(dt)
+        case .iri:
+            hasher.combine("iri")
+        case .blank:
+            hasher.combine("iri")
         }
     }
 }
