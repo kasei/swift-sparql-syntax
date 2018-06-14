@@ -62,7 +62,7 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case .filter(let pattern, .ne(.node(.variable("o", binding: true)), .node(.bound(Term(value: "7.0", type: .datatype("http://www.w3.org/2001/XMLSchema#decimal")))))) = a else {
+            guard case .filter(let pattern, .ne(.node(.variable("o", binding: true)), .node(.bound(Term(value: "7.0", type: .datatype(.decimal)))))) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -355,7 +355,7 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n_:s <p> ?x\n}\nGROUP BY ?x HAVING (?x > 2)") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case .project(.filter(.aggregate(_, let groups, let aggs), .gt(.node(.variable("x", binding: true)), .node(.bound(Term(value: "2", type: .datatype("http://www.w3.org/2001/XMLSchema#integer")))))), let projection) = a else {
+            guard case .project(.filter(.aggregate(_, let groups, let aggs), .gt(.node(.variable("x", binding: true)), .node(.bound(Term(value: "2", type: .datatype(.integer)))))), let projection) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }

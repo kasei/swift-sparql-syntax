@@ -39,7 +39,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
                 let pattern,
                 .ne(
                     .node(.bound(Term(integer: 8))),
-                    .node(.bound(Term(value: "7.0", type: .datatype("http://www.w3.org/2001/XMLSchema#decimal"))))
+                    .node(.bound(Term(value: "7.0", type: .datatype(.decimal))))
                 )) = replaced else {
                     XCTFail("Unexpected algebra: \(a.serialize())")
                     return

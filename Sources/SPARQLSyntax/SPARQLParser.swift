@@ -1692,7 +1692,7 @@ public struct SPARQLParser {
                 try expect(token: .equals)
                 let t = try nextExpectedToken()
                 let node = try tokenAsTerm(t)
-                guard case .bound(let term) = node, case .datatype("http://www.w3.org/2001/XMLSchema#string") = term.type else {
+                guard case .bound(let term) = node, case .datatype(.string) = term.type else {
                     throw parseError("Expected GROUP_CONCAT SEPARATOR but found \(node)")
                 }
                 sep = term.value
@@ -1841,7 +1841,7 @@ public struct SPARQLParser {
                 return .bound(Term(value: value, type: .language(lang)))
             }
         }
-        return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#string")))
+        return .bound(Term(value: value, type: .datatype(.string)))
     }
     
     private mutating func resolveIRI(value: String) throws -> Node {
@@ -1874,13 +1874,13 @@ public struct SPARQLParser {
         case .keyword("A"):
             return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         case .boolean(let value):
-            return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#boolean")))
+            return .bound(Term(value: value, type: .datatype(.boolean)))
         case .decimal(let value):
-            return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#decimal")))
+            return .bound(Term(value: value, type: .datatype(.decimal)))
         case .double(let value):
-            return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#double")))
+            return .bound(Term(value: value, type: .datatype(.double)))
         case .integer(let value):
-            return .bound(Term(value: value, type: .datatype("http://www.w3.org/2001/XMLSchema#integer")))
+            return .bound(Term(value: value, type: .datatype(.integer)))
         case .bnode(let name):
             let node = bnode(named: name)
             return node
@@ -1905,7 +1905,7 @@ public struct SPARQLParser {
     mutating private func parseInteger() throws -> Int {
         let l = try nextExpectedToken()
         let t = try tokenAsTerm(l)
-        guard case .bound(let term) = t, case .datatype("http://www.w3.org/2001/XMLSchema#integer") = term.type else {
+        guard case .bound(let term) = t, case .datatype(.integer) = term.type else {
             throw parseError("Expecting integer but found \(t)")
         }
         guard let limit = Int(term.value) else {

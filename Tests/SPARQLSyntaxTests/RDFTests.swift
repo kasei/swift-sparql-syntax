@@ -43,7 +43,7 @@ class RDFTest: XCTestCase {
     }
     
     func testConstructorDecimal2() {
-        let t = Term(value: "-017.10", type: .datatype("http://www.w3.org/2001/XMLSchema#decimal"))
+        let t = Term(value: "-017.10", type: .datatype(.decimal))
         XCTAssertEqual(t.value, "-17.1")
     }
     
