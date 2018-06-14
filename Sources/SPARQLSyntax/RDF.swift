@@ -2,6 +2,7 @@ import Foundation
 
 public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
     case string
+    case boolean
     case integer
     case float
     case double
@@ -14,6 +15,8 @@ public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
         switch self {
         case .string:
             return "http://www.w3.org/2001/XMLSchema#string"
+        case .boolean:
+            return "http://www.w3.org/2001/XMLSchema#boolean"
         case .integer:
             return "http://www.w3.org/2001/XMLSchema#integer"
         case .float:
@@ -35,6 +38,8 @@ public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
         switch value {
         case "http://www.w3.org/2001/XMLSchema#string":
             self = .string
+        case "http://www.w3.org/2001/XMLSchema#boolean":
+            self = .boolean
         case "http://www.w3.org/2001/XMLSchema#integer":
             self = .integer
         case "http://www.w3.org/2001/XMLSchema#float":
@@ -68,7 +73,7 @@ extension TermType {
     // swiftlint:disable:next variable_name
     var integerType: Bool {
         guard case .datatype(let dt) = self else { return false }
-        switch dt {
+        switch dt.value {
             case "http://www.w3.org/2001/XMLSchema#integer",
                  "http://www.w3.org/2001/XMLSchema#nonPositiveInteger",
                  "http://www.w3.org/2001/XMLSchema#negativeInteger",
@@ -89,10 +94,10 @@ extension TermType {
     }
     
     public func resultType(for op: String, withOperandType rhs: TermType) -> TermType? {
-        let integer = TermType.datatype("http://www.w3.org/2001/XMLSchema#integer")
-        let decimal = TermType.datatype("http://www.w3.org/2001/XMLSchema#decimal")
-        let float   = TermType.datatype("http://www.w3.org/2001/XMLSchema#float")
-        let double  = TermType.datatype("http://www.w3.org/2001/XMLSchema#double")
+        let integer = TermType.datatype(.integer)
+        let decimal = TermType.datatype(.decimal)
+        let float   = TermType.datatype(.float)
+        let double  = TermType.datatype(.double)
         if op == "/" {
             if self == rhs && self.integerType {
                 return decimal
@@ -202,14 +207,14 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
             let c = Int(value) ?? 0
             self.value = "\(c)"
             _doubleValue = Double(c)
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+        case .datatype(.decimal):
             let (sign, v, bytes) = canonicalDecimalComponents()
             let frac = bytes.compactMap { "\($0)" }.joined(separator: "")
             let signChar = (sign == .minus) ? "-" : ""
             self.value = "\(signChar)\(v).\(frac)"
             _doubleValue = Double(value) ?? 0.0
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+        case .datatype(.float),
+             .datatype(.double):
             self.value = self.value.uppercased()
             let (mantissa, exponent) = canonicalFloatingPointComponents()
             self.value = "\(mantissa)E\(exponent)"
@@ -240,59 +245,59 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
     
     public init(string value: String) {
         self.value  = value
-        self.type   = .datatype("http://www.w3.org/2001/XMLSchema#string")
+        self.type   = .datatype(.string)
     }
     
     public init(boolean value: Bool) {
         self.value = value ? "true" : "false"
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#boolean")
+        self.type = .datatype(.boolean)
     }
     
     public init(integer value: Int) {
         self.value = "\(value)"
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#integer")
-        computeNumericValue()
+        self.type = .datatype(.integer)
+        _doubleValue = Double(value)
     }
     
     public init(float value: Double) {
         self.value = String(format: "%E", value)
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
+        self.type = .datatype(.float)
         computeNumericValue()
     }
     
     public init(float mantissa: Double, exponent: Int) {
         self.value = String(format: "%fE%d", mantissa, exponent)
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#float")
+        self.type = .datatype(.float)
         computeNumericValue()
     }
     
     public init(double value: Double) {
         self.value = String(format: "%E", value)
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
+        self.type = .datatype(.double)
         computeNumericValue()
     }
     
     public init(double mantissa: Double, exponent: Int) {
         self.value = String(format: "%lfE%d", mantissa, exponent)
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#double")
+        self.type = .datatype(.double)
         computeNumericValue()
     }
     
     public init(decimal value: Double) {
         self.value = String(format: "%f", value)
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
+        self.type = .datatype(.decimal)
         computeNumericValue()
     }
     
     public init(decimal value: Decimal) {
         self.value = "\(value)"
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#decimal")
+        self.type = .datatype(.decimal)
         computeNumericValue()
     }
     
     public init(year: Int, month: Int, day: Int) {
         self.value = String(format: "%04d-%02d-%02d", year, month, day)
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#date")
+        self.type = .datatype(.date)
     }
 
     public init(dateTime date: Date, timeZone tz: TimeZone?) {
@@ -324,16 +329,16 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
             v = String(format: "\(v)%+03d:%02d", hours, minutes)
         }
         self.value = v
-        self.type = .datatype("http://www.w3.org/2001/XMLSchema#dateTime")
+        self.type = .datatype(.dateTime)
     }
     
     public init?(numeric value: Double, type: TermType) {
         self.type = type
         switch type {
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"),
-             .datatype("http://www.w3.org/2001/XMLSchema#double"):
+        case .datatype(.float),
+             .datatype(.double):
             self.value = "\(value)"
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+        case .datatype(.decimal):
             self.value = String(format: "%f", value)
         case let t where t.integerType:
             let i = Int(value)
@@ -355,21 +360,21 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         case .language(let lang):
             let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\"@\(lang)"
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+        case .datatype(.string):
             let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\""
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+        case .datatype(.float):
             let s = "\(value)"
             if s.lowercased().contains("e") {
                 return s
             } else {
                 return "\(s)e0"
             }
-        case .datatype("http://www.w3.org/2001/XMLSchema#integer"), .datatype("http://www.w3.org/2001/XMLSchema#decimal"), .datatype("http://www.w3.org/2001/XMLSchema#boolean"):
+        case .datatype(.integer), .datatype(.decimal), .datatype(.boolean):
             return "\(value)"
         case .datatype(let dt):
             let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
-            return "\"\(escaped)\"^^<\(dt)>"
+            return "\"\(escaped)\"^^<\(dt.value)>"
         }
     }
     
@@ -426,8 +431,8 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         return value ? trueValue : falseValue
     }
     
-    public static let trueValue = Term(value: "true", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
-    public static let falseValue = Term(value: "false", type: .datatype("http://www.w3.org/2001/XMLSchema#boolean"))
+    public static let trueValue = Term(value: "true", type: .datatype(.boolean))
+    public static let falseValue = Term(value: "false", type: .datatype(.boolean))
 }
 
 extension Term: Comparable {
@@ -465,7 +470,7 @@ extension Term: Equatable {
 extension Term {
     public var isNumeric: Bool {
         guard case .datatype(let dt) = type else { return false }
-        switch dt {
+        switch dt.value {
         case "http://www.w3.org/2001/XMLSchema#integer",
              "http://www.w3.org/2001/XMLSchema#nonPositiveInteger",
              "http://www.w3.org/2001/XMLSchema#negativeInteger",
@@ -497,12 +502,12 @@ extension Term {
             } else {
                 return nil
             }
-        case .datatype("http://www.w3.org/2001/XMLSchema#decimal"):
+        case .datatype(.decimal):
             return .decimal(Decimal(numericValue))
-        case .datatype("http://www.w3.org/2001/XMLSchema#float"):
+        case .datatype(.float):
             let (mantissa, exponent) = canonicalFloatingPointComponents()
             return .float(mantissa: mantissa, exponent: exponent)
-        case .datatype("http://www.w3.org/2001/XMLSchema#double"):
+        case .datatype(.double):
             let (mantissa, exponent) = canonicalFloatingPointComponents()
             return .double(mantissa: mantissa, exponent: exponent)
         default:
