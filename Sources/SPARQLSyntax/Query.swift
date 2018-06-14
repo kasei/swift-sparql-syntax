@@ -189,6 +189,17 @@ public extension Query {
         return self.algebra.inscope
     }
     
+    public var necessarilyBound: Set<String> {
+        switch self.form {
+        case .select(.variables(let v)):
+            return self.algebra.necessarilyBound.intersection(v)
+        case .select(.star):
+            return self.algebra.necessarilyBound
+        case .ask, .construct(_), .describe(_):
+            return Set()
+        }
+    }
+    
     public var projectedVariables: [String] {
         switch self.form {
         case .select(.variables(let v)):

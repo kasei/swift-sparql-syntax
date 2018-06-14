@@ -641,6 +641,35 @@ public extension Algebra {
         }
     }
     
+    public var necessarilyBound: Set<String> {
+        switch self {
+        case .joinIdentity, .unionIdentity:
+            return Set()
+        case let .project(child, vars):
+            return child.necessarilyBound.intersection(vars)
+        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
+            return lhs.necessarilyBound.intersection(rhs.necessarilyBound)
+        case .triple(_), .quad(_), .bgp(_), .path(_, _, _), .table(_, _):
+            return self.inscope
+        case .extend(let child, _, let v):
+            return child.necessarilyBound.union([v])
+        case .subquery(let q):
+            return q.necessarilyBound
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _), .leftOuterJoin(let child, _, _):
+            return child.necessarilyBound
+        case .namedGraph(let child, .variable(let v, let bind)):
+            var variables = child.necessarilyBound
+            if bind {
+                variables.insert(v)
+            }
+            return variables
+        case let .aggregate(child, _, aggs):
+            return child.necessarilyBound.union(aggs.map { $0.variableName })
+        case .window(let child, _, let funcs):
+            return child.necessarilyBound.union(funcs.map { $0.variableName })
+        }
+    }
+    
     public var projectableVariables : Set<String> {
         switch self {
         case let .aggregate(_, groups, aggs):
