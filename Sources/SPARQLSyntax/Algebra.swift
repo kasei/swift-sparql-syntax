@@ -643,7 +643,7 @@ public extension Algebra {
     
     public var necessarilyBound: Set<String> {
         switch self {
-        case .joinIdentity, .unionIdentity:
+        case .joinIdentity, .unionIdentity, .table(_, _):
             return Set()
         case let .project(child, vars):
             return child.necessarilyBound.intersection(vars)
@@ -651,7 +651,7 @@ public extension Algebra {
             return lhs.necessarilyBound.union(rhs.necessarilyBound)
         case .union(let lhs, let rhs):
             return lhs.necessarilyBound.intersection(rhs.necessarilyBound)
-        case .triple(_), .quad(_), .bgp(_), .path(_, _, _), .table(_, _):
+        case .triple(_), .quad(_), .bgp(_), .path(_, _, _):
             return self.inscope
         case .extend(let child, _, let v):
             return child.necessarilyBound.union([v])
