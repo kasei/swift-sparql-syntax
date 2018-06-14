@@ -201,23 +201,29 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         return (sign, v, bytes)
     }
     
-    private mutating func computeNumericValue() {
+    private mutating func computeNumericValue(canonicalize: Bool = true) {
         switch type {
         case let t where t.integerType:
-            let c = Int(value) ?? 0
-            self.value = "\(c)"
-            _doubleValue = Double(c)
+            if canonicalize {
+                let c = Int(value) ?? 0
+                self.value = "\(c)"
+            }
+            _doubleValue = Double(value)
         case .datatype(.decimal):
-            let (sign, v, bytes) = canonicalDecimalComponents()
-            let frac = bytes.compactMap { "\($0)" }.joined(separator: "")
-            let signChar = (sign == .minus) ? "-" : ""
-            self.value = "\(signChar)\(v).\(frac)"
+            if canonicalize {
+                let (sign, v, bytes) = canonicalDecimalComponents()
+                let frac = bytes.compactMap { "\($0)" }.joined(separator: "")
+                let signChar = (sign == .minus) ? "-" : ""
+                self.value = "\(signChar)\(v).\(frac)"
+            }
             _doubleValue = Double(value) ?? 0.0
         case .datatype(.float),
              .datatype(.double):
-            self.value = self.value.uppercased()
-            let (mantissa, exponent) = canonicalFloatingPointComponents()
-            self.value = "\(mantissa)E\(exponent)"
+            if canonicalize {
+                self.value = self.value.uppercased()
+                let (mantissa, exponent) = canonicalFloatingPointComponents()
+                self.value = "\(mantissa)E\(exponent)"
+            }
             _doubleValue = Double(value) ?? 0.0
         default:
             break
@@ -236,6 +242,12 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         self.value  = value
         self.type   = type
         computeNumericValue()
+    }
+    
+    public init(canonicalValue value: String, type: TermType) {
+        self.value  = value
+        self.type   = type
+        computeNumericValue(canonicalize: false)
     }
     
     public init(iri value: String) {
