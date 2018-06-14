@@ -647,7 +647,9 @@ public extension Algebra {
             return Set()
         case let .project(child, vars):
             return child.necessarilyBound.intersection(vars)
-        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs):
+        case .innerJoin(let lhs, let rhs):
+            return lhs.necessarilyBound.union(rhs.necessarilyBound)
+        case .union(let lhs, let rhs):
             return lhs.necessarilyBound.intersection(rhs.necessarilyBound)
         case .triple(_), .quad(_), .bgp(_), .path(_, _, _), .table(_, _):
             return self.inscope
