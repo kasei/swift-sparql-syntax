@@ -140,7 +140,7 @@ extension TermType: Equatable {
         case (.iri, .iri), (.blank, .blank):
             return true
         case (.language(let l), .language(let r)):
-            return l == r
+            return l.lowercased() == r.lowercased()
         case (.datatype(let l), .datatype(let r)):
             return l == r
         default:
