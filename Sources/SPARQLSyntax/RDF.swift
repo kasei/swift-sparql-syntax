@@ -6,6 +6,8 @@ public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
     case float
     case double
     case decimal
+    case date
+    case dateTime
     case custom(String)
     
     public var value: String {
@@ -20,6 +22,10 @@ public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
             return "http://www.w3.org/2001/XMLSchema#double"
         case .decimal:
             return "http://www.w3.org/2001/XMLSchema#decimal"
+        case .date:
+            return "http://www.w3.org/2001/XMLSchema#date"
+        case .dateTime:
+            return "http://www.w3.org/2001/XMLSchema#dateTime"
         case .custom(let v):
             return v
         }
@@ -37,6 +43,10 @@ public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
             self = .double
         case "http://www.w3.org/2001/XMLSchema#decimal":
             self = .decimal
+        case "http://www.w3.org/2001/XMLSchema#date":
+            self = .date
+        case "http://www.w3.org/2001/XMLSchema#dateTime":
+            self = .dateTime
         default:
             self = .custom(value)
         }
