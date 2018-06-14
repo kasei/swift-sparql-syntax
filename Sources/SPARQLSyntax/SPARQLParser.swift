@@ -1833,7 +1833,7 @@ public struct SPARQLParser {
             guard case .iri = dtterm.type else {
                 throw parseError("Expecting datatype IRI but found '\(dtterm)'")
             }
-            return .bound(Term(value: value, type: .datatype(dtterm.value)))
+            return .bound(Term(value: value, type: .datatype(TermDataType(stringLiteral: dtterm.value))))
         } else {
             let t = try peekExpectedToken()
             if case .lang(let lang) = t {

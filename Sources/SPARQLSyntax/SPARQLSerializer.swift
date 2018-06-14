@@ -373,10 +373,10 @@ extension Term {
             return AnySequence([.bnode(self.value)])
         case .iri:
             return AnySequence([.iri(self.value)])
-        case .datatype("http://www.w3.org/2001/XMLSchema#string"):
+        case .datatype(.string):
             return AnySequence<SPARQLToken>([.string1d(self.value)])
         case .datatype(let d):
-            return AnySequence<SPARQLToken>([.string1d(self.value), .hathat, .iri(d)])
+            return AnySequence<SPARQLToken>([.string1d(self.value), .hathat, .iri(d.value)])
         case .language(let l):
             return AnySequence<SPARQLToken>([.string1d(self.value), .lang(l)])
         }

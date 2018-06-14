@@ -1,10 +1,57 @@
 import Foundation
 
+public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
+    case string
+    case integer
+    case float
+    case double
+    case decimal
+    case custom(String)
+    
+    public var value: String {
+        switch self {
+        case .string:
+            return "http://www.w3.org/2001/XMLSchema#string"
+        case .integer:
+            return "http://www.w3.org/2001/XMLSchema#integer"
+        case .float:
+            return "http://www.w3.org/2001/XMLSchema#float"
+        case .double:
+            return "http://www.w3.org/2001/XMLSchema#double"
+        case .decimal:
+            return "http://www.w3.org/2001/XMLSchema#decimal"
+        case .custom(let v):
+            return v
+        }
+    }
+   
+    public init(stringLiteral value: String) {
+        switch value {
+        case "http://www.w3.org/2001/XMLSchema#string":
+            self = .string
+        case "http://www.w3.org/2001/XMLSchema#integer":
+            self = .integer
+        case "http://www.w3.org/2001/XMLSchema#float":
+            self = .float
+        case "http://www.w3.org/2001/XMLSchema#double":
+            self = .double
+        case "http://www.w3.org/2001/XMLSchema#decimal":
+            self = .decimal
+        default:
+            self = .custom(value)
+        }
+    }
+
+    public static func < (lhs: TermDataType, rhs: TermDataType) -> Bool {
+        return lhs.value < rhs.value
+    }
+}
+
 public enum TermType: Hashable {
     case blank
     case iri
     case language(String)
-    case datatype(String)
+    case datatype(TermDataType)
 }
 
 extension TermType {
@@ -338,7 +385,7 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
                 self.init(value: value, type: .language(lang))
             } else {
                 let dt = try container.decode(String.self, forKey: .datatype)
-                self.init(value: value, type: .datatype(dt))
+                self.init(value: value, type: .datatype(TermDataType(stringLiteral: dt)))
             }
         default:
             throw SPARQLSyntaxError.serializationError("Unexpected term type '\(type)' found")
@@ -357,7 +404,7 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         case .datatype(let dt):
             try container.encode("literal", forKey: .type)
             try container.encode(value, forKey: .value)
-            try container.encode(dt, forKey: .datatype)
+            try container.encode(dt.value, forKey: .datatype)
         case .language(let lang):
             try container.encode("literal", forKey: .type)
             try container.encode(value, forKey: .value)
