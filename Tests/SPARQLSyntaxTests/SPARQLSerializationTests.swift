@@ -555,7 +555,41 @@ class SPARQLSerializationTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
-
+    
+    func testAggregationHavingWithInternalBind() throws {
+        let sparql = """
+        PREFIX ex: <http://example.org/>
+        SELECT (sum(?oo) AS ?sum) {
+            ?s ex:value ?o
+            BIND(?o+1 AS ?oo)
+        }
+        HAVING (?sum > 10)
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            //                        print("===============")
+            //                        print("\(q.serialize())")
+            //                        print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT (SUM(?oo) AS ?sum) WHERE {
+                ?s <http://example.org/value> ?o .
+                BIND (?o + "1"^^<http://www.w3.org/2001/XMLSchema#integer> AS ?oo)
+            }
+            HAVING (?sum > "10"^^<http://www.w3.org/2001/XMLSchema#integer>)
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
     func testAggregationHavingUsingInlinedAgg() throws {
         let sparql = """
         PREFIX ex: <http://example.org/>
@@ -743,4 +777,43 @@ class SPARQLSerializationTests: XCTestCase {
             XCTFail("\(error)")
         }
     }
+
+    func testFilterBindSerialization() throws {
+        let filterExpr : Expression = .node(.bound(Term(string: "xyz")))
+        let bindExpr : Expression = .node(.bound(Term(iri: "http://example.org/")))
+        let algebra : Algebra = .distinct(
+            .project(
+                .filter(
+                    .extend(
+                        .joinIdentity,
+                        bindExpr,
+                        "s"
+                    ),
+                    filterExpr
+                ),
+                Set(["y", "s"])
+            )
+        )
+        let s = SPARQLSerializer()
+        do {
+            let q = try Query(form: .select(.variables(["y", "s"])), algebra: algebra, dataset: Dataset())
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT DISTINCT ?y ?s WHERE {
+                {
+                }
+                BIND (<http://example.org/> AS ?s)
+                FILTER ("xyz")
+            }
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
 }

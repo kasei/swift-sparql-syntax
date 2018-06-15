@@ -696,10 +696,10 @@ public extension Algebra {
     
     internal var variableExtensions: [String:Expression] {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_), .minus(_, _), .union(_, _), .aggregate(_), .leftOuterJoin(_), .service(_):
+        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_), .minus(_, _), .union(_, _), .aggregate(_), .leftOuterJoin(_), .service(_), .filter(_, _):
             return [:]
             
-        case .project(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .filter(let child, _):
+        case .project(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _):
             return child.variableExtensions
             
         case .innerJoin(let lhs, let rhs):
