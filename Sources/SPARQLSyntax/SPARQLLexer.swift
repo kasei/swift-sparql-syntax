@@ -480,10 +480,10 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    var hasRemainingContent: Bool {
+    public var hasRemainingContent: Bool {
         do {
             guard let c = try peekChar() else { return false }
-            print("has remaining content: <\(c)>")
+            // print("has remaining content: <\(c)>")
             return true
         } catch {
             return false
