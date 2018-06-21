@@ -63,7 +63,7 @@ public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomSt
         return "\(subject) \(predicate) \(object) ."
     }
     
-    func bind(_ variable: String, to replacement: Node) -> TriplePattern {
+    public func bind(_ variable: String, to replacement: Node) -> TriplePattern {
         let subject = self.subject.bind(variable, to: replacement)
         let predicate = self.predicate.bind(variable, to: replacement)
         let object = self.object.bind(variable, to: replacement)
