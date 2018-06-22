@@ -157,7 +157,7 @@ public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStri
         return "\(subject) \(predicate) \(object) \(graph)."
     }
     
-    func bind(_ variable: String, to replacement: Node) -> QuadPattern {
+    public func bind(_ variable: String, to replacement: Node) -> QuadPattern {
         let subject = self.subject.bind(variable, to: replacement)
         let predicate = self.predicate.bind(variable, to: replacement)
         let object = self.object.bind(variable, to: replacement)
