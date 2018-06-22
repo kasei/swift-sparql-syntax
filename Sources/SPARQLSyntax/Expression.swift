@@ -49,6 +49,14 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
     case call(String, [Expression])
     case exists(Algebra)
     
+    public init(variable name: String) {
+        self = .node(.variable(name, binding: true))
+    }
+    
+    public init(integer value: Int) {
+        self = .node(.bound(Term(integer: value)))
+    }
+    
     public var variables: Set<String> {
         switch self {
         case .node(.variable(let s, binding: _)):
