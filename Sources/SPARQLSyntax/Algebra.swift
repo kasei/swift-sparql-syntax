@@ -978,105 +978,105 @@ public extension Algebra {
                 let rewritten : Algebra = a
                 return (rewritten, true)
             case .distinct(let a):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .distinct(aa)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
             case .project(let a, let p):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .project(aa, p)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, false)
             case .order(let a, let cmps):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .order(aa, cmps)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, false)
             case .minus(let a, let b):
-                let (aa, ra) = try a._rewrite(map)
-                let (bb, rb) = try b._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
+                let (bb, rb) = try b._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .minus(aa, bb)
                 if allowReprocessing && (ra || rb) {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
-                return (rewritten, ra || rb)
+                return (rewritten, ra)
             case .union(let a, let b):
-                let (aa, ra) = try a._rewrite(map)
-                let (bb, rb) = try b._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
+                let (bb, rb) = try b._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .union(aa, bb)
                 if allowReprocessing && (ra || rb) {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
-                return (rewritten, ra || rb)
+                return (rewritten, ra)
             case .innerJoin(let a, let b):
-                let (aa, ra) = try a._rewrite(map)
-                let (bb, rb) = try b._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
+                let (bb, rb) = try b._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .innerJoin(aa, bb)
                 if allowReprocessing && (ra || rb) {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
-                return (rewritten, ra || rb)
+                return (rewritten, ra)
             case .leftOuterJoin(let a, let b, let expr):
-                let (aa, ra) = try a._rewrite(map)
-                let (bb, rb) = try b._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
+                let (bb, rb) = try b._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .leftOuterJoin(aa, bb, expr)
                 if allowReprocessing && (ra || rb) {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
-                return (rewritten, ra || rb)
+                return (rewritten, ra)
             case .extend(let a, let expr, let v):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .extend(aa, expr, v)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
             case .filter(let a, let expr):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .filter(aa, expr)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
             case .namedGraph(let a, let node):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .namedGraph(aa, node)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
             case .slice(let a, let offset, let limit):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .slice(aa, offset, limit)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
             case .service(let endpoint, let a, let silent):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .service(endpoint, aa, silent)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, false)
             case .aggregate(let a, let exprs, let aggs):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .aggregate(aa, exprs, aggs)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
             case .window(let a, let exprs, let funcs):
-                let (aa, ra) = try a._rewrite(map)
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .window(aa, exprs, funcs)
                 if allowReprocessing && ra {
-                    rewritten = try rewritten.rewrite(allowReprocessing: false, map)
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
             }
