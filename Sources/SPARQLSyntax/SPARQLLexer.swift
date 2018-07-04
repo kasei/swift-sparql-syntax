@@ -482,7 +482,7 @@ public class SPARQLLexer: IteratorProtocol {
     
     public var hasRemainingContent: Bool {
         do {
-            guard let c = try peekChar() else { return false }
+            guard let _ = try peekChar() else { return false }
             // print("has remaining content: <\(c)>")
             return true
         } catch {
