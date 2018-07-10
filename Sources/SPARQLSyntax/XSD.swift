@@ -38,8 +38,14 @@ public enum NumericValue: CustomStringConvertible {
         var v = value
         v.round(.toNearestOrAwayFromZero)
         switch self {
-        case .decimal(_):
-            return .decimal(Decimal(v))
+        case .decimal(var decimal):
+            #if os(macOS)
+            var rounded = Decimal()
+            NSDecimalRound(&rounded, &decimal, 0, .plain)
+            return .decimal(rounded)
+            #else
+            return .decimal(Decimal(v)) // might lose precision
+            #endif
         case .float(_):
             return .float(mantissa: v, exponent: 0)
         case .double(_):

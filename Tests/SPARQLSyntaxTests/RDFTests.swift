@@ -42,6 +42,27 @@ class RDFTest: XCTestCase {
         XCTAssertEqual(t.value, "7.1")
     }
     
+    func testDecimalRound1() {
+        let t = Term(decimal: 7.1)
+        let r = t.numeric!.round
+        guard case .decimal(let decimalValue) = r else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(decimalValue, 7.0)
+    }
+    
+    func testDecimalRound2() {
+        let decimal = Decimal(sign: .minus, exponent: -1, significand: 75) // -7.5
+        let t = Term(decimal: decimal)
+        let r = t.numeric!.round
+        guard case .decimal(let decimalValue) = r else {
+            XCTFail()
+            return
+        }
+        XCTAssertEqual(decimalValue, -8.0)
+    }
+    
     func testConstructorDecimal2() {
         let t = Term(value: "-017.10", type: .datatype(.decimal))
         XCTAssertEqual(t.value, "-17.1")
