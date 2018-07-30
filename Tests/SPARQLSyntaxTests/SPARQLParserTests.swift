@@ -11,6 +11,7 @@ extension SPARQLParserTests {
             ("testLexerPositionedTokens", testLexerPositionedTokens),
             ("testLexerSingleQuotedStrings", testLexerSingleQuotedStrings),
             ("testLexerDoubleQuotedStrings", testLexerDoubleQuotedStrings),
+            ("testLexerBalancing", testLexerBalancing),
             ("testProjectExpression", testProjectExpression),
             ("testSubSelect", testSubSelect),
             ("testBuiltinFunctionCallExpression", testBuiltinFunctionCallExpression),
@@ -830,6 +831,43 @@ class SPARQLParserTests: XCTestCase {
             XCTAssertEqual(silent, true)
         } catch let e {
             XCTFail("\(e)")
+        }
+    }
+    
+    func testLexerBalancing() throws {
+        let tests = [
+            "(": ("(?long < - 117.0)", 0),
+            "名": ("{ ?s ex:名前 ?name . }", 0),
+            "33": ("(?lat <= 33.0)", 0),
+            "20": ("", 0),
+            "30": ("(?lat >= (30.0 + 1))", 1),
+            "geo:long": ("{\n    ?s geo:lat ?lat ;\n        geo:long ?long ;\n    OPTIONAL { ?s ex:名前 ?name . }\n    FILTER(?long < - 117.0)\n    FILTER(?long > - 120.0)\n    FILTER(?lat >= (30.0 + 1))\n    FILTER(?lat <= 33.0)\n}", 0),
+        ]
+        
+        let sparql = """
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        PREFIX ex: <http://example.org/>
+        SELECT ?s ?name WHERE {
+            ?s geo:lat ?lat ;
+                geo:long ?long ;
+            OPTIONAL { ?s ex:名前 ?name . }
+            FILTER(?long < - 117.0)
+            FILTER(?long > - 120.0)
+            FILTER(?lat >= (30.0 + 1))
+            FILTER(?lat <= 33.0)
+        }
+        LIMIT 20
+        """
+        
+        for (patternString, data) in tests {
+            let balancedString = data.0
+            let depth = data.1
+            let range = sparql.range(of: patternString)!
+            let balancedRange = try SPARQLLexer.balancedRange(containing: range, in: sparql, level: depth)
+            let balanced = String(sparql[balancedRange])
+            XCTAssertEqual(balanced, balancedString)
+            print(balanced)
         }
     }
 }

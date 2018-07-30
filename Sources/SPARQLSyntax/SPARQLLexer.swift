@@ -1241,4 +1241,58 @@ public class SPARQLLexer: IteratorProtocol {
         }
         return s
     }
+    
+    public static func balancedRange(containing range: Range<String.Index>, in string: String, level: Int = 0) throws -> Range<String.Index> {
+        guard let data = string.data(using: .utf8) else { throw SPARQLSyntaxError.lexicalError("Cannot encode string as utf-8") }
+        let stream = InputStream(data: data)
+        stream.open()
+        let lexer = SPARQLLexer(source: stream)
+        
+        
+        var stack = [PositionedToken]()
+        let empty = string.startIndex..<string.startIndex
+        var balance = empty
+        var depth = level
+        let start = range.lowerBound
+        let end = range.upperBound
+
+        while let t = lexer.nextPositionedToken() {
+            let tokenEnd = string.index(string.startIndex, offsetBy: Int(t.endCharacter))
+            switch t.token {
+            case .lparen, .lbrace, .lbracket:
+                stack.append(t)
+            case .rparen, .rbrace, .rbracket:
+                guard let poppedToken = stack.popLast() else {
+                    throw lexer.lexError("Found unexpected closing \(t.token)")
+                }
+                var ok = false
+                switch (t.token, poppedToken.token) {
+                case (.rparen, .lparen), (.rbrace, .lbrace), (.rbracket, .lbracket):
+                    ok = true
+                default:
+                    break
+                }
+                
+                if !ok {
+                    throw lexer.lexError("Closing delimiter \(t.token) didn't match type of opening delimiter \(poppedToken.token)")
+                }
+                
+                let candidateStart = string.index(string.startIndex, offsetBy: Int(poppedToken.startCharacter))
+                let candidateEnd = tokenEnd
+                let candidate = candidateStart..<candidateEnd
+                if !(candidateStart == range.lowerBound && candidateEnd == range.upperBound) {
+                    if start >= candidateStart && end <= tokenEnd {
+                        balance = candidate
+                        if depth <= 0 {
+                            return balance
+                        }
+                        depth -= 1
+                    }
+                }
+            default:
+                break
+            }
+        }
+        return balance
+    }
 }
