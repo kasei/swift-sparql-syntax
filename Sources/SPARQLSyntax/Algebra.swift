@@ -758,10 +758,12 @@ public extension Algebra {
             return self
         }
     }
+    
     func replace(_ map: [String:Term]) throws -> Algebra {
         let a = try self.replace({ (e) -> Expression? in
             return try e.replace(map)
         })
+        
         return try a.replace({ (a) -> Algebra? in
             switch a {
             case .triple(let tp):
@@ -881,8 +883,31 @@ public extension Algebra {
                     )
                 }
                 return try .window(a.replace(map), exprs, funcs)
-
-
+            case let .table(nodes, rows):
+                let keepNodes = nodes.enumerated().compactMap { (data) -> (Int, Node)? in
+                    let n = data.element
+                    switch n {
+                    case .variable(let name, _):
+                        if let _ = map[name] {
+                            return nil
+                        } else {
+                            return data
+                        }
+                    default:
+                        return data
+                    }
+                }
+                
+                if keepNodes.count < nodes.count {
+                    let _nodes = keepNodes.map { $0.1 }
+                    let indexes = keepNodes.map { $0.0 }
+                    let _rows = rows.map { (terms) -> [Term?] in
+                        return indexes.map { terms[$0] }
+                    }
+                    return .table(_nodes, _rows)
+                } else {
+                    return .table(nodes, rows)
+                }
             }
         })
     }
