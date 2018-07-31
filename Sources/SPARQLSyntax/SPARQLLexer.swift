@@ -1241,6 +1241,55 @@ public class SPARQLLexer: IteratorProtocol {
         }
         return s
     }
+
+    public static func matchingDelimiterRange(for origRange: Range<String.Index>, in string: String) throws -> Range<String.Index>? {
+        let acceptable = Set(["]", "}", ")"])
+        let delimiter = String(string[origRange])
+        guard acceptable.contains(delimiter) else {
+            // TODO: this code only allows finding the opening delimiter to match a closing delimiter;
+            //       ideally we could find the balancing delimiter in either direction...
+            return nil
+        }
+        
+        guard let data = string.data(using: .utf8) else { throw SPARQLSyntaxError.lexicalError("Cannot encode string as utf-8") }
+
+        let stream = InputStream(data: data)
+        stream.open()
+        let lexer = SPARQLLexer(source: stream)
+        
+        var stack = [PositionedToken]()
+        let endBound = string.distance(from: string.startIndex, to: origRange.upperBound)
+        while let t = lexer.nextPositionedToken() {
+            if Int(t.endCharacter) > endBound {
+                return nil
+            }
+            
+            switch t.token {
+            case .lparen, .lbrace, .lbracket:
+                stack.append(t)
+            case .rparen, .rbrace, .rbracket:
+                guard let poppedToken = stack.popLast() else {
+                    throw lexer.lexError("Found unexpected closing \(t.token)")
+                }
+                switch (t.token, poppedToken.token) {
+                case (.rparen, .lparen), (.rbrace, .lbrace), (.rbracket, .lbracket):
+                    break
+                default:
+                    throw lexer.lexError("Closing delimiter \(t.token) didn't match type of opening delimiter \(poppedToken.token)")
+                }
+                
+                let candidateStart = string.index(string.startIndex, offsetBy: Int(poppedToken.startCharacter))
+                let endLowerBound = string.index(string.startIndex, offsetBy: Int(t.startCharacter))
+                if origRange.lowerBound == endLowerBound {
+                    let next = string.index(after: candidateStart)
+                    return candidateStart..<next
+                }
+            default:
+                break
+            }
+        }
+        return nil
+    }
     
     public static func balancedRange(containing range: Range<String.Index>, in string: String, level: Int = 0) throws -> Range<String.Index> {
         guard let data = string.data(using: .utf8) else { throw SPARQLSyntaxError.lexicalError("Cannot encode string as utf-8") }

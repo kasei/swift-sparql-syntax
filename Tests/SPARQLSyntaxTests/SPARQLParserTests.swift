@@ -12,6 +12,7 @@ extension SPARQLParserTests {
             ("testLexerSingleQuotedStrings", testLexerSingleQuotedStrings),
             ("testLexerDoubleQuotedStrings", testLexerDoubleQuotedStrings),
             ("testLexerBalancing", testLexerBalancing),
+            ("testLexerBalancedDelimiter", testLexerBalancedDelimiter),
             ("testProjectExpression", testProjectExpression),
             ("testSubSelect", testSubSelect),
             ("testBuiltinFunctionCallExpression", testBuiltinFunctionCallExpression),
@@ -868,6 +869,49 @@ class SPARQLParserTests: XCTestCase {
             let balanced = String(sparql[balancedRange])
             XCTAssertEqual(balanced, balancedString)
             print(balanced)
+        }
+    }
+
+    func testLexerBalancedDelimiter() throws {
+        let tests : [(leftOffset: Int?, rightOffset: Int, leftString: String, rightString: String)] = [
+            (245, 261, "(", ")"),
+            (310, 319, "(", ")"),
+            (152, 347, "{", "}"),
+            (nil, 222, "", "名") // not a delimiter
+        ]
+        let sparql = """
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        PREFIX ex: <http://example.org/>
+        SELECT ?s ?name WHERE {
+            ?s geo:lat ?lat ;
+                geo:long ?long ;
+            OPTIONAL { ?s ex:名前 ?name . }
+            FILTER(?long < - 117.0)
+            FILTER(?long > - 120.0)
+            FILTER(?lat >= (30.0 + 1))
+            FILTER(?lat <= 33.0)
+        }
+        LIMIT 20
+        """
+        
+        for data in tests {
+            let firstRight = sparql.index(sparql.startIndex, offsetBy: data.rightOffset)
+            let range = firstRight..<sparql.index(after: firstRight)
+            XCTAssertEqual(String(sparql[firstRight]), data.rightString)
+            XCTAssertEqual(String(sparql[range]), data.rightString)
+            let matching = try SPARQLLexer.matchingDelimiterRange(for: range, in: sparql)
+            
+            if let leftOffset = data.leftOffset {
+                XCTAssertNotNil(matching)
+                let opening = String(sparql[matching!])
+                XCTAssertEqual(opening, data.leftString)
+                let firstLeft = sparql.index(sparql.startIndex, offsetBy: leftOffset)
+                XCTAssert(String(sparql[firstLeft]) == String(data.leftString))
+                XCTAssertEqual(matching!, firstLeft..<sparql.index(after:firstLeft))
+            } else {
+                XCTAssertNil(matching)
+            }
         }
     }
 }
