@@ -15,6 +15,10 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "sparqllint",
+            dependencies: ["SPARQLSyntax"]
+        ),
+        .target(
             name: "sparql-parser",
             dependencies: ["SPARQLSyntax"]
         ),
