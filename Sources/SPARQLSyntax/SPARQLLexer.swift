@@ -270,7 +270,6 @@ public class SPARQLLexer: IteratorProtocol {
     var includeComments: Bool
     var source: InputStream
     var lookaheadBuffer: [UInt8]
-    var errorBuffer: String
     var string: String
     var stringPos: UInt
     var line: Int
@@ -458,7 +457,6 @@ public class SPARQLLexer: IteratorProtocol {
         self.source = source
         self.includeComments = includeComments
         self.lookaheadBuffer = []
-        self.errorBuffer = ""
         self.string = ""
         self.stringPos = 0
         self.line = 1
