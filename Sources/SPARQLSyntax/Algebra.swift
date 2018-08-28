@@ -11,117 +11,6 @@ public enum WindowFunction : String, Codable {
     case rank
 }
 
-public indirect enum PropertyPath: Hashable, Equatable {
-    case link(Term)
-    case inv(PropertyPath)
-    case nps([Term])
-    case alt(PropertyPath, PropertyPath)
-    case seq(PropertyPath, PropertyPath)
-    case plus(PropertyPath)
-    case star(PropertyPath)
-    case zeroOrOne(PropertyPath)
-}
-
-extension PropertyPath : Codable {
-    private enum CodingKeys: String, CodingKey {
-        case type
-        case link
-        case lhs
-        case rhs
-        case terms
-    }
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(String.self, forKey: .type)
-        switch type {
-        case "link":
-            let term = try container.decode(Term.self, forKey: .link)
-            self = .link(term)
-        case "inv":
-            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
-            self = .inv(pp)
-        case "nps":
-            let terms = try container.decode([Term].self, forKey: .terms)
-            self = .nps(terms)
-        case "alt":
-            let lhs = try container.decode(PropertyPath.self, forKey: .lhs)
-            let rhs = try container.decode(PropertyPath.self, forKey: .rhs)
-            self = .alt(lhs, rhs)
-        case "seq":
-            let lhs = try container.decode(PropertyPath.self, forKey: .lhs)
-            let rhs = try container.decode(PropertyPath.self, forKey: .rhs)
-            self = .seq(lhs, rhs)
-        case "plus":
-            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
-            self = .plus(pp)
-        case "star":
-            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
-            self = .star(pp)
-        case "zeroOrOne":
-            let pp = try container.decode(PropertyPath.self, forKey: .lhs)
-            self = .zeroOrOne(pp)
-        default:
-            throw SPARQLSyntaxError.serializationError("Unexpected property path type '\(type)' found")
-        }
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .link(let term):
-            try container.encode("link", forKey: .type)
-            try container.encode(term, forKey: .link)
-        case .inv(let pp):
-            try container.encode("inv", forKey: .type)
-            try container.encode(pp, forKey: .lhs)
-        case .nps(let terms):
-            try container.encode("nps", forKey: .type)
-            try container.encode(terms, forKey: .terms)
-        case let .alt(lhs, rhs):
-            try container.encode("alt", forKey: .type)
-            try container.encode(lhs, forKey: .lhs)
-            try container.encode(rhs, forKey: .rhs)
-        case let .seq(lhs, rhs):
-            try container.encode("seq", forKey: .type)
-            try container.encode(lhs, forKey: .lhs)
-            try container.encode(rhs, forKey: .rhs)
-        case .plus(let pp):
-            try container.encode("plus", forKey: .type)
-            try container.encode(pp, forKey: .lhs)
-        case .star(let pp):
-            try container.encode("star", forKey: .type)
-            try container.encode(pp, forKey: .lhs)
-        case .zeroOrOne(let pp):
-            try container.encode("zeroOrOne", forKey: .type)
-            try container.encode(pp, forKey: .lhs)
-        }
-    }
-}
-
-extension PropertyPath: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .link(let t):
-            return t.description
-        case .inv(let pp):
-            return "inv(\(pp))"
-        case .nps(let pp):
-            return "NPS(\(pp))"
-        case let .alt(lhs, rhs):
-            return "alt(\(lhs), \(rhs))"
-        case let .seq(lhs, rhs):
-            return "seq(\(lhs), \(rhs))"
-        case .plus(let pp):
-            return "oneOrMore(\(pp))"
-        case .star(let pp):
-            return "zeroOrMore(\(pp))"
-        case .zeroOrOne(let pp):
-            return "zeroOrOne(\(pp))"
-        }
-    }
-}
-
 public indirect enum Algebra : Hashable {
     public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
         public var ascending: Bool
@@ -982,6 +871,13 @@ public extension Algebra {
         }
     }
 
+    public func walk(_ handler: (Algebra) throws -> ()) throws {
+        _ = try rewrite { (a) -> RewriteStatus<Algebra> in
+            try handler(a)
+            return .rewriteChildren(a)
+        }
+    }
+    
     public func rewrite(allowReprocessing: Bool = true, _ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> Algebra {
         let (a, _) = try _rewrite(allowReprocessing: allowReprocessing, map)
         return a
