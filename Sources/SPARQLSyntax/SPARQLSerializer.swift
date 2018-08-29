@@ -430,6 +430,36 @@ extension QuadPattern {
 }
 
 extension PropertyPath {
+    private var sequenceTerms: [Term]? {
+        switch self {
+        case let .link(iri):
+            return [iri]
+        case let .seq(lhs, rhs):
+            if let l = lhs.sequenceTerms, let r = rhs.sequenceTerms {
+                return l + r
+            } else {
+                return nil
+            }
+        default:
+            return nil
+        }
+    }
+    
+    private var alternativeTerms: [Term]? {
+        switch self {
+        case let .link(iri):
+            return [iri]
+        case let .alt(lhs, rhs):
+            if let l = lhs.alternativeTerms, let r = rhs.alternativeTerms {
+                return l + r
+            } else {
+                return nil
+            }
+        default:
+            return nil
+        }
+    }
+    
     private var parenthesizedSparqlTokens: AnySequence<SPARQLToken> {
         switch self {
         case .link(_):
@@ -460,13 +490,25 @@ extension PropertyPath {
             }
             tokens.append(.rparen)
         case .alt(let lhs, let rhs):
-            tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
-            tokens.append(.or)
-            tokens.append(contentsOf: rhs.parenthesizedSparqlTokens)
+            if let terms = self.alternativeTerms {
+                tokens.append(.lparen)
+                tokens.append(contentsOf: terms.map { $0.sparqlTokens }.joined(separator: [.or]))
+                tokens.append(.rparen)
+            } else {
+                tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
+                tokens.append(.or)
+                tokens.append(contentsOf: rhs.parenthesizedSparqlTokens)
+            }
         case .seq(let lhs, let rhs):
-            tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
-            tokens.append(.slash)
-            tokens.append(contentsOf: rhs.parenthesizedSparqlTokens)
+            if let terms = self.sequenceTerms {
+                tokens.append(.lparen)
+                tokens.append(contentsOf: terms.map { $0.sparqlTokens }.joined(separator: [.slash]))
+                tokens.append(.rparen)
+            } else {
+                tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
+                tokens.append(.slash)
+                tokens.append(contentsOf: rhs.parenthesizedSparqlTokens)
+            }
         case .plus(let path):
             tokens.append(contentsOf: path.parenthesizedSparqlTokens)
             tokens.append(.plus)
