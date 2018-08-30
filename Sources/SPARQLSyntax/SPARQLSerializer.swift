@@ -491,9 +491,7 @@ extension PropertyPath {
             tokens.append(.rparen)
         case .alt(let lhs, let rhs):
             if let terms = self.alternativeTerms {
-                tokens.append(.lparen)
                 tokens.append(contentsOf: terms.map { $0.sparqlTokens }.joined(separator: [.or]))
-                tokens.append(.rparen)
             } else {
                 tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
                 tokens.append(.or)
@@ -501,9 +499,7 @@ extension PropertyPath {
             }
         case .seq(let lhs, let rhs):
             if let terms = self.sequenceTerms {
-                tokens.append(.lparen)
                 tokens.append(contentsOf: terms.map { $0.sparqlTokens }.joined(separator: [.slash]))
-                tokens.append(.rparen)
             } else {
                 tokens.append(contentsOf: lhs.parenthesizedSparqlTokens)
                 tokens.append(.slash)
