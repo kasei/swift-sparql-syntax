@@ -541,13 +541,30 @@ public class SPARQLLexer: IteratorProtocol {
                 bytes.append(charbuffer[0])
             }
             
+            let wsInts = Set<UInt8>([0x09, 0x0A, 0x0D, 0x20])
             if charbuffer[0] == 0x0a || charbuffer[0] == 0x0d {
-                if let s = String(bytes: bytes, encoding: .utf8) { // TODO: optimize performance
-                    let trimmed = s.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) // TODO: optimize performance
-                    if trimmed.hasSuffix("[") || trimmed.hasSuffix("(") {
-                        continue
+                var index = bytes.endIndex
+                while true {
+                    index = bytes.index(before: index)
+                    if wsInts.contains(bytes[index]) {
+                        if index == bytes.startIndex {
+                            break LOOP
+                        } else {
+                            continue
+                        }
+                    } else if bytes[index] == 0x5b || bytes[index] == 0x28 { // [ and (
+                        continue LOOP
+                    } else {
+                        break LOOP
                     }
                 }
+//                let ws = CharacterSet.whitespacesAndNewlines
+//                if let s = String(bytes: bytes, encoding: .utf8) { // TODO: optimize performance
+//                    let trimmed = s.trimmingCharacters(in: ws) // TODO: optimize performance
+//                    if trimmed.hasSuffix("[") || trimmed.hasSuffix("(") {
+//                        continue
+//                    }
+//                }
                 break
             }
         }
