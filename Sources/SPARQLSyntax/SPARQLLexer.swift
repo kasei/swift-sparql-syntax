@@ -920,13 +920,13 @@ public class SPARQLLexer: IteratorProtocol {
     
     func getPName() throws -> SPARQLToken? {
         let bufferLength = NSMakeRange(0, buffer.count)
-        let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
+        let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         guard ns_range.location == 0 else {
             // both the LN and NS branches start with a match of the NS regex, so ensure that it matches first
             return nil
         }
 
-        let ln_range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [], range: bufferLength)
+        let ln_range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if ln_range.location == 0 {
             var pname = try read(length: ln_range.length)
             if pname.contains("\\") {
