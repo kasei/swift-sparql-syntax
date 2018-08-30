@@ -594,7 +594,7 @@ public class SPARQLLexer: IteratorProtocol {
     // swiftlint:disable:next cyclomatic_complexity
     func _getToken() throws -> PositionedToken? {
         while true {
-            try fillBuffer()
+//            try fillBuffer()
             guard var c = try peekChar() else { return nil }
             
             self.startColumn = column
@@ -637,16 +637,20 @@ public class SPARQLLexer: IteratorProtocol {
             
             let bufferLength = NSMakeRange(0, buffer.count)
             
-            let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-            if nil_range.location == 0 {
-                try read(length: nil_range.length)
-                return packageToken(._nil)
+            if buffer.hasPrefix("(") {
+                let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+                if nil_range.location == 0 {
+                    try read(length: nil_range.length)
+                    return packageToken(._nil)
+                }
             }
             
-            let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-            if anon_range.location == 0 {
-                try read(length: anon_range.length)
-                return packageToken(.anon)
+            if buffer.hasPrefix("[") {
+                let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+                if anon_range.location == 0 {
+                    try read(length: anon_range.length)
+                    return packageToken(.anon)
+                }
             }
             
             switch c {
