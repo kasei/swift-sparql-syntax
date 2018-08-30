@@ -542,8 +542,8 @@ public class SPARQLLexer: IteratorProtocol {
             }
             
             if charbuffer[0] == 0x0a || charbuffer[0] == 0x0d {
-                if let s = String(bytes: bytes, encoding: .utf8) {
-                    let trimmed = s.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                if let s = String(bytes: bytes, encoding: .utf8) { // TODO: optimize performance
+                    let trimmed = s.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) // TODO: optimize performance
                     if trimmed.hasSuffix("[") || trimmed.hasSuffix("(") {
                         continue
                     }
@@ -635,9 +635,8 @@ public class SPARQLLexer: IteratorProtocol {
                 }
             }
             
-            let bufferLength = NSMakeRange(0, buffer.count)
-            
             if buffer.hasPrefix("(") {
+                let bufferLength = NSMakeRange(0, buffer.count)
                 let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
                 if nil_range.location == 0 {
                     try read(length: nil_range.length)
@@ -646,6 +645,7 @@ public class SPARQLLexer: IteratorProtocol {
             }
             
             if buffer.hasPrefix("[") {
+                let bufferLength = NSMakeRange(0, buffer.count)
                 let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
                 if anon_range.location == 0 {
                     try read(length: anon_range.length)
@@ -732,6 +732,23 @@ public class SPARQLLexer: IteratorProtocol {
                 break
             }
             
+            if c == "^" {
+                if buffer.hasPrefix("^^") {
+                    try read(word: "^^")
+                    return packageToken(.hathat)
+                } else {
+                    try read(word: "^")
+                    return packageToken(.hat)
+                }
+            }
+            
+            if buffer.hasPrefix("&&") {
+                try read(word: "&&")
+                return packageToken(.andand)
+            }
+            
+            let bufferLength = NSMakeRange(0, buffer.count)
+
             let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
             if double_range.location == 0 {
                 let value = try read(length: double_range.length)
@@ -748,21 +765,6 @@ public class SPARQLLexer: IteratorProtocol {
             if integer_range.location == 0 {
                 let value = try read(length: integer_range.length)
                 return packageToken(.integer(value))
-            }
-            
-            if c == "^" {
-                if buffer.hasPrefix("^^") {
-                    try read(word: "^^")
-                    return packageToken(.hathat)
-                } else {
-                    try read(word: "^")
-                    return packageToken(.hat)
-                }
-            }
-            
-            if buffer.hasPrefix("&&") {
-                try read(word: "&&")
-                return packageToken(.andand)
             }
             
             let token = try getKeyword()
