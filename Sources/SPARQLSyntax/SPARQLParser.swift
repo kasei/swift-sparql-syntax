@@ -65,7 +65,7 @@ public struct SPARQLParser {
     public var parseBlankNodesAsVariables: Bool
     var lexer: SPARQLLexer
     var prefixes: [String:String]
-    var bnodes: [String:Node]
+    var bnodes: [String:Term]
     var base: String?
     var tokenLookahead: SPARQLToken?
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
@@ -101,12 +101,12 @@ public struct SPARQLParser {
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
-    private mutating func bnode(named name: String? = nil) -> Node {
-        if let name = name, let node = self.bnodes[name] {
-            return node
+    private mutating func bnode(named name: String? = nil) -> Term {
+        if let name = name, let term = self.bnodes[name] {
+            return term
         } else {
             guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
-            let b: Node = .bound(Term(value: "b\(id)", type: .blank))
+            let b = Term(value: "b\(id)", type: .blank)
             if let name = name {
                 self.bnodes[name] = b
             }
@@ -847,15 +847,13 @@ public struct SPARQLParser {
     private mutating func parseDataBlockValues() throws -> [Term?] {
         var t = try peekExpectedToken()
         var values = [Term?]()
-        while t == .keyword("UNDEF") || t.isTerm {
-            if try attempt(token: .keyword("UNDEF")) {
+        let undef = SPARQLToken.keyword("UNDEF")
+        while t == undef || t.isTerm {
+            if try attempt(token: undef) {
                 values.append(nil)
             } else {
                 t = try nextExpectedToken()
-                let node = try tokenAsTerm(t)
-                guard case .bound(let term) = node else {
-                    throw parseError("Expecting term but got \(node)")
-                }
+                let term = try tokenAsTerm(t)
                 guard term.type != .blank else {
                     throw parseError("Blank nodes cannot appear in VALUES blocks")
                 }
@@ -1184,7 +1182,8 @@ public struct SPARQLParser {
     
     private mutating func parseBlankNodePropertyListPathAsNode() throws -> (Node, [Algebra]) {
         try expect(token: .lbracket)
-        let node: Node = bnode()
+        let term = bnode()
+        let node = Node.bound(term)
         let path = try parsePropertyListPathNotEmpty(for: node)
         try expect(token: .rbracket)
         return (node, path)
@@ -1218,7 +1217,7 @@ public struct SPARQLParser {
         }
         try expect(token: .rparen)
         
-        let bnode = self.bnode()
+        let bnode = Node.bound(self.bnode())
         var list = bnode
         
         let rdffirst = Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#first", type: .iri)
@@ -1234,7 +1233,7 @@ public struct SPARQLParser {
                     let triple = TriplePattern(subject: list, predicate: .bound(rdfrest), object: .bound(rdfnil))
                     patterns.append(triple)
                 } else {
-                    let newlist = self.bnode()
+                    let newlist = Node.bound(self.bnode())
                     let triple = TriplePattern(subject: list, predicate: .bound(rdfrest), object: newlist)
                     patterns.append(triple)
                     list = newlist
@@ -1262,7 +1261,7 @@ public struct SPARQLParser {
     
     private mutating func parseVarOrTerm() throws -> Node {
         let t = try nextExpectedToken()
-        return try tokenAsTerm(t)
+        return try tokenAsNode(t)
     }
     
     private mutating func parseVarOrIRI() throws -> Node {
@@ -1277,7 +1276,7 @@ public struct SPARQLParser {
     
     private mutating func parseVar() throws -> Node {
         let t = try nextExpectedToken()
-        let node = try tokenAsTerm(t)
+        let node = try tokenAsNode(t)
         guard case .variable(_) = node else {
             throw parseError("Expected variable but found \(node)")
         }
@@ -1691,10 +1690,7 @@ public struct SPARQLParser {
                 try expect(token: .keyword("SEPARATOR"))
                 try expect(token: .equals)
                 let t = try nextExpectedToken()
-                let node = try tokenAsTerm(t)
-                guard case .bound(let term) = node, case .datatype(.string) = term.type else {
-                    throw parseError("Expected GROUP_CONCAT SEPARATOR but found \(node)")
-                }
+                let term = try tokenAsTerm(t)
                 sep = term.value
             }
             let agg: Aggregation = .groupConcat(expr, sep, distinct)
@@ -1740,9 +1736,9 @@ public struct SPARQLParser {
     
     private mutating func parseIRI() throws -> Term {
         let t = try nextExpectedToken()
-        let node = try tokenAsTerm(t)
-        guard case .bound(let term) = node, case .iri = term.type else {
-            throw parseError("Bad path IRI: \(node)")
+        let term = try tokenAsTerm(t)
+        guard case .iri = term.type else {
+            throw parseError("Bad path IRI: \(term)")
         }
         return term
     }
@@ -1823,28 +1819,25 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func literalAsTerm(_ value: String) throws -> Node {
+    private mutating func literalAsTerm(_ value: String) throws -> Term {
         if try attempt(token: .hathat) {
             let t = try nextExpectedToken()
-            let dt = try tokenAsTerm(t)
-            guard case .bound(let dtterm) = dt else {
-                throw parseError("Expecting datatype but found '\(dt)'")
-            }
+            let dtterm = try tokenAsTerm(t)
             guard case .iri = dtterm.type else {
                 throw parseError("Expecting datatype IRI but found '\(dtterm)'")
             }
-            return .bound(Term(value: value, type: .datatype(TermDataType(stringLiteral: dtterm.value))))
+            return Term(value: value, type: .datatype(TermDataType(stringLiteral: dtterm.value)))
         } else {
             let t = try peekExpectedToken()
             if case .lang(let lang) = t {
                 let _ = try nextExpectedToken()
-                return .bound(Term(value: value, type: .language(lang)))
+                return Term(value: value, type: .language(lang))
             }
         }
-        return .bound(Term(value: value, type: .datatype(.string)))
+        return Term(string: value)
     }
     
-    private mutating func resolveIRI(value: String) throws -> Node {
+    private mutating func resolveIRI(value: String) throws -> Term {
         var iri = value
         if let base = base {
 //            print("Attempting to resolve IRI string '\(value)' against \(base)")
@@ -1853,15 +1846,13 @@ public struct SPARQLParser {
             }
             iri = i.absoluteString
         }
-        return .bound(Term(value: iri, type: .iri))
+        return Term(value: iri, type: .iri)
     }
-    
-    private mutating func tokenAsTerm(_ token: SPARQLToken) throws -> Node {
+
+    private mutating func tokenAsTerm(_ token: SPARQLToken) throws -> Term {
         switch token {
         case ._nil:
-            return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri))
-        case ._var(let name):
-            return .variable(name, binding: true)
+            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri)
         case .iri(let value):
             return try resolveIRI(value: value)
         case .prefixname(let pn, let ln):
@@ -1871,6 +1862,53 @@ public struct SPARQLParser {
             return try resolveIRI(value: ns + ln)
         case .anon:
             return bnode()
+        case .keyword("A"):
+            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)
+        case .boolean(let value):
+            return Term(value: value, type: .datatype(.boolean))
+        case .decimal(let value):
+            return Term(value: value, type: .datatype(.decimal))
+        case .double(let value):
+            return Term(value: value, type: .datatype(.double))
+        case .integer(let value):
+            return Term(value: value, type: .datatype(.integer))
+        case .bnode(let name):
+            return bnode(named: name)
+        case .string1d(let value), .string1s(let value), .string3d(let value), .string3s(let value):
+            return try literalAsTerm(value)
+        case .plus:
+            let t = try nextExpectedToken()
+            return try tokenAsTerm(t)
+        case .minus:
+            let t = try nextExpectedToken()
+            let term = try tokenAsTerm(t)
+            guard term.isNumeric, let value = term.numeric else {
+                throw parseError("Cannot negate \(term)")
+            }
+            let neg = .integer(0) - value
+            return neg.term
+        default:
+            throw parseError("Expecting term but got \(token)")
+        }
+    }
+    
+    private mutating func tokenAsNode(_ token: SPARQLToken) throws -> Node {
+        switch token {
+        case ._nil:
+            return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri))
+        case ._var(let name):
+            return .variable(name, binding: true)
+        case .iri(let value):
+            let term = try resolveIRI(value: value)
+            return .bound(term)
+        case .prefixname(let pn, let ln):
+            guard let ns = self.prefixes[pn] else {
+                throw parseError("Use of undeclared prefix '\(pn)'")
+            }
+            let term = try resolveIRI(value: ns + ln)
+            return .bound(term)
+        case .anon:
+            return .bound(bnode())
         case .keyword("A"):
             return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         case .boolean(let value):
@@ -1882,31 +1920,32 @@ public struct SPARQLParser {
         case .integer(let value):
             return .bound(Term(value: value, type: .datatype(.integer)))
         case .bnode(let name):
-            let node = bnode(named: name)
-            return node
+            let term = bnode(named: name)
+            return .bound(term)
         case .string1d(let value), .string1s(let value), .string3d(let value), .string3s(let value):
-            return try literalAsTerm(value)
+            let term = try literalAsTerm(value)
+            return .bound(term)
         case .plus:
             let t = try nextExpectedToken()
-            return try tokenAsTerm(t)
+            return try tokenAsNode(t)
         case .minus:
             let t = try nextExpectedToken()
-            let node = try tokenAsTerm(t)
-            guard case .bound(let term) = node, term.isNumeric, let value = term.numeric else {
-                throw parseError("Cannot negate \(node)")
+            let term = try tokenAsTerm(t)
+            guard term.isNumeric, let value = term.numeric else {
+                throw parseError("Cannot negate \(term)")
             }
             let neg = .integer(0) - value
             return .bound(neg.term)
         default:
-            throw parseError("Expecting term but got \(token)")
+            throw parseError("Expecting node but got \(token)")
         }
     }
     
     mutating private func parseInteger() throws -> Int {
         let l = try nextExpectedToken()
-        let t = try tokenAsTerm(l)
-        guard case .bound(let term) = t, case .datatype(.integer) = term.type else {
-            throw parseError("Expecting integer but found \(t)")
+        let term = try tokenAsTerm(l)
+        guard case .datatype(.integer) = term.type else {
+            throw parseError("Expecting integer but found \(term)")
         }
         guard let limit = Int(term.value) else {
             throw parseError("Failed to parse integer value from \(term)")
