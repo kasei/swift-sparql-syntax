@@ -816,4 +816,56 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
     
+    func testSequencePathParenthesizing_leftDeep() throws {
+        let subj: Node = .variable("s", binding: true)
+        let obj: Node = .variable("o", binding: true)
+        let pp: PropertyPath = .seq(
+            .link(Term(iri: "i1")),
+            .seq(
+                .link(Term(iri: "i2")),
+                .seq(
+                    .link(Term(iri: "i3")),
+                    .link(Term(iri: "i4"))
+                )
+            )
+        )
+        let algebra : Algebra = .path(subj, pp, obj)
+        do {
+            let query = try Query(form: .select(.star), algebra: algebra)
+            let s = SPARQLSerializer()
+            let sparql = s.serialize(try query.sparqlTokens())
+            let expected = "SELECT * WHERE { ?s <i1> / <i2> / <i3> / <i4> ?o . }"
+            
+            XCTAssertEqual(sparql, expected)
+        } catch {
+            XCTFail()
+        }
+    }
+    
+    func testAlternativePathParenthesizing_bushy() throws {
+        let subj: Node = .variable("s", binding: true)
+        let obj: Node = .variable("o", binding: true)
+        let pp: PropertyPath = .alt(
+            .alt(
+                .link(Term(iri: "i1")),
+                .link(Term(iri: "i2"))
+            ),
+            .alt(
+                .link(Term(iri: "i3")),
+                .link(Term(iri: "i4"))
+            )
+        )
+        let algebra : Algebra = .path(subj, pp, obj)
+        do {
+            let query = try Query(form: .select(.star), algebra: algebra)
+            let s = SPARQLSerializer()
+            let sparql = s.serialize(try query.sparqlTokens())
+            let expected = "SELECT * WHERE { ?s <i1> | <i2> | <i3> | <i4> ?o . }"
+            
+            XCTAssertEqual(sparql, expected)
+        } catch {
+            XCTFail()
+        }
+    }
+
 }
