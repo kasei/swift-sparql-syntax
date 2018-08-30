@@ -9,20 +9,21 @@
 import Foundation
 import SPARQLSyntax
 
-func data(fromFileOrString qfile: String) throws -> (Data, String?) {
+enum CLIError : Error {
+    case error(String)
+}
+
+func string(fromFileOrString qfile: String) throws -> (String, String?) {
     let url = URL(fileURLWithPath: qfile)
-    let data: Data
+    let string: String
     var base: String? = nil
     if case .some(true) = try? url.checkResourceIsReachable() {
-        data = try Data(contentsOf: url)
+        string = try String(contentsOf: url)
         base = url.absoluteString
     } else {
-        guard let s = qfile.data(using: .utf8) else {
-            fatalError("Could not interpret SPARQL query string as UTF-8")
-        }
-        data = s
+        string = qfile
     }
-    return (data, base)
+    return (string, base)
 }
 
 let argscount = CommandLine.arguments.count
@@ -32,13 +33,15 @@ if argscount == 1 {
     print("Usage: \(pname) [FLAGS] query.rq")
     print("")
     print("Flags:")
-    print("  -c    Use a concise, one-line output format for the query")
+    print("  -c    Read queries from standard input (one per line)")
     print("  -d    URL-decode the query before parsing")
+    print("  -l    Use a concise, one-line output format for the query")
     print("")
     exit(1)
 }
 guard let qfile = args.last else { fatalError("Missing query") }
 
+var stdin = false
 var pretty = true
 var unescape = false
 for f in args.dropFirst() {
@@ -47,6 +50,8 @@ for f in args.dropFirst() {
 
     switch f {
     case "-c":
+        stdin = true
+    case "-l":
         pretty = false
     case "-d":
         unescape = true
@@ -55,16 +60,28 @@ for f in args.dropFirst() {
     }
 }
 
-let (d, _) = try data(fromFileOrString: qfile)
-guard var sparql = String(data: d, encoding: .utf8) else { fatalError("Could not interpret SPARQL query string as UTF-8") }
-if unescape {
-    sparql = sparql.replacingOccurrences(of: "+", with: " ")
+let unescapeQuery : (String) throws -> String = unescape ? {
+    let sparql = $0.replacingOccurrences(of: "+", with: " ")
     if let s = sparql.removingPercentEncoding {
-        sparql = s
+        return s
     } else {
-        fatalError("Failed to URL percent decode SPARQL query")
+        let e = CLIError.error("Failed to URL percent decode SPARQL query")
+        throw e
     }
-}
+    } : { $0 }
+
+let sparql = try unescapeQuery(qfile)
 let s = SPARQLSerializer(prettyPrint: pretty)
-let l = s.reformat(sparql)
-print(l)
+if stdin {
+    while let line = readLine() {
+        let sparql = try unescapeQuery(line)
+        let l = s.reformat(sparql)
+        print(l)
+    }
+} else {
+    guard let arg = args.last else { fatalError("Missing query") }
+    let (query, _) = try string(fromFileOrString: arg)
+    let sparql = try unescapeQuery(query)
+    let l = s.reformat(sparql)
+    print(l)
+}
