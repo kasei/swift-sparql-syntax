@@ -518,7 +518,7 @@ public class SPARQLLexer: IteratorProtocol {
         var bytes = [UInt8]()
         var charbuffer: [UInt8] = [0]
         LOOP: while true {
-            let read = source.read(&charbuffer, maxLength: 1)
+            let read = source.read(&charbuffer, maxLength: 1) // TODO: optimize performance; can this code read more than one byte at a time from the inputsource?
             guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
             guard read > 0 else { break }
             
@@ -552,7 +552,7 @@ public class SPARQLLexer: IteratorProtocol {
                         } else {
                             continue
                         }
-                    } else if bytes[index] == 0x5b || bytes[index] == 0x28 { // [ and (
+                    } else if bytes[index] == 0x5b || bytes[index] == 0x28 { // '[' or '('
                         continue LOOP
                     } else {
                         break LOOP
@@ -619,7 +619,7 @@ public class SPARQLLexer: IteratorProtocol {
             self.startCharacter = character
             
             if c == " " || c == "\t" || c == "\n" || c == "\r" {
-                while c == " " || c == "\t" || c == "\n" || c == "\r" {
+                while c == " " || c == "\t" || c == "\n" || c == "\r" { // TODO: optimize performance
                     getChar()
                     if let cc = try peekChar() {
                         c = cc
@@ -766,22 +766,25 @@ public class SPARQLLexer: IteratorProtocol {
             
             let bufferLength = NSMakeRange(0, buffer.count)
 
-            let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-            if double_range.location == 0 {
-                let value = try read(length: double_range.length)
-                return packageToken(.double(value))
-            }
-            
-            let decimal_range = SPARQLLexer._decimalRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-            if decimal_range.location == 0 {
-                let value = try read(length: decimal_range.length)
-                return packageToken(.decimal(value))
-            }
-            
-            let integer_range = SPARQLLexer._integerRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-            if integer_range.location == 0 {
-                let value = try read(length: integer_range.length)
-                return packageToken(.integer(value))
+            let numberPrefix = CharacterSet(charactersIn: "0123456789.")
+            if numberPrefix.contains(us) {
+                let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+                if double_range.location == 0 {
+                    let value = try read(length: double_range.length)
+                    return packageToken(.double(value))
+                }
+                
+                let decimal_range = SPARQLLexer._decimalRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+                if decimal_range.location == 0 {
+                    let value = try read(length: decimal_range.length)
+                    return packageToken(.decimal(value))
+                }
+                
+                let integer_range = SPARQLLexer._integerRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+                if integer_range.location == 0 {
+                    let value = try read(length: integer_range.length)
+                    return packageToken(.integer(value))
+                }
             }
             
             let token = try getKeyword()
