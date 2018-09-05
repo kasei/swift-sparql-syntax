@@ -513,6 +513,16 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     func fillBuffer() throws {
+        /**
+         
+         This function ensures that, provided there is data available from the input source,
+         both of these conditions are satisfied upon returning:
+         
+         * self.buffer contains at least one line of data ending in either \x0A or \x0D
+         * ignoring the trailing newline, self.buffer does not end in an open parenthesis or square bracket
+           (this ensures that the regex for NIL and ANON can be matched after a single call to fillBuffer)
+         
+         **/
         guard source.hasBytesAvailable else { return }
         guard buffer.count == 0 else { return }
         var bytes = [UInt8]()
@@ -558,13 +568,6 @@ public class SPARQLLexer: IteratorProtocol {
                         break LOOP
                     }
                 }
-//                let ws = CharacterSet.whitespacesAndNewlines
-//                if let s = String(bytes: bytes, encoding: .utf8) { // TODO: optimize performance
-//                    let trimmed = s.trimmingCharacters(in: ws) // TODO: optimize performance
-//                    if trimmed.hasSuffix("[") || trimmed.hasSuffix("(") {
-//                        continue
-//                    }
-//                }
                 break
             }
         }
