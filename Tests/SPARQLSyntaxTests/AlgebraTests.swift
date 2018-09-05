@@ -6,13 +6,13 @@ import Foundation
 extension AlgebraTest {
     static var allTests : [(String, (AlgebraTest) -> () throws -> Void)] {
         return [
-            ("testReplacement1", testReplacement1),
-            ("testReplacement2", testReplacement2),
-            ("testJoinIdentityReplacement", testJoinIdentityReplacement),
-            ("testFilterExpressionReplacement", testFilterExpressionReplacement),
             ("testExpressionReplacement", testExpressionReplacement),
+            ("testFilterExpressionReplacement", testFilterExpressionReplacement),
+            ("testJoinIdentityReplacement", testJoinIdentityReplacement),
             ("testNodeBinding", testNodeBinding),
             ("testNodeBindingWithProjection", testNodeBindingWithProjection),
+            ("testReplacement1", testReplacement1),
+            ("testReplacement2", testReplacement2),
         ]
     }
 }

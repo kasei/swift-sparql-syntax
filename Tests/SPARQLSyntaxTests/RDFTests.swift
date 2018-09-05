@@ -6,14 +6,24 @@ import Foundation
 extension RDFTest {
     static var allTests : [(String, (RDFTest) -> () throws -> Void)] {
         return [
-            ("testConstructorInteger", testConstructorInteger),
             ("testConstructorDecimal", testConstructorDecimal),
             ("testConstructorDecimal2", testConstructorDecimal2),
-            ("testConstructorFloat", testConstructorFloat),
-            ("testConstructorFloat2", testConstructorFloat2),
             ("testConstructorDouble", testConstructorDouble),
             ("testConstructorDouble2", testConstructorDouble2),
             ("testConstructorDouble3", testConstructorDouble3),
+            ("testConstructorFloat", testConstructorFloat),
+            ("testConstructorFloat2", testConstructorFloat2),
+            ("testConstructorInteger", testConstructorInteger),
+            ("testDecimalRound1", testDecimalRound1),
+            ("testDecimalRound2", testDecimalRound2),
+            ("testQuadPattern_bindings", testQuadPattern_bindings),
+            ("testQuadPattern_matches", testQuadPattern_matches),
+            ("testQuadPattern_matches_shared_var", testQuadPattern_matches_shared_var),
+            ("testQuadPattern_matches_shared_var_nonbinding", testQuadPattern_matches_shared_var_nonbinding),
+            ("testTermJSON_Blank", testTermJSON_Blank),
+            ("testTermJSON_IRI", testTermJSON_IRI),
+            ("testTermJSON_LanguageLiteral", testTermJSON_LanguageLiteral),
+            ("testTermJSON_SimpleLiteral", testTermJSON_SimpleLiteral),
         ]
     }
 }

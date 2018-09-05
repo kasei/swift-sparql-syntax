@@ -6,12 +6,31 @@ import Foundation
 extension SPARQLSerializationTests {
     static var allTests : [(String, (SPARQLSerializationTest) -> () throws -> Void)] {
         return [
-            ("testProjectedSPARQLTokens", testProjectedSPARQLTokens),
+            ("testAggregationComplexGrouping", testAggregationComplexGrouping),
+            ("testAggregationExtend", testAggregationExtend),
+            ("testAggregationHaving", testAggregationHaving),
+            ("testAggregationHavingUsingInlinedAgg", testAggregationHavingUsingInlinedAgg),
+            ("testAggregationHavingWithInternalBind", testAggregationHavingWithInternalBind),
+            ("testAggregationSerialization", testAggregationSerialization),
+            ("testAggregationSerialization_2", testAggregationSerialization_2),
+            ("testAggregationSerialization_ComplexProjection", testAggregationSerialization_ComplexProjection),
+            ("testAlternativePathParenthesizing_bushy", testAlternativePathParenthesizing_bushy),
+            ("testBuiltInFunctions", testBuiltInFunctions),
+            ("testConstructWithExtensionSerialization", testConstructWithExtensionSerialization),
+            ("testFilterBindSerialization", testFilterBindSerialization),
             ("testNonProjectedSPARQLTokens", testNonProjectedSPARQLTokens),
+            ("testOrderByClause", testOrderByClause),
+            ("testPrecedenceParenthsesSerialization", testPrecedenceParenthsesSerialization),
+            ("testProjectedSPARQLTokens", testProjectedSPARQLTokens),
             ("testQueryModifiedSPARQLSerialization1", testQueryModifiedSPARQLSerialization1),
             ("testQueryModifiedSPARQLSerialization2", testQueryModifiedSPARQLSerialization2),
             ("testQuerySerializedTokens_1", testQuerySerializedTokens_1),
             ("testQuerySerializedTokens_2", testQuerySerializedTokens_2),
+            ("testQuerySerializedTokens_3", testQuerySerializedTokens_3),
+            ("testSelectExpressionSerialization", testSelectExpressionSerialization),
+            ("testSequencePathParenthesizing_leftDeep", testSequencePathParenthesizing_leftDeep),
+            ("testServiceExtend", testServiceExtend),
+            ("testValuesSerialization", testValuesSerialization),
         ]
     }
 }

@@ -6,10 +6,10 @@ import Foundation
 extension SPARQLReformattingTests {
     static var allTests : [(String, (SPARQLReformattingTests) -> () throws -> Void)] {
         return [
+            ("testReformat_extraContent", testReformat_extraContent),
+            ("testReformat_invalidToken", testReformat_invalidToken),
             ("testReformat_plain", testReformat_plain),
             ("testReformat_pretty", testReformat_pretty),
-            ("testReformat_invalidToken", testReformat_invalidToken),
-            ("testReformat_extraContent", testReformat_extraContent),
         ]
     }
 }

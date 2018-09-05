@@ -6,7 +6,9 @@ import SPARQLSyntax
 extension SPARQLParserTests {
     static var allTests : [(String, (SPARQLParserTest) -> () throws -> Void)] {
         return [
+            ("testMultipleRewrite", testMultipleRewrite),
             ("testNodeReplacement", testNodeReplacement),
+            ("testUpwardsRewrite", testUpwardsRewrite),
         ]
     }
 }

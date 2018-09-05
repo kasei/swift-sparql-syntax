@@ -6,9 +6,10 @@ import SPARQLSyntax
 extension IRITest {
     static var allTests : [(String, (IRITest) -> () throws -> Void)] {
         return [
-            ("testIRI_RelativeWithBase", testIRI_RelativeWithBase),
-            ("testIRI_FullPathWithBase", testIRI_FullPathWithBase),
             ("testIRI_AbsoluteWithBase", testIRI_AbsoluteWithBase),
+            ("testIRI_FragmentWithBase", testIRI_FragmentWithBase),
+            ("testIRI_FullPathWithBase", testIRI_FullPathWithBase),
+            ("testIRI_RelativeWithBase", testIRI_RelativeWithBase),
         ]
     }
 }
