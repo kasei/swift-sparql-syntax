@@ -872,9 +872,42 @@ public extension Algebra {
     }
 
     public func walk(_ handler: (Algebra) throws -> ()) throws {
-        _ = try rewrite { (a) -> RewriteStatus<Algebra> in
-            try handler(a)
-            return .rewriteChildren(a)
+        try handler(self)
+        switch self {
+        case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_), .subquery(_):
+            return
+        case .distinct(let a):
+            try a.walk(handler)
+        case .project(let a, _):
+            try a.walk(handler)
+        case .order(let a, _):
+            try a.walk(handler)
+        case .minus(let a, let b):
+            try a.walk(handler)
+            try b.walk(handler)
+        case .union(let a, let b):
+            try a.walk(handler)
+            try b.walk(handler)
+        case .innerJoin(let a, let b):
+            try a.walk(handler)
+            try b.walk(handler)
+        case .leftOuterJoin(let a, let b, _):
+            try a.walk(handler)
+            try b.walk(handler)
+        case .extend(let a, _, _):
+            try a.walk(handler)
+        case .filter(let a, _):
+            try a.walk(handler)
+        case .namedGraph(let a, _):
+            try a.walk(handler)
+        case .slice(let a, _, _):
+            try a.walk(handler)
+        case .service(_, let a, _):
+            try a.walk(handler)
+        case .aggregate(let a, _, _):
+            try a.walk(handler)
+        case .window(let a, _, _):
+            try a.walk(handler)
         }
     }
     
