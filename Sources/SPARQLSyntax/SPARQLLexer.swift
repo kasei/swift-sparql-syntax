@@ -1197,29 +1197,32 @@ public class SPARQLLexer: IteratorProtocol {
             }
         } else {
             try getChar(expecting: "\"")
-            while true {
-                if buffer.count == 0 {
-                    try fillBuffer()
+            if self.buffer.contains("\"") && !self.buffer.contains("\\") {
+                // fast path where the string is valid and doesn't have any escaped characters
+                let s = try self.read(until: "\"")
+                return .string1d(s)
+            } else {
+                while true { // TODO: optimize performance
                     if buffer.count == 0 {
                         throw lexError("Found EOF in string literal")
                     }
+                    
+                    guard let c = try peekChar() else {
+                        throw lexError("Found EOF in string literal")
+                    }
+                    
+                    if c == "\"" {
+                        break
+                    } else if c == "\\" {
+                        try chars.append(getEscapedChar())
+                    } else {
+                        let cc = getChar()
+                        chars.append(cc)
+                    }
                 }
-                
-                guard let c = try peekChar() else {
-                    throw lexError("Found EOF in string literal")
-                }
-                
-                if c == "\"" {
-                    break
-                } else if c == "\\" {
-                    try chars.append(getEscapedChar())
-                } else {
-                    let cc = getChar()
-                    chars.append(cc)
-                }
+                try getChar(expecting: "\"")
+                return .string1d(String(chars))
             }
-            try getChar(expecting: "\"")
-            return .string1d(String(chars))
         }
     }
     
@@ -1310,6 +1313,21 @@ public class SPARQLLexer: IteratorProtocol {
             self.column += 1
         }
         return c
+    }
+
+    func read(until end: Character) throws -> String {
+        try fillBuffer()
+        if let endIndex = buffer.firstIndex(of: end) {
+            let length = buffer.distance(from: buffer.startIndex, to: endIndex)
+            let s = try read(length: length)
+            getChar()
+            print(">>> '\(s)'")
+            return s
+        } else {
+            let s = buffer
+            buffer = ""
+            return s
+        }
     }
     
     func read(word: String) throws {
