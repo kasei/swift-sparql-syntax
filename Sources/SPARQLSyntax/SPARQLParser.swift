@@ -154,6 +154,16 @@ public struct SPARQLParser {
         }
     }
     
+    private mutating func peek<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
+        guard let t = peekToken() else { return nil }
+        for u in tokens {
+            if t == u {
+                return t
+            }
+        }
+        return nil
+    }
+    
     @discardableResult
     private mutating func attempt(token: SPARQLToken) throws -> Bool {
         if try peek(token: token) {
@@ -161,6 +171,15 @@ public struct SPARQLParser {
             return true
         } else {
             return false
+        }
+    }
+    
+    private mutating func attempt<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
+        if let t = try peek(any: tokens) {
+            nextToken()
+            return t
+        } else {
+            return nil
         }
     }
     
@@ -230,7 +249,7 @@ public struct SPARQLParser {
         var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
         
-        if try attempt(token: .keyword("DISTINCT")) || attempt(token: .keyword("REDUCED")) {
+        if let _ = try attempt(any: [.keyword("DISTINCT"), .keyword("REDUCED")]) {
             distinct = true
         }
         
@@ -417,7 +436,7 @@ public struct SPARQLParser {
         var aggregationExpressions = [String:Aggregation]()
         var projectExpressions = [(Expression, String)]()
         
-        if try attempt(token: .keyword("DISTINCT")) || attempt(token: .keyword("REDUCED")) {
+        if let _ = try attempt(any: [.keyword("DISTINCT"), .keyword("REDUCED")]) {
             distinct = true
         }
         
@@ -829,13 +848,17 @@ public struct SPARQLParser {
             try expect(token: .lbrace)
             var results = [[Term?]]()
             
-            while try peek(token: .lparen) || peek(token: ._nil) {
-                if try attempt(token: .lparen) {
+            //            while try peek(token: .lparen) || peek(token: ._nil) {
+            while let t = try attempt(any: [.lparen, ._nil]) {
+                switch t {
+                case .lparen:
                     let values = try parseDataBlockValues()
                     try expect(token: .rparen)
                     results.append(values)
-                } else {
-                    try expect(token: ._nil)
+                case ._nil:
+                    break
+                default:
+                    break
                 }
             }
             try expect(token: .rbrace)
