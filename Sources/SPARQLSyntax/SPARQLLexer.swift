@@ -727,22 +727,32 @@ public class SPARQLLexer: IteratorProtocol {
                     continue
                 }
             }
-            
-            if buffer.hasPrefix("(") {
-                let bufferLength = NSMakeRange(0, buffer.count)
-                let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-                if nil_range.location == 0 {
-                    try read(length: nil_range.length)
+
+            if c == "(" {
+                if buffer.hasPrefix("()") {
+                    try read(word: "()")
                     return packageToken(._nil)
+                } else {
+                    let bufferLength = NSMakeRange(0, buffer.count)
+                    let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+                    if nil_range.location == 0 {
+                        try read(length: nil_range.length)
+                        return packageToken(._nil)
+                    }
                 }
             }
             
-            if buffer.hasPrefix("[") {
-                let bufferLength = NSMakeRange(0, buffer.count)
-                let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-                if anon_range.location == 0 {
-                    try read(length: anon_range.length)
+            if c == "[" {
+                if buffer.hasPrefix("[]") {
+                    try read(word: "[]")
                     return packageToken(.anon)
+                } else {
+                    let bufferLength = NSMakeRange(0, buffer.count)
+                    let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+                    if anon_range.location == 0 {
+                        try read(length: anon_range.length)
+                        return packageToken(.anon)
+                    }
                 }
             }
             
@@ -793,7 +803,7 @@ public class SPARQLLexer: IteratorProtocol {
                 break
             }
             
-            let us = UnicodeScalar("\(c)")!
+            let us = c.unicodeScalars.first!
             if SPARQLLexer.pnCharsBase.contains(us) {
                 if let t = try getPName() {
                     return packageToken(t)
@@ -835,7 +845,7 @@ public class SPARQLLexer: IteratorProtocol {
                 }
             }
             
-            if buffer.hasPrefix("&&") {
+            if c == "&" && buffer.hasPrefix("&&") {
                 try read(word: "&&")
                 return packageToken(.andand)
             }
