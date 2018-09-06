@@ -1331,7 +1331,6 @@ public class SPARQLLexer: IteratorProtocol {
             let length = buffer.distance(from: buffer.startIndex, to: endIndex)
             let s = try read(length: length)
             getChar()
-            print(">>> '\(s)'")
             return s
         } else {
             let s = buffer
