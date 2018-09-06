@@ -367,10 +367,10 @@ public class SPARQLLexer: IteratorProtocol {
         return r
     }()
     
-    private static let _nilRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[(][ \r\n\t]*[)]", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+//    private static let _nilRegex: NSRegularExpression = {
+//        guard let r = try? NSRegularExpression(pattern: "[(][ \r\n\t]*[)]", options: []) else { fatalError("Failed to compile built-in regular expression") }
+//        return r
+//    }()
     
     private static let _doubleRegex: NSRegularExpression = {
         guard let r = try? NSRegularExpression(pattern: rDouble, options: []) else { fatalError("Failed to compile built-in regular expression") }
@@ -731,20 +731,28 @@ public class SPARQLLexer: IteratorProtocol {
             if c == "(" {
                 if buffer.hasPrefix("()") {
                     try read(word: "()")
+                } else if buffer.hasPrefix("( )") {
+                    try read(word: "( )")
                     return packageToken(._nil)
-                } else {
-                    let bufferLength = NSMakeRange(0, buffer.count)
-                    let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-                    if nil_range.location == 0 {
-                        try read(length: nil_range.length)
-                        return packageToken(._nil)
-                    }
+                } else if let length = buffer.nilRegexMatchLength {
+                    try read(length: length)
+                    return packageToken(._nil)
+
+//                    let bufferLength = NSMakeRange(0, buffer.count)
+//                    let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+//                    if nil_range.location == 0 {
+//                        try read(length: nil_range.length)
+//                        return packageToken(._nil)
+//                    }
                 }
             }
             
             if c == "[" {
                 if buffer.hasPrefix("[]") {
                     try read(word: "[]")
+                    return packageToken(.anon)
+                } else if buffer.hasPrefix("[ ]") {
+                    try read(word: "[ ]")
                     return packageToken(.anon)
                 } else {
                     let bufferLength = NSMakeRange(0, buffer.count)
@@ -1563,5 +1571,22 @@ extension String {
             }
         }
         return false
+    }
+    
+    internal var nilRegexMatchLength : Int? {
+        // [(][ \r\n\t]*[)]
+        guard self.first == .some("(") else { return nil }
+        var length = 0
+        for c in self.dropFirst() {
+            switch c {
+            case " ", "\r", "\n", "\t":
+                length += 1
+            case ")":
+                return 2+length
+            default:
+                return nil
+            }
+        }
+        return nil
     }
 }
