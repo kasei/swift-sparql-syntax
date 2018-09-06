@@ -431,6 +431,53 @@ public class SPARQLLexer: IteratorProtocol {
         return pn
     }()
     
+    internal static let variableNameStartChars: CharacterSet = {
+        var pn = CharacterSet()
+        pn.insert(charactersIn: "a"..."z")
+        pn.insert(charactersIn: "A"..."Z")
+        pn.insert(charactersIn: "0"..."9")
+        pn.insert("_")
+        
+        let ranges: [(Int, Int)] = [
+            (0xC0, 0xD6),
+            (0xD8, 0xF6),
+            (0xF8, 0x2FF),
+            (0x370, 0x37D),
+            (0x37F, 0x1FFF),
+            (0x200C, 0x200D),
+            (0x2070, 0x218F),
+            (0x2C00, 0x2FEF),
+            (0x3001, 0xD7FF),
+            (0xF900, 0xFDCF),
+            (0xFDF0, 0xFFFD),
+            (0x10000, 0xEFFFF),
+            ]
+        for bounds in ranges {
+            guard let mn = UnicodeScalar(bounds.0) else { fatalError("Failed to construct built-in CharacterSet") }
+            guard let mx = UnicodeScalar(bounds.1) else { fatalError("Failed to construct built-in CharacterSet") }
+            let range = mn...mx
+            pn.insert(charactersIn: range)
+        }
+        return pn
+    }()
+    
+    internal static let variableNameTailChars: CharacterSet = {
+        var pn = variableNameStartChars
+        
+        let ranges: [(Int, Int)] = [
+            (0x00B7, 0x00B7),
+            (0x0300, 0x036F),
+            (0x203F, 0x2040),
+            ]
+        for bounds in ranges {
+            guard let mn = UnicodeScalar(bounds.0) else { fatalError("Failed to construct built-in CharacterSet") }
+            guard let mx = UnicodeScalar(bounds.1) else { fatalError("Failed to construct built-in CharacterSet") }
+            let range = mn...mx
+            pn.insert(charactersIn: range)
+        }
+        return pn
+    }()
+    
     private static let pnCharsU: CharacterSet = {
         var pn = pnCharsBase
         pn.insert("_")
@@ -910,14 +957,11 @@ public class SPARQLLexer: IteratorProtocol {
     
     func getVariableOrQuestion() throws -> SPARQLToken? {
         dropChar()
-        let bufferLength = NSMakeRange(0, buffer.count)
-        let variable_range = SPARQLLexer._variableNameRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-        if variable_range.location == 0 {
-            let value = try read(length: variable_range.length)
-            return ._var(value)
+        if let length = buffer.variableRegexMatchLength {
+            let name = try read(length: length)
+            return ._var(name)
         } else {
             return .question
-//            throw lexError("Expecting variable name")
         }
     }
     
@@ -1588,5 +1632,24 @@ extension String {
             }
         }
         return nil
+    }
+    
+    internal var variableRegexMatchLength : Int? {
+        guard let first = self.first, let firstScalar = first.unicodeScalars.first else { return nil }
+        guard SPARQLLexer.variableNameStartChars.contains(firstScalar) else { return nil }
+        
+        var length = 0
+        for c in self.dropFirst() {
+            guard let scalar = c.unicodeScalars.first else {
+                return 1+length
+            }
+            
+            if SPARQLLexer.variableNameTailChars.contains(scalar) {
+                length += 1
+            } else {
+                break
+            }
+        }
+        return 1+length
     }
 }
