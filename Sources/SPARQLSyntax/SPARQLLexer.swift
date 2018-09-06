@@ -268,6 +268,7 @@ public struct PositionedToken {
 // swiftlint:disable:next type_body_length
 public class SPARQLLexer: IteratorProtocol {
     var blockSize: Int
+    var readbuffer : [UInt8]
     var includeComments: Bool
     var source: InputStream
     var string: String
@@ -461,6 +462,7 @@ public class SPARQLLexer: IteratorProtocol {
     
     public init(source: InputStream, includeComments: Bool = false) {
         self.blockSize = 128
+        self.readbuffer = [UInt8](repeatElement(0, count: blockSize))
         guard self.blockSize >= 8 else {
             fatalError("SPARQL Lexer read block size must be at least 8 bytes")
         }
@@ -529,12 +531,11 @@ public class SPARQLLexer: IteratorProtocol {
         guard source.hasBytesAvailable else { return 0 }
         var bytes = [UInt8]()
         bytes.reserveCapacity(blockSize)
-        var charbuffer = [UInt8](repeatElement(0, count: blockSize))
         LOOP: while true {
-            let read = source.read(&charbuffer, maxLength: blockSize)
+            let read = source.read(&readbuffer, maxLength: blockSize)
             guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
             guard read > 0 else { break }
-            var prefix = Array(charbuffer.prefix(read))
+            var prefix = Array(readbuffer.prefix(read))
             
             var index = prefix.startIndex
             while index != prefix.endIndex {
@@ -546,10 +547,10 @@ public class SPARQLLexer: IteratorProtocol {
                     // backslash; check for \u or \U escapes
                     
                     if index == prefix.endIndex {
-                        let read = source.read(&charbuffer, maxLength: blockSize)
+                        let read = source.read(&readbuffer, maxLength: blockSize)
                         guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
                         guard read > 0 else { throw lexError("Input is not long enough to decode escape") }
-                        prefix.append(contentsOf: charbuffer.prefix(read))
+                        prefix.append(contentsOf: readbuffer.prefix(read))
                     }
                     
                     let type = prefix[index]
@@ -559,19 +560,19 @@ public class SPARQLLexer: IteratorProtocol {
                     switch type {
                     case 0x75: // \u
                         if prefix.index(index, offsetBy: 4, limitedBy: prefix.endIndex) == prefix.endIndex {
-                            let read = source.read(&charbuffer, maxLength: blockSize)
+                            let read = source.read(&readbuffer, maxLength: blockSize)
                             guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
                             guard read > 0 else { throw lexError("Input is not long enough to decode escape") }
-                            prefix.append(contentsOf: charbuffer.prefix(read))
+                            prefix.append(contentsOf: readbuffer.prefix(read))
                         }
                         guard prefix.distance(from: index, to: prefix.endIndex) >= 4 else { throw lexError("Input is not long enough to decode escape") }
                         try bytes.append(contentsOf: parseUnicodeEscape(length: 4, escapedBytes: prefix, index: &index))
                     case 0x55: // \U
                         if prefix.index(index, offsetBy: 8, limitedBy: prefix.endIndex) == prefix.endIndex {
-                            let read = source.read(&charbuffer, maxLength: blockSize)
+                            let read = source.read(&readbuffer, maxLength: blockSize)
                             guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
                             guard read > 0 else { throw lexError("Input is not long enough to decode escape") }
-                            prefix.append(contentsOf: charbuffer.prefix(read))
+                            prefix.append(contentsOf: readbuffer.prefix(read))
                         }
                         guard prefix.distance(from: index, to: prefix.endIndex) >= 8 else { throw lexError("Input is not long enough to decode escape") }
                         try bytes.append(contentsOf: parseUnicodeEscape(length: 8, escapedBytes: prefix, index: &index))
@@ -696,8 +697,7 @@ public class SPARQLLexer: IteratorProtocol {
             
             if c == " " || c == "\t" || c == "\n" || c == "\r" {
                 while c == " " || c == "\t" || c == "\n" || c == "\r" { // TODO: optimize performance
-                    getChar()
-                    if let cc = try peekChar() {
+                    if let cc = dropAndPeekChar() {
                         c = cc
                     } else {
                         return nil
@@ -758,46 +758,46 @@ public class SPARQLLexer: IteratorProtocol {
             
             switch c {
             case ",":
-                getChar()
+                dropChar()
                 return packageToken(.comma)
             case ".":
-                getChar()
+                dropChar()
                 return packageToken(.dot)
             case "=":
-                getChar()
+                dropChar()
                 return packageToken(.equals)
             case "{":
-                getChar()
+                dropChar()
                 return packageToken(.lbrace)
             case "[":
-                getChar()
+                dropChar()
                 return packageToken(.lbracket)
             case "(":
-                getChar()
+                dropChar()
                 return packageToken(.lparen)
             case "-":
-                getChar()
+                dropChar()
                 return packageToken(.minus)
             case "+":
-                getChar()
+                dropChar()
                 return packageToken(.plus)
             case "}":
-                getChar()
+                dropChar()
                 return packageToken(.rbrace)
             case "]":
-                getChar()
+                dropChar()
                 return packageToken(.rbracket)
             case ")":
-                getChar()
+                dropChar()
                 return packageToken(.rparen)
             case ";":
-                getChar()
+                dropChar()
                 return packageToken(.semicolon)
             case "/":
-                getChar()
+                dropChar()
                 return packageToken(.slash)
             case "*":
-                getChar()
+                dropChar()
                 return packageToken(.star)
             default:
                 break
@@ -901,7 +901,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     func getVariableOrQuestion() throws -> SPARQLToken? {
-        getChar()
+        dropChar()
         let bufferLength = NSMakeRange(0, buffer.count)
         let variable_range = SPARQLLexer._variableNameRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if variable_range.location == 0 {
@@ -944,7 +944,7 @@ public class SPARQLLexer: IteratorProtocol {
                 }
                 
                 if c == "'" {
-                    getChar()
+                    dropChar()
                     quote_count += 1
                 } else {
                     if quote_count > 0 {
@@ -1135,7 +1135,7 @@ public class SPARQLLexer: IteratorProtocol {
             try getChar(expecting: "<")
             guard let c = try peekChar() else { throw lexError("Expecting relational expression near EOF") }
             if c == "=" {
-                getChar()
+                dropChar()
                 return .le
             } else {
                 return .lt
@@ -1144,7 +1144,7 @@ public class SPARQLLexer: IteratorProtocol {
             try getChar(expecting: ">")
             guard let c = try peekChar() else { throw lexError("Expecting relational expression near EOF") }
             if c == "=" {
-                getChar()
+                dropChar()
                 return .ge
             } else {
                 return .gt
@@ -1183,7 +1183,7 @@ public class SPARQLLexer: IteratorProtocol {
                 }
                 
                 if c == "\"" {
-                    getChar()
+                    dropChar()
                     quote_count += 1
                 } else {
                     if quote_count > 0 {
@@ -1207,7 +1207,7 @@ public class SPARQLLexer: IteratorProtocol {
             }
         } else {
             try getChar(expecting: "\"")
-            if self.buffer.contains("\"") && !self.buffer.contains("\\") {
+            if self.buffer.hasSimpleDoubleStringPrefix {
                 // fast path where the string is valid and doesn't have any escaped characters
                 let s = try self.read(until: "\"")
                 return .string1d(s)
@@ -1267,12 +1267,64 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
+//    func dropWhitespace() throws {
+//        repeat {
+//            if buffer.count == 0 {
+//                try fillBuffer()
+//            }
+//
+//            let prefix = buffer.prefix { (c : Character) -> Bool in
+//                return c == " " || c == "\t" || c == "\n" || c == "\r"
+//            }
+//
+//            if prefix.count == 0 {
+//                break
+//            } else {
+//                try read(length: prefix.count)
+//                if buffer.count > 0 {
+//                    // we read whitespace, and there is still more (non-whitespace) content available
+//                    break
+//                }
+//            }
+//        } while true
+//    }
+    
+    @discardableResult
+    func dropAndPeekChar() -> Character? {
+        let c = buffer.first!
+        buffer = String(buffer.dropFirst())
+        
+        //        buffer = String(buffer[buffer.index(buffer.startIndex, offsetBy: 1)...])
+        self.character += 1
+        if c == "\n" {
+            self.line += 1
+            self.column = 1
+        } else {
+            self.column += 1
+        }
+        return buffer.first
+    }
+    
+    func dropChar() {
+        let c = buffer.first!
+        buffer = String(buffer.dropFirst())
+        
+        //        buffer = String(buffer[buffer.index(buffer.startIndex, offsetBy: 1)...])
+        self.character += 1
+        if c == "\n" {
+            self.line += 1
+            self.column = 1
+        } else {
+            self.column += 1
+        }
+    }
+    
     @discardableResult
     func getChar() -> Character {
         let c = buffer.first!
         buffer = String(buffer.dropFirst())
-
-//        buffer = String(buffer[buffer.index(buffer.startIndex, offsetBy: 1)...])
+        
+        //        buffer = String(buffer[buffer.index(buffer.startIndex, offsetBy: 1)...])
         self.character += 1
         if c == "\n" {
             self.line += 1
@@ -1330,7 +1382,7 @@ public class SPARQLLexer: IteratorProtocol {
         if let endIndex = buffer.firstIndex(of: end) {
             let length = buffer.distance(from: buffer.startIndex, to: endIndex)
             let s = try read(length: length)
-            getChar()
+            dropChar()
             return s
         } else {
             let s = buffer
@@ -1340,7 +1392,9 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     func read(word: String) throws {
-        try fillBuffer()
+        if buffer.count == 0 {
+            try fillBuffer()
+        }
         if buffer.count < word.count {
             throw lexError("Expecting '\(word)' but not enough read-ahead data available")
         }
@@ -1364,7 +1418,9 @@ public class SPARQLLexer: IteratorProtocol {
     
     @discardableResult
     func read(length: Int) throws -> String {
-        try fillBuffer()
+        if buffer.count == 0 {
+            try fillBuffer()
+        }
         let utf16 = buffer.utf16
         if buffer.utf16.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
@@ -1491,5 +1547,21 @@ public class SPARQLLexer: IteratorProtocol {
             }
         }
         return balance
+    }
+}
+
+extension String {
+    internal var hasSimpleDoubleStringPrefix : Bool {
+        for c in self {
+            switch c {
+            case "\\":
+                return false
+            case "\"":
+                return true
+            default:
+                continue
+            }
+        }
+        return false
     }
 }
