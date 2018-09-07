@@ -1478,28 +1478,29 @@ public class SPARQLLexer: IteratorProtocol {
             try fillBuffer()
         }
         let utf16 = buffer.utf16
-        if buffer.utf16.count < length {
+        if utf16.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
         }
         
         let index = utf16.index(utf16.startIndex, offsetBy: length)
-        guard let s = String(utf16[..<index]) else {
-            throw lexError("Invalid utf16 sequence found while reading bytes")
-        }
+        let s = utf16[..<index]
         guard let b = String(utf16[index...]) else {
             throw lexError("Invalid utf16 sequence found while reading bytes")
         }
         buffer = b
         self.character += UInt(length)
         for c in s {
-            if c == "\n" {
+            if c == 0x0A { // "\n"
                 self.line += 1
                 self.column = 1
             } else {
                 self.column += 1
             }
         }
-        return s
+        guard let str = String(s) else {
+            throw lexError("Invalid utf16 sequence found while reading bytes")
+        }
+        return str
     }
 
     public static func matchingDelimiterRange(for origRange: Range<String.Index>, in string: String) throws -> Range<String.Index>? {
