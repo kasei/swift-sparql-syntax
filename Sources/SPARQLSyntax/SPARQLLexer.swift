@@ -403,7 +403,7 @@ public class SPARQLLexer: IteratorProtocol {
     }()
     
     // PN_CHARS_BASE
-    private static let pnCharsBase: CharacterSet = {
+    internal static let pnCharsBase: CharacterSet = {
         var pn = CharacterSet()
         pn.insert(charactersIn: "a"..."z")
         pn.insert(charactersIn: "A"..."Z")
@@ -484,7 +484,7 @@ public class SPARQLLexer: IteratorProtocol {
         return pn
     }()
     
-    private static let pnChars: CharacterSet = {
+    internal static let pnChars: CharacterSet = {
         var pn = pnCharsU
         pn.insert("-")
         pn.insert(charactersIn: "0"..."9")
@@ -743,7 +743,7 @@ public class SPARQLLexer: IteratorProtocol {
             self.startCharacter = character
             
             if c == " " || c == "\t" || c == "\n" || c == "\r" {
-                while c == " " || c == "\t" || c == "\n" || c == "\r" { // TODO: optimize performance
+                while c == " " || c == "\t" || c == "\n" || c == "\r" {
                     if let cc = dropAndPeekChar() {
                         c = cc
                     } else {
@@ -778,6 +778,7 @@ public class SPARQLLexer: IteratorProtocol {
             if c == "(" {
                 if buffer.hasPrefix("()") {
                     try read(word: "()")
+                    return packageToken(._nil)
                 } else if buffer.hasPrefix("( )") {
                     try read(word: "( )")
                     return packageToken(._nil)
@@ -858,13 +859,6 @@ public class SPARQLLexer: IteratorProtocol {
                 break
             }
             
-            let us = c.unicodeScalars.first!
-            if SPARQLLexer.pnCharsBase.contains(us) {
-                if let t = try getPName() {
-                    return packageToken(t)
-                }
-            }
-            
             switch c {
             case "@":
                 return try packageToken(getLanguage())
@@ -898,11 +892,16 @@ public class SPARQLLexer: IteratorProtocol {
                     try read(word: "^")
                     return packageToken(.hat)
                 }
-            }
-            
-            if c == "&" && buffer.hasPrefix("&&") {
+            } else if c == "&" && buffer.hasPrefix("&&") {
                 try read(word: "&&")
                 return packageToken(.andand)
+            }
+            
+            let us = c.unicodeScalars.first!
+            if SPARQLLexer.pnCharsBase.contains(us) {
+                if let t = try getPName() {
+                    return packageToken(t)
+                }
             }
             
             let bufferLength = NSMakeRange(0, buffer.count)
@@ -1082,12 +1081,16 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     func getPName() throws -> SPARQLToken? {
-        let bufferLength = NSMakeRange(0, buffer.count)
-        let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-        guard ns_range.location == 0 else {
+        guard let _ = buffer.pnameNS else { // TOOD: optimize performance; once we've matched the NS, finding out if the LN pattern matches shouldn't require the full NS pattern prefix again
             // both the LN and NS branches start with a match of the NS regex, so ensure that it matches first
             return nil
         }
+        let bufferLength = NSMakeRange(0, buffer.count)
+//        let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
+//        guard ns_range.location == 0 else {
+//            // both the LN and NS branches start with a match of the NS regex, so ensure that it matches first
+//            return nil
+//        }
 
         let ln_range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if ln_range.location == 0 {
@@ -1118,6 +1121,7 @@ public class SPARQLLexer: IteratorProtocol {
             }
             return .prefixname(values[0], values[1])
         } else {
+            let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
             if ns_range.location == 0 {
                 let pname = try read(length: ns_range.length)
                 let values = pname.components(separatedBy: ":")
@@ -1264,7 +1268,7 @@ public class SPARQLLexer: IteratorProtocol {
                 let s = try self.read(until: "\"")
                 return .string1d(s)
             } else {
-                while true { // TODO: optimize performance
+                while true {
                     if buffer.count == 0 {
                         throw lexError("Found EOF in string literal")
                     }
@@ -1651,5 +1655,45 @@ extension String {
             }
         }
         return 1+length
+    }
+    
+    internal var pnameNS : String? {
+        // If this string's prefix matches the PNAME_NS pattern, return the captured PN_PREFIX string;
+        // otherwise return nil
+        
+        // PNAME_NS = PN_PREFIX? ':'
+        // PN_PREFIX = PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
+        // PN_CHARS_BASE = { pnCharsBase: CharacterSet }
+        // PN_CHARS = PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
+        // PN_CHARS_U = PN_CHARS_BASE | '_'
+        
+        // PNAME_NS matches:
+        // - ':'
+        // or
+        // - pnCharsBase and then ':'
+        // or
+        // - pnCharsBase and then any number of (PN_CHARS or '.') and then pnCharsBase and then ':'
+        
+        var length = 0
+        for c in self {
+            guard let scalar = c.unicodeScalars.first else { return nil }
+            switch c {
+            case ":":
+                let start = self.startIndex
+                guard let end = self.index(start, offsetBy: length, limitedBy: self.endIndex) else { return nil }
+                let pname = self[start..<end]
+//                print("got pname: \(pname)")
+                return String(pname)
+            case _ where length == 0 && SPARQLLexer.pnCharsBase.contains(scalar):
+                length += 1
+            case "." where length > 0:
+                length += 1
+            case _ where length > 0 && SPARQLLexer.pnChars.contains(scalar):
+                length += 1
+            default:
+                return nil
+            }
+        }
+        return nil
     }
 }
