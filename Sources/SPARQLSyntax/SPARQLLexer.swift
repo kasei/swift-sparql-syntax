@@ -784,8 +784,9 @@ public class SPARQLLexer: IteratorProtocol {
                     continue
                 }
             }
-
-            if c == "(" {
+            
+            switch c {
+            case "(":
                 if buffer.hasPrefix("()") {
                     try read(word: "()")
                     return packageToken(._nil)
@@ -795,10 +796,11 @@ public class SPARQLLexer: IteratorProtocol {
                 } else if let length = buffer.nilRegexMatchLength {
                     try readWithoutFillingBuffer(length: length)
                     return packageToken(._nil)
+                } else {
+                    dropChar()
+                    return packageToken(.lparen)
                 }
-            }
-            
-            if c == "[" {
+            case "[":
                 if buffer.hasPrefix("[]") {
                     try read(word: "[]")
                     return packageToken(.anon)
@@ -813,9 +815,9 @@ public class SPARQLLexer: IteratorProtocol {
                         return packageToken(.anon)
                     }
                 }
-            }
-            
-            switch c {
+
+                dropChar()
+                return packageToken(.lbracket)
             case ",":
                 dropChar()
                 return packageToken(.comma)
@@ -828,12 +830,6 @@ public class SPARQLLexer: IteratorProtocol {
             case "{":
                 dropChar()
                 return packageToken(.lbrace)
-            case "[":
-                dropChar()
-                return packageToken(.lbracket)
-            case "(":
-                dropChar()
-                return packageToken(.lparen)
             case "-":
                 dropChar()
                 return packageToken(.minus)
@@ -902,9 +898,8 @@ public class SPARQLLexer: IteratorProtocol {
                 }
             }
             
-            let bufferLength = NSMakeRange(0, buffer.count)
-
             if SPARQLLexer.numberPrefix.contains(us) {
+                let bufferLength = NSMakeRange(0, buffer.count)
                 let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
                 if double_range.location == 0 {
                     let value = try readWithoutFillingBuffer(length: double_range.length)
