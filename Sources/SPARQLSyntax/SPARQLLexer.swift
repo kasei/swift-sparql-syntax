@@ -793,15 +793,8 @@ public class SPARQLLexer: IteratorProtocol {
                     try read(word: "( )")
                     return packageToken(._nil)
                 } else if let length = buffer.nilRegexMatchLength {
-                    try read(length: length)
+                    try readWithoutFillingBuffer(length: length)
                     return packageToken(._nil)
-
-//                    let bufferLength = NSMakeRange(0, buffer.count)
-//                    let nil_range = SPARQLLexer._nilRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-//                    if nil_range.location == 0 {
-//                        try read(length: nil_range.length)
-//                        return packageToken(._nil)
-//                    }
                 }
             }
             
@@ -816,7 +809,7 @@ public class SPARQLLexer: IteratorProtocol {
                     let bufferLength = NSMakeRange(0, buffer.count)
                     let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
                     if anon_range.location == 0 {
-                        try read(length: anon_range.length)
+                        try readWithoutFillingBuffer(length: anon_range.length)
                         return packageToken(.anon)
                     }
                 }
@@ -914,19 +907,19 @@ public class SPARQLLexer: IteratorProtocol {
             if SPARQLLexer.numberPrefix.contains(us) {
                 let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
                 if double_range.location == 0 {
-                    let value = try read(length: double_range.length)
+                    let value = try readWithoutFillingBuffer(length: double_range.length)
                     return packageToken(.double(value))
                 }
                 
                 let decimal_range = SPARQLLexer._decimalRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
                 if decimal_range.location == 0 {
-                    let value = try read(length: decimal_range.length)
+                    let value = try readWithoutFillingBuffer(length: decimal_range.length)
                     return packageToken(.decimal(value))
                 }
                 
                 let integer_range = SPARQLLexer._integerRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
                 if integer_range.location == 0 {
-                    let value = try read(length: integer_range.length)
+                    let value = try readWithoutFillingBuffer(length: integer_range.length)
                     return packageToken(.integer(value))
                 }
             }
@@ -940,7 +933,7 @@ public class SPARQLLexer: IteratorProtocol {
         let bufferLength = NSMakeRange(0, buffer.count)
         let keyword_range = SPARQLLexer._keywordRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if keyword_range.location == 0 {
-            let value = try read(length: keyword_range.length)
+            let value = try readWithoutFillingBuffer(length: keyword_range.length)
             return .keyword(value.uppercased())
         }
         
@@ -952,7 +945,7 @@ public class SPARQLLexer: IteratorProtocol {
         
         let bool_range = SPARQLLexer._booleanRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if bool_range.location == 0 {
-            let value = try read(length: bool_range.length)
+            let value = try readWithoutFillingBuffer(length: bool_range.length)
             return .boolean(value.lowercased())
         }
         
@@ -962,7 +955,7 @@ public class SPARQLLexer: IteratorProtocol {
     func getVariableOrQuestion() throws -> SPARQLToken? {
         dropChar()
         if let length = buffer.variableRegexMatchLength {
-            let name = try read(length: length)
+            let name = try readWithoutFillingBuffer(length: length)
             return ._var(name)
         } else {
             return .question
@@ -1099,7 +1092,7 @@ public class SPARQLLexer: IteratorProtocol {
 
         let ln_range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if ln_range.location == 0 {
-            var pname = try read(length: ln_range.length)
+            var pname = try readWithoutFillingBuffer(length: ln_range.length)
             if pname.contains("\\") {
                 var chars = [Character]()
                 var i = pname.makeIterator()
@@ -1128,7 +1121,7 @@ public class SPARQLLexer: IteratorProtocol {
         } else {
             let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
             if ns_range.location == 0 {
-                let pname = try read(length: ns_range.length)
+                let pname = try readWithoutFillingBuffer(length: ns_range.length)
                 let values = pname.components(separatedBy: ":")
                 return .prefixname(values[0], values[1])
             } else {
@@ -1153,10 +1146,10 @@ public class SPARQLLexer: IteratorProtocol {
         let prefixOrBase_range = SPARQLLexer._prefixOrBaseRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         let lang_range = SPARQLLexer._langRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if prefixOrBase_range.location == 0 {
-            let value = try read(length: prefixOrBase_range.length)
+            let value = try readWithoutFillingBuffer(length: prefixOrBase_range.length)
             return .keyword(value.uppercased())
         } else if lang_range.location == 0 {
-            let value = try read(length: lang_range.length)
+            let value = try readWithoutFillingBuffer(length: lang_range.length)
             return .lang(value.lowercased())
         } else {
             throw lexError("Expecting language")
@@ -1302,7 +1295,7 @@ public class SPARQLLexer: IteratorProtocol {
         let bufferLength = NSMakeRange(0, buffer.count)
         let bnode_range = SPARQLLexer._bnodeNameRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if bnode_range.location == 0 {
-            let value = try read(length: bnode_range.length)
+            let value = try readWithoutFillingBuffer(length: bnode_range.length)
             return .bnode(value)
         } else {
             throw lexError("Expecting blank node name")
@@ -1327,28 +1320,6 @@ public class SPARQLLexer: IteratorProtocol {
             return buffer.first
         }
     }
-    
-//    func dropWhitespace() throws {
-//        repeat {
-//            if buffer.count == 0 {
-//                try fillBuffer()
-//            }
-//
-//            let prefix = buffer.prefix { (c : Character) -> Bool in
-//                return c == " " || c == "\t" || c == "\n" || c == "\r"
-//            }
-//
-//            if prefix.count == 0 {
-//                break
-//            } else {
-//                try read(length: prefix.count)
-//                if buffer.count > 0 {
-//                    // we read whitespace, and there is still more (non-whitespace) content available
-//                    break
-//                }
-//            }
-//        } while true
-//    }
     
     @discardableResult
     func dropAndPeekChar() -> Character? {
@@ -1482,6 +1453,11 @@ public class SPARQLLexer: IteratorProtocol {
         if buffer.count == 0 {
             try fillBuffer()
         }
+        return try readWithoutFillingBuffer(length: length)
+    }
+    
+    @discardableResult
+    func readWithoutFillingBuffer(length: Int) throws -> String {
         let utf16 = buffer.utf16
         if utf16.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
