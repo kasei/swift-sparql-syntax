@@ -578,6 +578,8 @@ public class SPARQLLexer: IteratorProtocol {
         guard source.hasBytesAvailable else { return 0 }
         var bytes = [UInt8]()
         bytes.reserveCapacity(blockSize)
+        
+        var newlineCount = 0
         LOOP: while true {
             let read = source.read(&readbuffer, maxLength: blockSize)
             guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
@@ -613,7 +615,13 @@ public class SPARQLLexer: IteratorProtocol {
                             prefix.append(contentsOf: readbuffer.prefix(read))
                         }
                         guard prefix.distance(from: index, to: prefix.endIndex) >= 4 else { throw lexError("Input is not long enough to decode escape") }
-                        try bytes.append(contentsOf: parseUnicodeEscape(length: 4, escapedBytes: prefix, index: &index))
+                        let unescapedBytes = try parseUnicodeEscape(length: 4, escapedBytes: prefix, index: &index)
+                        for b in unescapedBytes {
+                            if b == 0x0a || b == 0x0d {
+                                newlineCount += 1
+                            }
+                        }
+                        bytes.append(contentsOf: unescapedBytes)
                     case 0x55: // \U
                         if prefix.index(index, offsetBy: 8, limitedBy: prefix.endIndex) == prefix.endIndex {
                             let read = source.read(&readbuffer, maxLength: blockSize)
@@ -622,27 +630,29 @@ public class SPARQLLexer: IteratorProtocol {
                             prefix.append(contentsOf: readbuffer.prefix(read))
                         }
                         guard prefix.distance(from: index, to: prefix.endIndex) >= 8 else { throw lexError("Input is not long enough to decode escape") }
-                        try bytes.append(contentsOf: parseUnicodeEscape(length: 8, escapedBytes: prefix, index: &index))
+                        let unescapedBytes = try parseUnicodeEscape(length: 8, escapedBytes: prefix, index: &index)
+                        for b in unescapedBytes {
+                            if b == 0x0a || b == 0x0d {
+                                newlineCount += 1
+                            }
+                        }
+                        bytes.append(contentsOf: unescapedBytes)
                     default:
                         bytes.append(0x5c)
+                        if type == 0x0a || type == 0x0d {
+                            newlineCount += 1
+                        }
                         bytes.append(type)
                     }
                 } else {
+                    if byte == 0x0a || byte == 0x0d {
+                        newlineCount += 1
+                    }
                     bytes.append(byte)
                 }
             }
         }
-        
-        var count = 0
-        for b in bytes {
-            switch b {
-            case 0x0a, 0x0d:
-                count += 1
-            default:
-                break
-            }
-        }
-        self.escapedBytesNewlineCount += count
+        self.escapedBytesNewlineCount += newlineCount
         self.escapedBytes.append(contentsOf: bytes)
         return bytes.count
     }
@@ -855,11 +865,6 @@ public class SPARQLLexer: IteratorProtocol {
             case "*":
                 dropChar()
                 return packageToken(.star)
-            default:
-                break
-            }
-            
-            switch c {
             case "@":
                 return try packageToken(getLanguage())
             case "<":
@@ -880,11 +885,7 @@ public class SPARQLLexer: IteratorProtocol {
                 return try packageToken(getBnode())
             case ":":
                 return try packageToken(getPName())
-            default:
-                break
-            }
-            
-            if c == "^" {
+            case "^":
                 if buffer.hasPrefix("^^") {
                     try read(word: "^^")
                     return packageToken(.hathat)
@@ -892,9 +893,13 @@ public class SPARQLLexer: IteratorProtocol {
                     try read(word: "^")
                     return packageToken(.hat)
                 }
-            } else if c == "&" && buffer.hasPrefix("&&") {
-                try read(word: "&&")
-                return packageToken(.andand)
+            case "&":
+                if buffer.hasPrefix("&&") {
+                    try read(word: "&&")
+                    return packageToken(.andand)
+                }
+            default:
+                break
             }
             
             let us = c.unicodeScalars.first!
