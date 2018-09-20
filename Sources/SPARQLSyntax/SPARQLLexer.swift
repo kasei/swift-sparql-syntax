@@ -721,7 +721,8 @@ public class SPARQLLexer: IteratorProtocol {
             lookahead = nil
             return t
         } else {
-            return try _getToken()
+            let token = try _getToken()
+            return token
         }
     }
     
@@ -746,14 +747,16 @@ public class SPARQLLexer: IteratorProtocol {
     func _getToken() throws -> PositionedToken? {
         while true {
 //            try fillBuffer()
-            guard var c = try peekChar() else { return nil }
+            guard var c = try peekChar() else {
+                return nil
+            }
             
             self.startColumn = column
             self.startLine = line
             self.startCharacter = character
             
-            if c == " " || c == "\t" || c == "\n" || c == "\r" {
-                while c == " " || c == "\t" || c == "\n" || c == "\r" {
+            if c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\r\n" {
+                while c == " " || c == "\t" || c == "\n" || c == "\r" || c == "\r\n" {
                     if let cc = dropAndPeekChar() {
                         c = cc
                     } else {
@@ -925,6 +928,14 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     func getKeyword() throws -> SPARQLToken? {
+        let hotPathKeywords = ["PREFIX", "SELECT", "WHERE", "FILTER", "LIMIT"]
+        for kw in hotPathKeywords {
+            if buffer.hasPrefix("\(kw) ") {
+                try readWithoutFillingBuffer(length: kw.count)
+                return .keyword(kw)
+            }
+        }
+        
         let bufferLength = NSMakeRange(0, buffer.count)
         let keyword_range = SPARQLLexer._keywordRegex.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
         if keyword_range.location == 0 {
