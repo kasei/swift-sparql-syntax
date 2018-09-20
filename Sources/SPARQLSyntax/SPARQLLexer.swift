@@ -766,7 +766,7 @@ public class SPARQLLexer: IteratorProtocol {
                 continue
             } else if c == "#" {
                 var chars = [Character]()
-                while c != "\n" && c != "\r" {
+                while c != "\n" && c != "\r" && c != "\r\n" {
                     if let cc = try peekChar() {
                         getChar()
                         c = cc
