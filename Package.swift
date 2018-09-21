@@ -1,4 +1,4 @@
-// swift-tools-version:4.0
+// swift-tools-version:4.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -11,7 +11,7 @@ let package = Package(
             targets: ["SPARQLSyntax"]),
     ],
     dependencies: [
-		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.0"),
+		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.3"),
     ],
     targets: [
         .target(
@@ -24,9 +24,11 @@ let package = Package(
         ),
         .target(
             name: "SPARQLSyntax",
-            dependencies: []),
+            dependencies: ["serd"]
+        ),
         .testTarget(
             name: "SPARQLSyntaxTests",
-            dependencies: ["SPARQLSyntax"]),
+            dependencies: ["SPARQLSyntax"]
+        ),
     ]
 )
