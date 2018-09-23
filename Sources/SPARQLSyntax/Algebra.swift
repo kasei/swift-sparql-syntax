@@ -631,18 +631,24 @@ public extension Algebra {
 }
 
 public extension Algebra {
-    func renameAggregateVariable(from: String, to: String) -> Algebra {
+    func renameAggregateVariable(from: String, to: String) -> Algebra? {
         switch self {
         case let .aggregate(child, groups, aggs):
+            var renamed = false
             var rewritten = Set<Algebra.AggregationMapping>()
             for a in aggs {
                 if a.variableName == from {
+                    renamed = true
                     rewritten.insert(AggregationMapping(aggregation: a.aggregation, variableName: to))
                 } else {
                     rewritten.insert(a)
                 }
             }
-            return .aggregate(child, groups, rewritten)
+            if renamed {
+                return .aggregate(child, groups, rewritten)
+            } else {
+                return nil
+            }
         default:
             return self
         }

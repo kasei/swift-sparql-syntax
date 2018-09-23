@@ -42,11 +42,12 @@ extension SPARQLParserTests {
             ("testProjectExpression", testProjectExpression),
             ("testPropertyPath_zeroOrOne", testPropertyPath_zeroOrOne),
             ("testService", testService),
+            ("testSPARQLAggregationProjection_wikidata", testSPARQLAggregationProjection_wikidata),
             ("testSubSelect", testSubSelect),
             ("testSubSelectAggregationAcceptableProjection", testSubSelectAggregationAcceptableProjection),
             ("testSubSelectAggregationProjection", testSubSelectAggregationProjection),
             ("testi18n", testi18n),
-            ("testi18nNormalization", testi18nNormalization),
+            ("testi18nNormalization", testi18nNormalization)
         ]
     }
 }
@@ -86,7 +87,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testLexer() {
-        guard let data = "HR:resumé ?resume [ [] { - @en-US 'foo' \"bar\" PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n".data(using: .utf8) else { XCTFail(); return }
+        guard let data = "HR:resumé ?resume\n\n[ [] { - @en-US 'foo' \"bar\" PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n".data(using: .utf8) else { XCTFail(); return }
         //        guard let data = "[ [] { - @en-US".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
@@ -917,6 +918,67 @@ class SPARQLParserTests: XCTestCase {
             } else {
                 XCTAssertNil(matching)
             }
+        }
+    }
+    
+    func testSPARQLAggregationProjection_wikidata() throws {
+        // Query taken from wikidata query logs that projects a variable from a select expression,
+        // which in turn uses a grouped variable.
+        // A bug was causing the extension on ?var2 to disappear during the elimination of temporary
+        // aggregation variables (the system mistook ?var1 as a temporary variable introduced during
+        // aggregation, and was wrongly assuming that the aggregation was rewritten to directly bind
+        // ?var2). Better identification of temporary variables introduced during aggregation fixed
+        // this problem.
+        let sparql = """
+            SELECT (?var1 AS ?var2) (SAMPLE (?var5) AS ?var5) (MIN(?var6) AS ?var6) (COUNT(DISTINCT ?var7) AS ?var8) (CONCAT("string1" , STR(SAMPLE (?var9)) , "string2") AS ?var10) WHERE {
+                <http://www.bigdata.com/queryHints#Query> <http://www.bigdata.com/queryHints#optimizer> "None" .
+                ?var1 ?var11 <http://www.wikidata.org/entity/Q6147119> .
+                ?var3 <http://wikiba.se/ontology#directClaim> ?var11 ;
+                    <http://wikiba.se/ontology#claim> ?var12 ;
+                    <http://wikiba.se/ontology#statementProperty> ?var13 .
+                OPTIONAL {
+                    ?var1 ?var12 ?var14 .
+                    ?var14 ?var13 <http://www.wikidata.org/entity/Q951835> .
+                    ?var14 <http://www.wikidata.org/prop/qualifier/P453> ?var5 .
+                    OPTIONAL {
+                        ?var5 <http://www.wikidata.org/prop/direct/P31> ?var15 .
+                    }
+                }
+                OPTIONAL {
+                    BIND(YEAR(?var16) AS ?var6)
+                    .
+                    ?var1 <http://www.wikidata.org/prop/direct/P577> ?var16 .
+                }
+                ?var1 (<http://www.wikidata.org/prop/direct/P31> / <http://www.wikidata.org/prop/direct/P279> *) <http://www.wikidata.org/entity/Q11424> .
+                OPTIONAL {
+                    ?var1 ?var17 ?var18 .
+                    ?var7 <http://wikiba.se/ontology#directClaim> ?var17 .
+                    ?var7 <http://wikiba.se/ontology#propertyType> <http://wikiba.se/ontology#ExternalId> .
+                }
+                OPTIONAL {
+                    ?var9 <http://schema.org/about> ?var1 ;
+                        <http://schema.org/isPartOf> <https://ar.wikipedia.org/> .
+                }
+                SERVICE <http://wikiba.se/ontology#label>
+                {
+                    <http://www.bigdata.com/rdf#serviceParam> <http://wikiba.se/ontology#language> "ar" .
+                    ?var3 <http://www.w3.org/2000/01/rdf-schema#label> ?var3Label .
+                }
+            }
+            GROUP BY ?var1
+            ORDER BY ASC(?var6) ASC(?var1)
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        
+        do {
+            let a = try p.parseAlgebra()
+            guard case .project(_, _) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
         }
     }
 }
