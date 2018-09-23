@@ -72,7 +72,6 @@ public struct SPARQLParser {
     var seenBlankNodeLabels: Set<String>
     
     private mutating func parseError(_ message: String) -> SPARQLSyntaxError {
-        try? lexer.fillBuffer()
         let rest = lexer.buffer
         return SPARQLSyntaxError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
     }
