@@ -788,8 +788,10 @@ public class SPARQLLexer: IteratorProtocol {
                 }
             }
             
-            switch c {
-            case "(":
+            let us = c.unicodeScalars.first!
+
+            switch us.value {
+            case 0x28: // "("
                 if buffer.hasPrefix("()") {
                     try read(word: "()")
                     return packageToken(._nil)
@@ -803,7 +805,7 @@ public class SPARQLLexer: IteratorProtocol {
                     dropChar()
                     return packageToken(.lparen)
                 }
-            case "[":
+            case 0x5b: // "["
                 if buffer.hasPrefix("[]") {
                     try read(word: "[]")
                     return packageToken(.anon)
@@ -821,63 +823,63 @@ public class SPARQLLexer: IteratorProtocol {
 
                 dropChar()
                 return packageToken(.lbracket)
-            case ",":
+            case 0x2c: // ","
                 dropChar()
                 return packageToken(.comma)
-            case ".":
+            case 0x2e: // "."
                 dropChar()
                 return packageToken(.dot)
-            case "=":
+            case 0x3d: // "="
                 dropChar()
                 return packageToken(.equals)
-            case "{":
+            case 0x7b: // "{"
                 dropChar()
                 return packageToken(.lbrace)
-            case "-":
+            case 0x2d: // "-"
                 dropChar()
                 return packageToken(.minus)
-            case "+":
+            case 0x2b: // "+"
                 dropChar()
                 return packageToken(.plus)
-            case "}":
+            case 0x7d: // "}"
                 dropChar()
                 return packageToken(.rbrace)
-            case "]":
+            case 0x5d: // "]"
                 dropChar()
                 return packageToken(.rbracket)
-            case ")":
+            case 0x29: // ")"
                 dropChar()
                 return packageToken(.rparen)
-            case ";":
+            case 0x3b: // ";"
                 dropChar()
                 return packageToken(.semicolon)
-            case "/":
+            case 0x2f: // "/"
                 dropChar()
                 return packageToken(.slash)
-            case "*":
+            case 0x2a: // "*"
                 dropChar()
                 return packageToken(.star)
-            case "@":
+            case 0x40: // "@"
                 return try packageToken(getLanguage())
-            case "<":
+            case 0x3c: // "<"
                 return try packageToken(getIRIRefOrRelational())
-            case "?", "$":
+            case 0x3f, 0x24: // "?" "$"
                 return try packageToken(getVariableOrQuestion())
-            case "!":
+            case 0x21: // "!"
                 return try packageToken(getBang())
-            case ">":
+            case 0x3e: // ">"
                 return try packageToken(getIRIRefOrRelational())
-            case "|":
+            case 0x7c: // "|"
                 return try packageToken(getOr())
-            case "'":
+            case 0x27: // "'"
                 return try packageToken(getSingleLiteral())
-            case "\"":
+            case 0x22: // '"'
                 return try packageToken(getDoubleLiteral())
-            case "_":
+            case 0x5f: // "_"
                 return try packageToken(getBnode())
-            case ":":
+            case 0x3a: // ":"
                 return try packageToken(getPName())
-            case "^":
+            case 0x5e: // "^"
                 if buffer.hasPrefix("^^") {
                     try read(word: "^^")
                     return packageToken(.hathat)
@@ -885,7 +887,7 @@ public class SPARQLLexer: IteratorProtocol {
                     try read(word: "^")
                     return packageToken(.hat)
                 }
-            case "&":
+            case 0x26: // "&"
                 if buffer.hasPrefix("&&") {
                     try read(word: "&&")
                     return packageToken(.andand)
@@ -894,7 +896,6 @@ public class SPARQLLexer: IteratorProtocol {
                 break
             }
             
-            let us = c.unicodeScalars.first!
             if SPARQLLexer.pnCharsBase.contains(us) {
                 if let t = try getPName() {
                     return packageToken(t)
