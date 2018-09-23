@@ -41,6 +41,7 @@ if argscount == 1 {
 }
 guard let qfile = args.last else { fatalError("Missing query") }
 
+var benchmark = false
 var stdin = false
 var pretty = true
 var unescape = false
@@ -49,6 +50,8 @@ for f in args.dropFirst() {
     if f == "--" { break }
 
     switch f {
+    case "-b":
+        benchmark = true
     case "-c":
         stdin = true
     case "-l":
@@ -81,7 +84,10 @@ if stdin {
 } else {
     guard let arg = args.last else { fatalError("Missing query") }
     let (query, _) = try string(fromFileOrString: arg)
-    let sparql = try unescapeQuery(query)
-    let l = s.reformat(sparql)
-    print(l)
+    let max = benchmark ? 100_000 : 1
+    for _ in 0..<max {
+        let sparql = try unescapeQuery(query)
+        let l = s.reformat(sparql)
+        print(l)
+    }
 }
