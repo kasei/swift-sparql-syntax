@@ -283,6 +283,7 @@ public class SPARQLLexer: IteratorProtocol {
     var startCharacter: UInt
     var comments: Bool
     var lookahead: PositionedToken?
+    var readbuffer : [UInt8]
 
     private func lexError(_ message: String) -> SPARQLSyntaxError {
         let rest = buffer
@@ -506,10 +507,11 @@ public class SPARQLLexer: IteratorProtocol {
 
     
     public init(source: InputStream, includeComments: Bool = false) {
-        self.blockSize = 128
+        self.blockSize = 256
         guard self.blockSize >= 8 else {
             fatalError("SPARQL Lexer read block size must be at least 8 bytes")
         }
+        self.readbuffer = [UInt8](repeatElement(0, count: blockSize))
         self.source = source
         self.includeComments = includeComments
         self.string = ""
@@ -574,7 +576,6 @@ public class SPARQLLexer: IteratorProtocol {
     }
 
     func fillBytes() throws -> Int {
-        var readbuffer = [UInt8](repeatElement(0, count: blockSize))
         guard source.hasBytesAvailable else { return 0 }
         var bytes = [UInt8]()
         bytes.reserveCapacity(blockSize)
