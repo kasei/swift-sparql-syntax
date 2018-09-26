@@ -943,16 +943,14 @@ public class SPARQLLexer: IteratorProtocol {
             try read(word: "'''")
             var quote_count = 0
             while true {
-                if buffer.count == 0 {
-                    if buffer.count == 0 {
-                        if quote_count >= 3 {
-                            for _ in 0..<(quote_count-3) {
-                                chars.append("'")
-                            }
-                            return .string3s(String(chars))
+                if buffer.isEmpty {
+                    if quote_count >= 3 {
+                        for _ in 0..<(quote_count-3) {
+                            chars.append("'")
                         }
-                        throw lexError("Found EOF in string literal")
+                        return .string3s(String(chars))
                     }
+                    throw lexError("Found EOF in string literal")
                 }
                 
                 guard let c = try peekChar() else {
@@ -991,10 +989,8 @@ public class SPARQLLexer: IteratorProtocol {
         } else {
             try getChar(expecting: "'")
             while true {
-                if buffer.count == 0 {
-                    if buffer.count == 0 {
-                        throw lexError("Found EOF in string literal")
-                    }
+                if buffer.isEmpty {
+                    throw lexError("Found EOF in string literal")
                 }
                 
                 guard let c = try peekChar() else {
@@ -1186,16 +1182,14 @@ public class SPARQLLexer: IteratorProtocol {
             try read(word: "\"\"\"")
             var quote_count = 0
             while true {
-                if buffer.count == 0 {
-                    if buffer.count == 0 {
-                        if quote_count >= 3 {
-                            for _ in 0..<(quote_count-3) {
-                                chars.append("\"")
-                            }
-                            return .string3d(String(chars))
+                if buffer.isEmpty {
+                    if quote_count >= 3 {
+                        for _ in 0..<(quote_count-3) {
+                            chars.append("\"")
                         }
-                        throw lexError("Found EOF in string literal")
+                        return .string3d(String(chars))
                     }
+                    throw lexError("Found EOF in string literal")
                 }
                 
                 guard let c = try peekChar() else {
@@ -1239,7 +1233,7 @@ public class SPARQLLexer: IteratorProtocol {
                 return .string1d(s)
             } else {
                 while true {
-                    if buffer.count == 0 {
+                    if buffer.isEmpty {
                         throw lexError("Found EOF in string literal")
                     }
                     
@@ -1422,7 +1416,7 @@ public class SPARQLLexer: IteratorProtocol {
     
     @discardableResult
     func readCharacters(count: Int) throws -> String {
-        if buffer.count < count {
+        guard !buffer.isEmpty else {
             throw lexError("Expecting \(count) characters but not enough data available")
         }
         
