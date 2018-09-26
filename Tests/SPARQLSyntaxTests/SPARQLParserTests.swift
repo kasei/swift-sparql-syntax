@@ -981,4 +981,37 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testSPARQLParserEmoji_wikidata() throws {
+        // Query taken from wikidata query logs that uses an emoji character in select expression
+        // A bug in SPARQLLexer was causing an erroneous EOF at the point of the emoji
+        let sparql = """
+            SELECT(  REGEX (  "🐄", "^.$" )  AS  ?var1  )
+            WHERE {
+            }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        
+        do {
+            let a = try p.parseAlgebra()
+            print(a)
+            guard case .project(.extend(_, .call("REGEX", let args), "var1"), Set(["var1"])) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            let expected : [Expression] = [
+                .node(.bound(Term(string: "🐄"))),
+                .node(.bound(Term(string: "^.$")))
+            ]
+            guard args == expected else {
+                XCTFail("Unexpected select expression arguments: \(args)")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }
