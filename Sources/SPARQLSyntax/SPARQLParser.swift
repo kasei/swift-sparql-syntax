@@ -1775,9 +1775,12 @@ public struct SPARQLParser {
         } else {
             try expect(token: .dot)
             let t = try peekExpectedToken()
-            if t.isTermOrVar {
+            switch t {
+            case _ where t.isTermOrVar, .lparen, .lbracket:
                 let more = try triplesByParsingTriplesBlock()
                 sameSubj += more
+            default:
+                break
             }
         }
         

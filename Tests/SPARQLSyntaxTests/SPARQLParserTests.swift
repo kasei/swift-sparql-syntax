@@ -1014,4 +1014,37 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testSPARQLParser_adjacentCollectionTriples_wikidata() throws {
+        // Query taken from wikidata query logs that contained two adjacent TriplesSameSubjectPath productions
+        // that each started with a Collection as a subject.
+        // A bug in the SPARQL parser was terminating the TriplesBlock parse after the first TriplesSameSubjectPath,
+        // and then infinite looping attempting to match a GraphPatternNotTriples (the only other alternative while
+        // parsing a GroupGraphPatternSub).
+        let sparql = """
+            SELECT(  REPLACE (  STR (  ?var1  ) , ".*Q", "Q" )  AS  ?var2  )(  REPLACE (  STR (  ?var3  ) , ".*Q", "Q" )  AS  ?var4  ) ?var3Label
+            WHERE {
+                ( <http://www.wikidata.org/entity/Q15921732> )( <http://www.wikidata.org/prop/direct/P31> / <http://www.wikidata.org/entity/P279> *) <http://www.wikidata.org/entity/Q202444> .
+                ( <http://www.wikidata.org/entity/Q15921732> ) <http://www.wikidata.org/prop/direct/P31>  ?var3 .
+              ?var1  ?var5  ?var6 .
+             SERVICE  <http://wikiba.se/ontology#label>   {
+                <http://www.bigdata.com/rdf#serviceParam>  <http://wikiba.se/ontology#language>  "fr,en".
+              }
+            }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        
+        do {
+            let a = try p.parseAlgebra()
+            print(a)
+            guard case .project(_) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }
