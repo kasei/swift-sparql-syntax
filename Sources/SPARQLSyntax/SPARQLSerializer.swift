@@ -902,7 +902,18 @@ extension Algebra {
             tokens.append(contentsOf: try rhs.sparqlTokens(depth: depth+1))
             if expr != .node(.bound(Term.trueValue)) {
                 tokens.append(.keyword("FILTER"))
-                tokens.append(contentsOf: try expr.parenthesizedSparqlTokens())
+                var addParens : Bool = expr.needsSurroundingParentheses
+                if case .node(_) = expr {
+                    addParens = true
+                }
+                
+                if addParens {
+                    tokens.append(.lparen)
+                    tokens.append(contentsOf: try expr.sparqlTokens())
+                    tokens.append(.rparen)
+                } else {
+                    tokens.append(contentsOf: try expr.sparqlTokens())
+                }
             }
             tokens.append(.rbrace)
             return AnySequence(tokens)

@@ -887,4 +887,51 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
 
+    func testOptionalNonBuiltInFilter() throws {
+        let sparql = """
+        SELECT ?g ?s WHERE {
+            GRAPH ?y
+            {
+                {}
+                OPTIONAL {
+                    {}
+                    FILTER(?s)
+                }
+            }
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+                        print("===============")
+                        print("\(q.serialize())")
+                        print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT ?g ?s WHERE {
+                GRAPH ?y
+                {
+                    {
+                        {
+                        }
+                    }
+                    OPTIONAL {
+                        {
+                        }
+                        FILTER (?s)
+                    }
+                }
+            }
+            
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
 }
