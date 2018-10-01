@@ -23,17 +23,21 @@ public indirect enum Algebra : Hashable {
         
         public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
             var tokens = [SPARQLToken]()
-            var exprTokens = try Array(expression.sparqlTokens())
-            if !(exprTokens.prefix(upTo: 1) == [.lparen]) {
-                switch expression {
-                case .call(_, _), .node(.variable(_)):
-                    break
-                case let e where e.isBuiltInCall:
-                    break
-                default:
-                    exprTokens = [.lparen] + exprTokens + [.rparen]
-                }
+            var exprTokens : [SPARQLToken] = []
+            
+            var addParens : Bool = expression.needsSurroundingParentheses
+            if case .node(.bound(_)) = expression {
+                addParens = true
             }
+            
+            if addParens {
+                exprTokens.append(.lparen)
+                exprTokens.append(contentsOf: try expression.sparqlTokens())
+                exprTokens.append(.rparen)
+            } else {
+                exprTokens.append(contentsOf: try expression.sparqlTokens())
+            }
+            
             if ascending {
                 tokens.append(contentsOf: exprTokens)
             } else {

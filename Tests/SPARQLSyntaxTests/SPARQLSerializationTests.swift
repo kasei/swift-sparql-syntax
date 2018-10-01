@@ -945,9 +945,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-            print("===============")
-            print("\(q.serialize())")
-            print("===============")
+//            print("===============")
+//            print("\(q.serialize())")
+//            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
