@@ -711,8 +711,12 @@ extension Expression {
             }
             tokens.append(.rparen)
         case .call(let f, let values):
-            let term = Term(iri: f)
-            tokens.append(contentsOf: term.sparqlTokens)
+            if SPARQLLexer.validFunctionNames.contains(f) {
+                tokens.append(.keyword(f))
+            } else {
+                let term = Term(iri: f)
+                tokens.append(contentsOf: term.sparqlTokens)
+            }
             tokens.append(.lparen)
             for (i, v) in values.enumerated() {
                 if i > 0 {

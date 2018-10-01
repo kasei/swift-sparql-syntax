@@ -945,9 +945,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-//            print("===============")
-//            print("\(q.serialize())")
-//            print("===============")
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
@@ -965,4 +965,36 @@ class SPARQLSerializationTests: XCTestCase {
         }
     }
 
+    func testGroupByBuiltIn() throws {
+        let sparql = """
+        SELECT (SUM(?y) AS ?sum) (AVG(?y) AS ?avg) WHERE {
+            {
+            }
+        }
+        GROUP BY MD5(?g)
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT (SUM(?y) AS ?sum) (AVG(?y) AS ?avg) WHERE {
+                {
+                }
+            }
+            GROUP BY MD5(?g)
+
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }
