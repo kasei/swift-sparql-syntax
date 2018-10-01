@@ -904,9 +904,9 @@ class SPARQLSerializationTests: XCTestCase {
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
-                        print("===============")
-                        print("\(q.serialize())")
-                        print("===============")
+//            print("===============")
+//            print("\(q.serialize())")
+//            print("===============")
             let tokens = try q.sparqlTokens()
             let query = s.serializePretty(tokens)
             let expected = """
@@ -933,5 +933,36 @@ class SPARQLSerializationTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
-    
+
+    func testGroupByLiteral() throws {
+        let sparql = """
+        SELECT (COUNT(*) AS ?c)
+        WHERE {
+            ?s ?p ?o
+        } GROUP BY("xyz")
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            print("===============")
+            print("\(q.serialize())")
+            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT (COUNT(*) AS ?c) WHERE {
+                ?s ?p ?o .
+            }
+            GROUP BY ("xyz")
+
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
 }

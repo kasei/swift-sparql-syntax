@@ -1052,7 +1052,22 @@ extension Query {
                     if i > 0 {
                         groupTokens.append(.comma)
                     }
-                    try groupTokens.append(contentsOf: g.sparqlTokens())
+
+
+                    var addParens : Bool = g.needsSurroundingParentheses
+                    if case .node(.bound(_)) = g {
+                        addParens = true
+                    }
+                    
+                    if addParens {
+                        groupTokens.append(.lparen)
+                        groupTokens.append(contentsOf: try g.sparqlTokens())
+                        groupTokens.append(.rparen)
+                    } else {
+                        groupTokens.append(contentsOf: try g.sparqlTokens())
+                    }
+
+//                    try groupTokens.append(contentsOf: g.sparqlTokens())
                 }
             }
             
