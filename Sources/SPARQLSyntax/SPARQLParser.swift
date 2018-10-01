@@ -30,7 +30,7 @@ private enum UnfinishedAlgebra {
             let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             if algebra.inscope.contains(name) {
-                throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name)") // TODO: can the line:col be included in this exception?
+                throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name))") // TODO: can the line:col be included in this exception?
             }
             return .extend(algebra, e, name)
         case .filter(let expr):
