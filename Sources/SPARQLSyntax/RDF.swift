@@ -620,6 +620,14 @@ extension Quad: Sequence {
 public enum Node : Equatable, Hashable {
     case bound(Term)
     case variable(String, binding: Bool)
+
+    public init(variable name: String) {
+        self = .variable(name, binding: true)
+    }
+    
+    public init(term: Term) {
+        self = .bound(term)
+    }
     
     func bind(_ variable: String, to replacement: Node) -> Node {
         switch self {
