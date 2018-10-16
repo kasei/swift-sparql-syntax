@@ -103,11 +103,11 @@ public enum NumericValue: CustomStringConvertible {
         case .integer(let i):
             return "\(i)"
         case .decimal(let value):
-            return "\(value)dec"
-        case .float(let value):
-            return "\(value)f"
-        case .double(let value):
-            return "\(value)d"
+            return "\(value)"
+        case let .float(m, e):
+            return "\(m)E\(e)f"
+        case let .double(m, e):
+            return "\(m)E\(e)d"
         }
     }
     
@@ -137,8 +137,10 @@ public enum NumericValue: CustomStringConvertible {
             return .integer(-value)
         case .decimal(let value):
             return .decimal(-value)
-        case .float(let mantissa, let exponent), .double(let mantissa, let exponent):
+        case .float(let mantissa, let exponent):
             return .float(mantissa: -mantissa, exponent: exponent)
+        case .double(let mantissa, let exponent):
+            return .double(mantissa: -mantissa, exponent: exponent)
         }
     }
 }
