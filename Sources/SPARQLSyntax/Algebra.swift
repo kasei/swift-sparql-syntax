@@ -157,11 +157,11 @@ extension Algebra : Codable {
             self = .bgp(triples)
         case "innerJoin":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
-            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .rhs)
             self = .innerJoin(lhs, rhs)
         case "leftOuterJoin":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
-            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .rhs)
             let expr = try container.decode(Expression.self, forKey: .expression)
             self = .leftOuterJoin(lhs, rhs, expr)
         case "filter":
@@ -170,7 +170,7 @@ extension Algebra : Codable {
             self = .filter(lhs, expr)
         case "union":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
-            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .rhs)
             self = .union(lhs, rhs)
         case "namedGraph":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
@@ -183,7 +183,7 @@ extension Algebra : Codable {
             self = .extend(lhs, expr, name)
         case "minus":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
-            let rhs = try container.decode(Algebra.self, forKey: .lhs)
+            let rhs = try container.decode(Algebra.self, forKey: .rhs)
             self = .minus(lhs, rhs)
         case "project":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
