@@ -376,6 +376,18 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         computeNumericValue()
     }
     
+    public static func == (lhs: Term, rhs: Term) -> Bool {
+        guard lhs.type == rhs.type else { return false }
+        return lhs.value.unicodeScalars.elementsEqual(rhs.value.unicodeScalars)
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(type)
+        for s in value.unicodeScalars {
+            hasher.combine(s)
+        }
+    }
+
     public var description: String {
         switch type {
             //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
