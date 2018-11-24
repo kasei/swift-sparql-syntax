@@ -8,10 +8,18 @@ public protocol RDFSerializer {
 }
 
 public typealias TripleHandler = (Term, Term, Term) -> Void
-public protocol RDFParser {
+public protocol RDFPushParser {
     init()
     var mediaTypes: Set<String> { get }
     func parse(string: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
     func parseFile(_ filename: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> Int
+}
+public typealias RDFParser = RDFPushParser
+
+public protocol RDFPullParser {
+    init()
+    var mediaTypes: Set<String> { get }
+    func parse(string: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> AnySequence<Triple>
+    func parseFile(_ filename: String, mediaType: String, base: String?, handleTriple: @escaping TripleHandler) throws -> AnySequence<Triple>
 }
 
