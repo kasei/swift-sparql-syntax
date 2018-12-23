@@ -190,7 +190,7 @@ public extension Aggregation {
         }
     }
     
-    public func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> Aggregation {
+    func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> Aggregation {
         switch self {
         case .countAll:
             return self

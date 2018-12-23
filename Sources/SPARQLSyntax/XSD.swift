@@ -146,7 +146,7 @@ public enum NumericValue: CustomStringConvertible {
 }
 
 public extension NumericValue {
-    public static func === (lhs: NumericValue, rhs: NumericValue) -> Bool {
+    static func === (lhs: NumericValue, rhs: NumericValue) -> Bool {
         switch (lhs, rhs) {
         case (.integer(let l), .integer(let r)) where l == r:
             return true

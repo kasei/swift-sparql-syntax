@@ -324,7 +324,7 @@ extension Algebra : Codable {
 
 public extension Algebra {
     // swiftlint:disable:next cyclomatic_complexity
-    public func serialize(depth: Int=0) -> String {
+    func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         
         switch self {
@@ -448,7 +448,7 @@ public extension Algebra {
         return vars.popLast()!
     }
     
-    public var inscope: Set<String> {
+    var inscope: Set<String> {
         var variables = Set<String>()
         switch self {
         case .joinIdentity, .unionIdentity:
@@ -534,7 +534,7 @@ public extension Algebra {
         }
     }
     
-    public var necessarilyBound: Set<String> {
+    var necessarilyBound: Set<String> {
         switch self {
         case .joinIdentity, .unionIdentity, .table(_, _):
             return Set()
@@ -565,7 +565,7 @@ public extension Algebra {
         }
     }
     
-    public var projectableVariables : Set<String> {
+    var projectableVariables : Set<String> {
         switch self {
         case let .aggregate(_, groups, aggs):
             var vars = Set(aggs.map { $0.variableName })
@@ -607,7 +607,7 @@ public extension Algebra {
         }
     }
     
-    public var aggregation: Algebra? {
+    var aggregation: Algebra? {
         switch self {
         case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):
             return nil
@@ -625,7 +625,7 @@ public extension Algebra {
         }
     }
 
-    public var isAggregation: Bool {
+    var isAggregation: Bool {
         if let _ = aggregation {
             return true
         } else {
@@ -881,7 +881,7 @@ public extension Algebra {
         }
     }
 
-    public func walk(_ handler: (Algebra) throws -> ()) throws {
+    func walk(_ handler: (Algebra) throws -> ()) throws {
         try handler(self)
         switch self {
         case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_), .subquery(_):
@@ -921,12 +921,12 @@ public extension Algebra {
         }
     }
     
-    public func rewrite(allowReprocessing: Bool = true, _ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> Algebra {
+    func rewrite(allowReprocessing: Bool = true, _ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> Algebra {
         let (a, _) = try _rewrite(allowReprocessing: allowReprocessing, map)
         return a
     }
     
-    public func _rewrite(allowReprocessing: Bool = true, _ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> (Algebra, Bool) {
+    func _rewrite(allowReprocessing: Bool = true, _ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> (Algebra, Bool) {
         let status = try map(self)
         switch status {
         case .keep:

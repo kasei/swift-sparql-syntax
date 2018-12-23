@@ -676,7 +676,7 @@ public extension Expression {
         }
     }
 
-    public func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> Expression {
+    func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> Expression {
         let status = try map(self)
         switch status {
         case .keep:

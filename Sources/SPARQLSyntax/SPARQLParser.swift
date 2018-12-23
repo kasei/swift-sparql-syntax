@@ -375,7 +375,7 @@ public struct SPARQLParser {
     private mutating func parseTriplesBlock() throws -> [TriplePattern] {
         let sameSubj = try parseTriplesSameSubject()
         var t = try peekExpectedToken()
-        if t == .none || t != .some(.dot) {
+        if t == .none || t != .dot {
             return sameSubj
         } else {
             try expect(token: .dot)

@@ -142,7 +142,7 @@ public struct Query : Codable, Hashable, Equatable {
 
 
 public extension Query {
-    public func serialize(depth: Int=0) -> String {
+    func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         let algebra = self.algebra
         var d = "\(indent)Query\n"
@@ -185,11 +185,11 @@ public extension Query {
 }
 
 public extension Query {
-    public var inscope: Set<String> {
+    var inscope: Set<String> {
         return self.algebra.inscope
     }
     
-    public var necessarilyBound: Set<String> {
+    var necessarilyBound: Set<String> {
         switch self.form {
         case .select(.variables(let v)):
             return self.algebra.necessarilyBound.intersection(v)
@@ -200,7 +200,7 @@ public extension Query {
         }
     }
     
-    public var projectedVariables: [String] {
+    var projectedVariables: [String] {
         switch self.form {
         case .select(.variables(let v)):
             return v
@@ -229,7 +229,7 @@ public extension Query {
         return try Query(form: self.form, algebra: algebra, dataset: self.dataset, base: self.base)
     }
     
-    public func rewrite(_ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> Query {
+    func rewrite(_ map: (Algebra) throws -> RewriteStatus<Algebra>) throws -> Query {
         let algebra = try self.algebra.rewrite(map)
         return try Query(form: self.form, algebra: algebra, dataset: self.dataset, base: self.base)
     }
