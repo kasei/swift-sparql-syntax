@@ -10,6 +10,7 @@ extension IRITest {
             ("testIRI_FragmentWithBase", testIRI_FragmentWithBase),
             ("testIRI_FullPathWithBase", testIRI_FullPathWithBase),
             ("testIRI_RelativeWithBase", testIRI_RelativeWithBase),
+            ("testIRI_Namespace", testIRI_Namespace),
         ]
     }
 }
@@ -52,11 +53,18 @@ class IRITest: XCTestCase {
         XCTAssertEqual(i!.absoluteString, "file:///x1")
     }
     
-    func testIRI_AbsoluteWithBase() {
-        let base = IRI(string: "file:///Users/greg/data/prog/git/sparql/kineo/rdf-tests/sparql11/data-r2/algebra/two-nested-opt.rq")
-        let rel = "http://example/x1"
-        let i = IRI(string: rel, relativeTo: base)
-        XCTAssertNotNil(i)
-        XCTAssertEqual(i!.absoluteString, "http://example/x1")
+    func testIRI_Namespace() {
+        let ns = Namespace.rdf
+        let type = ns.type
+        XCTAssertEqual(type, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        
+        guard let n = ns.iri(for: "nil") else {
+            XCTFail()
+            return
+        }
+        
+        XCTAssertEqual(n.absoluteString, "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil")
     }
+    
+    
 }

@@ -8,6 +8,22 @@
 import Foundation
 import serd
 
+@dynamicMemberLookup
+public struct Namespace {
+    public static var xsd = Namespace(value: "http://www.w3.org/2001/XMLSchema#")
+    public static var rdf = Namespace(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+
+    var value: String
+    public subscript(dynamicMember member: String) -> String {
+        return value.appending(member)
+    }
+    
+    public func iri(for local: String) -> IRI? {
+        let v = value.appending(local)
+        return IRI(string: v)
+    }
+}
+
 public class IRI : Codable {
     public let absoluteString: String
 
