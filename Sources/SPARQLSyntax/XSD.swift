@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum NumericValue: CustomStringConvertible {
+public enum NumericValue: CustomStringConvertible, Equatable, Hashable {
     case integer(Int)
     case decimal(Decimal)
     case float(mantissa: Double, exponent: Int)
