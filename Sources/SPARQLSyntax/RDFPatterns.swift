@@ -19,6 +19,18 @@ protocol TermPattern {
 }
 
 extension TermPattern {
+    public var variables: Set<String> {
+        let vars = self.makeIterator().compactMap { (n) -> String? in
+            switch n {
+            case .variable(let name, binding: _):
+                return name
+            default:
+                return nil
+            }
+        }
+        return Set(vars)
+    }
+
     public var isGround: Bool {
         for n in makeIterator() {
             if case .variable(_) = n {
