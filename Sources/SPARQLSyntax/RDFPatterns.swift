@@ -7,7 +7,7 @@
 
 import Foundation
 
-protocol TermPattern {
+public protocol TermPattern {
     associatedtype GroundType: Sequence
     static var groundKeyPaths: [KeyPath<GroundType, Term>] { get }
     static var groundKeyNames: [String] { get }
@@ -63,7 +63,7 @@ public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomSt
     public var object: Node
     public typealias GroundType = Triple
     public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Triple.subject, \Triple.predicate, \Triple.object]
-    static var groundKeyNames = ["subject", "predicate", "object"]
+    public static var groundKeyNames = ["subject", "predicate", "object"]
     
     public init(subject: Node, predicate: Node, object: Node) {
         self.subject = subject
@@ -150,7 +150,7 @@ public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStri
     public typealias GroundType = Quad
     public static var keyPaths: [WritableKeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
     public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Quad.subject, \Quad.predicate, \Quad.object, \Quad.graph]
-    static var groundKeyNames = ["subject", "predicate", "object", "graph"]
+    public static var groundKeyNames = ["subject", "predicate", "object", "graph"]
 
     public init(triplePattern tp: TriplePattern, graph: Node) {
         self.subject = tp.subject
