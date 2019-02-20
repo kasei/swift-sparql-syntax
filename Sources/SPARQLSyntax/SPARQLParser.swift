@@ -572,7 +572,7 @@ public struct SPARQLParser {
         if try attempt(token: .keyword("GROUP")) {
             applyAggregation = true
             try expect(token: .keyword("BY"))
-            while let e = try? parseGroupCondition(&algebra), let expr = e {
+            while let e = ((try? parseGroupCondition(&algebra)) as Expression??), let expr = e {
                 groups.append(expr)
             }
         }
