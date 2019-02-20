@@ -12,15 +12,24 @@ import serd
 public struct Namespace {
     public static var xsd = Namespace(value: "http://www.w3.org/2001/XMLSchema#")
     public static var rdf = Namespace(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
-
+    public static var rdfs = Namespace(value: "http://www.w3.org/2000/01/rdf-schema#")
+    public static var sd = Namespace(value: "http://www.w3.org/ns/sparql-service-description#")
+    public static var hydra = Namespace(value: "http://www.w3.org/ns/hydra/core#")
+    public static var void = Namespace(value: "http://rdfs.org/ns/void#")
+    public static var formats = Namespace(value: "http://www.w3.org/ns/formats/")
+    
     var value: String
     public subscript(dynamicMember member: String) -> String {
         return value.appending(member)
     }
     
-    public func iri(for local: String) -> IRI? {
+    public func string(for local: String) -> String {
         let v = value.appending(local)
-        return IRI(string: v)
+        return v
+    }
+    
+    public func iri(for local: String) -> IRI? {
+        return IRI(string: string(for: local))
     }
 }
 
