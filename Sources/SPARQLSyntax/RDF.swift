@@ -71,7 +71,7 @@ public enum TermType {
 
 extension TermType {
     // swiftlint:disable:next variable_name
-    var integerType: Bool {
+    public var integerType: Bool {
         guard case .datatype(let dt) = self else { return false }
         switch dt.value {
             case "http://www.w3.org/2001/XMLSchema#integer",
@@ -170,7 +170,7 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
     public var _doubleValue: Double?
     
     internal func floatingPointComponents() -> (Double, Int) {
-        let eIndex = value.index(of: "E") ?? value.endIndex // value is uppercased for xsd:float and xsd:double in computeNumericValue()
+        let eIndex = value.firstIndex(of: "E") ?? value.endIndex // value is uppercased for xsd:float and xsd:double in computeNumericValue()
         let mString = value[..<eIndex]
         let mantissa = Double(mString) ?? 0.0
         var exponent = 0
