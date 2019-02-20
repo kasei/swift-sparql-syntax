@@ -23,13 +23,13 @@ public struct Namespace {
         return value.appending(member)
     }
     
-    public func string(for local: String) -> String {
+    public func iriString(for local: String) -> String {
         let v = value.appending(local)
         return v
     }
     
     public func iri(for local: String) -> IRI? {
-        return IRI(string: string(for: local))
+        return IRI(string: iriString(for: local))
     }
 }
 
