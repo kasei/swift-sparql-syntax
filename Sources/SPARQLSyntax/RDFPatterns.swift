@@ -96,6 +96,14 @@ public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomSt
         let o = nodes[2]
         return TriplePattern(subject: s, predicate: p, object: o)
     }
+
+    public static var all: TriplePattern {
+        return TriplePattern(
+            subject: .variable("subject", binding: true),
+            predicate: .variable("predicate", binding: true),
+            object: .variable("object", binding: true)
+        )
+    }
 }
 
 extension TriplePattern: Sequence {
@@ -204,6 +212,15 @@ public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStri
         let o = nodes[2]
         let g = nodes[3]
         return QuadPattern(subject: s, predicate: p, object: o, graph: g)
+    }
+
+    public static var all: QuadPattern {
+        return QuadPattern(
+            subject: .variable("subject", binding: true),
+            predicate: .variable("predicate", binding: true),
+            object: .variable("object", binding: true),
+            graph: .variable("graph", binding: true)
+        )
     }
 }
 
