@@ -196,15 +196,15 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
         case .node(_), .exists(_):
             return false
         case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
-            return expr.hasAggregation
+            return expr.hasWindow
         case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
-            return lhs.hasAggregation || rhs.hasAggregation
+            return lhs.hasWindow || rhs.hasWindow
         case .between(let a, let b, let c):
-            return a.hasAggregation || b.hasAggregation || c.hasAggregation
+            return a.hasWindow || b.hasWindow || c.hasWindow
         case .call(_, let exprs):
-            return exprs.reduce(false) { $0 || $1.hasAggregation }
+            return exprs.reduce(false) { $0 || $1.hasWindow }
         case .valuein(let expr, let exprs):
-            return exprs.reduce(expr.hasAggregation) { $0 || $1.hasAggregation }
+            return exprs.reduce(expr.hasWindow) { $0 || $1.hasWindow }
         }
     }
     
