@@ -619,7 +619,6 @@ public struct SPARQLParser {
         }
         
         var aggregation = aggregation
-        var window = window
         var havingExpression: Expression? = nil
         if try attempt(token: .keyword("HAVING")) {
             var e = try parseConstraint()
