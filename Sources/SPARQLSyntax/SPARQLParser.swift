@@ -246,6 +246,7 @@ public struct SPARQLParser {
         try expect(token: .keyword("SELECT"))
         var distinct = false
         var aggregationExpressions = [String:Aggregation]()
+        var windowExpressions = [String:WindowApplication]()
         var projectExpressions = [(Expression, String)]()
         
         if let _ = try attempt(any: [.keyword("DISTINCT"), .keyword("REDUCED")]) {
@@ -264,6 +265,9 @@ public struct SPARQLParser {
                 case .lparen:
                     try expect(token: .lparen)
                     var expression = try parseExpression()
+                    if expression.hasWindow {
+                        expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
+                    }
                     if expression.hasAggregation {
                         expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
                     }
@@ -290,7 +294,15 @@ public struct SPARQLParser {
         var algebra = try parseGroupGraphPattern()
         
         let values = try parseValuesClause()
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
+        algebra = try parseSolutionModifier(
+            algebra: algebra,
+            distinct: distinct,
+            projection: projection,
+            projectExpressions: projectExpressions,
+            aggregation: aggregationExpressions,
+            window: windowExpressions,
+            valuesBlock: values
+        )
         
         let query = try Query(form: .select(projection), algebra: algebra, dataset: dataset, base: self.base)
         return query
@@ -319,7 +331,15 @@ public struct SPARQLParser {
             }
         }
         
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: true, projection: .star, projectExpressions: [], aggregation: [:], valuesBlock: nil)
+        algebra = try parseSolutionModifier(
+            algebra: algebra,
+            distinct: true,
+            projection: .star,
+            projectExpressions: [],
+            aggregation: [:],
+            window: [:],
+            valuesBlock: nil
+        )
         return try Query(form: .construct(pattern), algebra: algebra, dataset: dataset)
     }
     
@@ -357,7 +377,15 @@ public struct SPARQLParser {
             
         }
         
-        let algebra = try parseSolutionModifier(algebra: ggp, distinct: true, projection: .star, projectExpressions: [], aggregation: [:], valuesBlock: nil)
+        let algebra = try parseSolutionModifier(
+            algebra: ggp,
+            distinct: true,
+            projection: .star,
+            projectExpressions: [],
+            aggregation: [:],
+            window: [:],
+            valuesBlock: nil
+        )
         return try Query(form: .describe(describe), algebra: algebra, dataset: dataset)
     }
     
@@ -433,6 +461,7 @@ public struct SPARQLParser {
         var distinct = false
         var star = false
         var aggregationExpressions = [String:Aggregation]()
+        var windowExpressions = [String:WindowApplication]()
         var projectExpressions = [(Expression, String)]()
         
         if let _ = try attempt(any: [.keyword("DISTINCT"), .keyword("REDUCED")]) {
@@ -451,6 +480,9 @@ public struct SPARQLParser {
                 case .lparen:
                     try expect(token: .lparen)
                     var expression = try parseExpression()
+                    if expression.hasWindow {
+                        expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
+                    }
                     if expression.hasAggregation {
                         expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
                     }
@@ -477,7 +509,15 @@ public struct SPARQLParser {
         
         let values = try parseValuesClause()
         
-        algebra = try parseSolutionModifier(algebra: algebra, distinct: distinct, projection: projection, projectExpressions: projectExpressions, aggregation: aggregationExpressions, valuesBlock: values)
+        algebra = try parseSolutionModifier(
+            algebra: algebra,
+            distinct: distinct,
+            projection: projection,
+            projectExpressions: projectExpressions,
+            aggregation: aggregationExpressions,
+            window: windowExpressions,
+            valuesBlock: values
+        )
         
         if star {
             if algebra.isAggregation {
@@ -564,11 +604,12 @@ public struct SPARQLParser {
     }
     
     // swiftlint:disable:next function_parameter_count
-    private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], valuesBlock: Algebra?) throws -> Algebra {
+    private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], window: [String:WindowApplication], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
         
         var groups = [Expression]()
         var applyAggregation: Bool = false
+        var applyWindow: Bool = false
         if try attempt(token: .keyword("GROUP")) {
             applyAggregation = true
             try expect(token: .keyword("BY"))
@@ -578,6 +619,7 @@ public struct SPARQLParser {
         }
         
         var aggregation = aggregation
+        var window = window
         var havingExpression: Expression? = nil
         if try attempt(token: .keyword("HAVING")) {
             var e = try parseConstraint()
@@ -588,15 +630,26 @@ public struct SPARQLParser {
         }
         
         let aggregations = aggregation.map {
-            Algebra.AggregationMapping(aggregation: $0.1, variableName: $0.0) }.sorted { $0.variableName <= $1.variableName }
+            Algebra.AggregationMapping(aggregation: $0.1, variableName: $0.0)
+            }.sorted { $0.variableName <= $1.variableName }
+        let windows = window.map {
+            Algebra.WindowFunctionMapping(windowApplication: $0.1, variableName: $0.0)
+            }.sorted { $0.variableName <= $1.variableName }
         if aggregations.count > 0 { // if algebra contains aggregation
             applyAggregation = true
+        }
+        if windows.count > 0 { // if algebra contains a window function
+            applyWindow = true
         }
 
         if applyAggregation {
             algebra = .aggregate(algebra, groups, Set(aggregations))
         }
-
+        
+        if applyWindow {
+            algebra = .window(algebra, windows)
+        }
+        
         let inScope = algebra.inscope
         for (_, name) in projectExpressions {
             if inScope.contains(name) {
@@ -605,7 +658,7 @@ public struct SPARQLParser {
         }
         
         algebra = projectExpressions.reduce(algebra) {
-            addAggregationExtension(to: $0, expression: $1.0, variableName: $1.1)
+            addAggregationAndWindowExtension(to: $0, expression: $1.0, variableName: $1.1)
         }
         
         if let e = havingExpression {
@@ -656,11 +709,29 @@ public struct SPARQLParser {
         return algebra
     }
     
-    private func addAggregationExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
+    /// Wrap the supplied algebra in an Algebra.extend operation,
+    /// mapping the expression to the named variable.
+    /// However, if either an .algebra or .window algebra is supplied
+    /// and the expression is a simple internal (name starting with a dot)
+    /// variable node matching the result of the aggregation/window operation,
+    /// then the algebra is simply rewritten to remove the extra variable binding.
+    ///
+    /// - Parameters:
+    ///   - algebra: the Algebra to be wrapped
+    ///   - expression: the Expression to be evaluated
+    ///   - variableName: the variable to which the evaluated expression value is to be bound
+    /// - Returns: a new Algebra value
+    private func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
         if case .node(.variable(let name, _)) = expression {
-            if case .aggregate(_) = algebra {
-                if let a = algebra.renameAggregateVariable(from: name, to: variableName) {
-                    return a
+            if name.hasPrefix(".") {
+                if case .aggregate(_) = algebra {
+                    if let a = algebra.renameAggregateAndWindowVariables(from: name, to: variableName) {
+                        return a
+                    }
+                } else if case .window(_) = algebra {
+                    if let a = algebra.renameAggregateAndWindowVariables(from: name, to: variableName) {
+                        return a
+                    }
                 }
             }
         }
@@ -1622,6 +1693,9 @@ public struct SPARQLParser {
         case .keyword(let kw) where SPARQLLexer.validAggregations.contains(kw):
             let agg = try parseAggregate()
             return .aggregate(agg)
+        case .keyword(let kw) where SPARQLLexer.validWindowFunctions.contains(kw):
+            let w = try parseWindow()
+            return .window(w)
         case .keyword("NOT"):
             try expect(token: t)
             try expect(token: .keyword("EXISTS"))
@@ -1650,6 +1724,72 @@ public struct SPARQLParser {
         }
     }
     
+    private mutating func parseWindow() throws -> WindowApplication {
+        // (RANK() OVER (PARTITION BY ?s ORDER BY ?o) AS ?rank)
+        let t = try nextExpectedToken()
+        guard case .keyword(let name) = t else {
+            throw parseError("Expected window function name but found \(t)")
+        }
+        
+        var function: WindowFunction
+        switch name {
+        case "RANK":
+            try expect(token: ._nil)
+            function = .rank
+        default:
+            throw parseError("Unrecognized aggregate name '\(name)'")
+        }
+
+        try expect(token: .keyword("OVER"))
+        try expect(token: .lparen)
+
+        var partition = [Expression]()
+        if try attempt(token: .keyword("PARTITION")) {
+            try expect(token: .keyword("BY"))
+            
+            while true {
+                guard let t = peekToken() else { break }
+                if try peek(token: .lparen) {
+                    partition.append(try parseBrackettedExpression())
+                } else if case ._var(_) = t {
+                    partition.append(try .node(parseVarOrTerm()))
+                } else if let e = try? parseConstraint() {
+                    partition.append(e)
+                } else {
+                    break
+                }
+            }
+        }
+
+        var comparators = [Algebra.SortComparator]()
+        if try attempt(token: .keyword("ORDER")) {
+            try expect(token: .keyword("BY"))
+            while true {
+                guard let c = try parseOrderCondition() else { break }
+                comparators.append(c)
+            }
+        }
+        
+        var frame = WindowFrame(
+            type: .rows,
+            from: .unbound,
+            to: .unbound
+        )
+        let range = try attempt(token: .keyword("RANGE"))
+        let row = try attempt(token: .keyword("RANGE"))
+        if range || row {
+            fatalError("TODO: Implement parsing of WINDOW frames")
+        }
+        try expect(token: .rparen)
+
+        return WindowApplication(
+            windowFunction: function,
+            comparators: comparators,
+            partition: partition,
+            frame: frame
+        )
+    }
+
     private mutating func parseAggregate() throws -> Aggregation {
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
@@ -1757,7 +1897,7 @@ public struct SPARQLParser {
          **/
         
     }
-    
+
     private mutating func parseIRI() throws -> Term {
         let t = try nextExpectedToken()
         let term = try tokenAsTerm(t)
@@ -2185,7 +2325,7 @@ extension Algebra {
         case .subquery(let q):
             return q.algebra.blankNodeLabels
             
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _, _):
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _):
             return child.blankNodeLabels
             
             

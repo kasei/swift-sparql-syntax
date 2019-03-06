@@ -6,11 +6,6 @@ public enum RewriteStatus<A> {
     case rewrite(A)
 }
 
-public enum WindowFunction : String, Codable {
-    case rowNumber
-    case rank
-}
-
 public indirect enum Algebra : Hashable {
     public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
         public var ascending: Bool
@@ -65,19 +60,21 @@ public indirect enum Algebra : Hashable {
         }
         
         public var description: String {
-            return "Agg[?\(variableName)←\(aggregation)]"
+            return "Agg[?\(variableName) ← \(aggregation)]"
         }
     }
     
     public struct WindowFunctionMapping: Hashable, Equatable, Codable {
-        public var windowFunction: WindowFunction
-        public var comparators: [SortComparator]
+        public var windowApplication: WindowApplication
         public var variableName: String
 
-        public init(windowFunction: WindowFunction, comparators: [SortComparator], variableName: String) {
-            self.windowFunction = windowFunction
-            self.comparators = comparators
+        public init(windowApplication: WindowApplication, variableName: String) {
+            self.windowApplication = windowApplication
             self.variableName = variableName
+        }
+        
+        public var description: String {
+            return "?\(variableName) ← \(windowApplication)"
         }
     }
     
@@ -101,7 +98,7 @@ public indirect enum Algebra : Hashable {
     case order(Algebra, [SortComparator])
     case path(Node, PropertyPath, Node)
     case aggregate(Algebra, [Expression], Set<AggregationMapping>)
-    case window(Algebra, [Expression], [WindowFunctionMapping])
+    case window(Algebra, [WindowFunctionMapping])
     case subquery(Query)
 }
 
@@ -218,9 +215,8 @@ extension Algebra : Codable {
             self = .aggregate(lhs, groups, aggs)
         case "window":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
-            let groups = try container.decode([Expression].self, forKey: .groups)
             let windows = try container.decode([WindowFunctionMapping].self, forKey: .windowFunctions)
-            self = .window(lhs, groups, windows)
+            self = .window(lhs, windows)
         case "query":
             let q = try container.decode(Query.self, forKey: .query)
             self = .subquery(q)
@@ -310,10 +306,9 @@ extension Algebra : Codable {
             try container.encode(lhs, forKey: .lhs)
             try container.encode(groups, forKey: .groups)
             try container.encode(aggs, forKey: .aggregations)
-        case let .window(lhs, groups, windows):
+        case let .window(lhs, windows):
             try container.encode("window", forKey: .type)
             try container.encode(lhs, forKey: .lhs)
-            try container.encode(groups, forKey: .groups)
             try container.encode(windows, forKey: .windowFunctions)
         case .subquery(let q):
             try container.encode("query", forKey: .type)
@@ -369,7 +364,7 @@ public extension Algebra {
             d += child.serialize(depth: depth+1)
             return d
         case .extend(let child, let expr, let name):
-            var d = "\(indent)Extend \(name) <- \(expr)\n"
+            var d = "\(indent)Extend ?\(name) ← \(expr)\n"
             d += child.serialize(depth: depth+1)
             return d
         case .project(let child, let variables):
@@ -412,11 +407,9 @@ public extension Algebra {
             var d = "\(indent)Aggregate \(aggs) over groups \(groups)\n"
             d += child.serialize(depth: depth+1)
             return d
-        case .window(let child, let groups, let funcs):
-            let orders = funcs.flatMap { $0.comparators }
-            let expressions = orders.map { $0.ascending ? "\($0.expression)" : "DESC(\($0.expression))" }
-            let f = funcs.map { ($0.windowFunction, $0.variableName) }
-            var d = "\(indent)Window \(f) over groups \(groups) ordered by { \(expressions.joined(separator: ", ")) }\n"
+        case .window(let child, let funcs):
+            let windows = funcs.map { $0.description }
+            var d = "\(indent)Window { \(windows.joined(separator: ", ")) }\n"
             d += child.serialize(depth: depth+1)
             return d
         case .table(let nodes, let results):
@@ -518,7 +511,7 @@ public extension Algebra {
                 variables.insert(a.variableName)
             }
             return variables
-        case .window(let child, _, let funcs):
+        case .window(let child, let funcs):
             var variables = child.inscope
             for w in funcs {
                 variables.insert(w.variableName)
@@ -560,7 +553,7 @@ public extension Algebra {
             return variables
         case let .aggregate(child, _, aggs):
             return child.necessarilyBound.union(aggs.map { $0.variableName })
-        case .window(let child, _, let funcs):
+        case .window(let child, let funcs):
             return child.necessarilyBound.union(funcs.map { $0.variableName })
         }
     }
@@ -635,7 +628,7 @@ public extension Algebra {
 }
 
 public extension Algebra {
-    func renameAggregateVariable(from: String, to: String) -> Algebra? {
+    func renameAggregateAndWindowVariables(from: String, to: String) -> Algebra? {
         switch self {
         case let .aggregate(child, groups, aggs):
             var renamed = false
@@ -650,6 +643,22 @@ public extension Algebra {
             }
             if renamed {
                 return .aggregate(child, groups, rewritten)
+            } else {
+                return nil
+            }
+        case let .window(child, windows):
+            var renamed = false
+            var rewritten = [Algebra.WindowFunctionMapping]()
+            for w in windows {
+                if w.variableName == from {
+                    renamed = true
+                    rewritten.append(WindowFunctionMapping(windowApplication: w.windowApplication, variableName: to))
+                } else {
+                    rewritten.append(w)
+                }
+            }
+            if renamed {
+                return .window(child, rewritten)
             } else {
                 return nil
             }
@@ -767,21 +776,26 @@ public extension Algebra {
                     return try AggregationMapping(aggregation: data.aggregation.replace(map), variableName: data.variableName)
                 }
                 return try .aggregate(a.replace(map), exprs, Set(aggs))
-            case .window(let a, let exprs, let funcs):
-                let exprs = try exprs.map { (expr) in
-                    return try expr.replace(map)
-                }
+            case .window(let a, let funcs):
                 let funcs = try funcs.map { data -> WindowFunctionMapping in
-                    let e = try data.comparators.map { cmp in
+                    let e = try data.windowApplication.comparators.map { cmp in
                         try SortComparator(ascending: cmp.ascending, expression: cmp.expression.replace(map))
                     }
-                    return WindowFunctionMapping(
-                        windowFunction: data.windowFunction,
+                    let partition = try data.windowApplication.partition.map { e in
+                        try e.replace(map)
+                    }
+                    let application = WindowApplication(
+                        windowFunction: data.windowApplication.windowFunction,
                         comparators: e,
+                        partition: partition,
+                        frame: data.windowApplication.frame
+                    )
+                    return WindowFunctionMapping(
+                        windowApplication: application,
                         variableName: data.variableName
                     )
                 }
-                return try .window(a.replace(map), exprs, funcs)
+                return try .window(a.replace(map), funcs)
             case let .table(nodes, rows):
                 let keepNodes = nodes.enumerated().compactMap { (data) -> (Int, Node)? in
                     let n = data.element
@@ -852,22 +866,27 @@ public extension Algebra {
                 return try AggregationMapping(aggregation: data.aggregation.replace(map), variableName: data.variableName)
             }
             return try .aggregate(a.replace(map), exprs, Set(aggs))
-        case .window(let a, let exprs, let funcs):
+        case .window(let a, let funcs):
             //     case window(Algebra, [Expression], [WindowFunctionMapping])
-            let exprs = try exprs.map { (expr) in
-                return try expr.replace(map)
-            }
             let funcs = try funcs.map { data -> WindowFunctionMapping in
-                let e = try data.comparators.map { cmp in
+                let e = try data.windowApplication.comparators.map { cmp in
                     try SortComparator(ascending: cmp.ascending, expression: cmp.expression.replace(map))
                 }
-                return WindowFunctionMapping(
-                    windowFunction: data.windowFunction,
+                let partition = try data.windowApplication.partition.map { e in
+                    try e.replace(map)
+                }
+                let application = WindowApplication(
+                    windowFunction: data.windowApplication.windowFunction,
                     comparators: e,
+                    partition: partition,
+                    frame: data.windowApplication.frame
+                )
+                return WindowFunctionMapping(
+                    windowApplication: application,
                     variableName: data.variableName
                 )
             }
-            return try .window(a.replace(map), exprs, funcs)
+            return try .window(a.replace(map), funcs)
         }
     }
     
@@ -916,7 +935,7 @@ public extension Algebra {
             try a.walk(handler)
         case .aggregate(let a, _, _):
             try a.walk(handler)
-        case .window(let a, _, _):
+        case .window(let a, _):
             try a.walk(handler)
         }
     }
@@ -1036,9 +1055,9 @@ public extension Algebra {
                     (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
                 return (rewritten, ra)
-            case .window(let a, let exprs, let funcs):
+            case .window(let a, let funcs):
                 var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
-                var rewritten : Algebra = .window(aa, exprs, funcs)
+                var rewritten : Algebra = .window(aa, funcs)
                 if allowReprocessing && ra {
                     (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
