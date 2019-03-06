@@ -7,6 +7,7 @@ extension SPARQLParserWindowTests {
     static var allTests : [(String, (SPARQLParserWindowTests) -> () throws -> Void)] {
         return [
             ("testRank", testRank),
+            ("testSerialization", testSerialization),
         ]
     }
 }
@@ -23,6 +24,18 @@ class SPARQLParserWindowTests: XCTestCase {
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
+    }
+    
+    func testSerialization() {
+        guard var p = SPARQLParser(string: "SELECT (RANK() OVER (PARTITION BY ?s ?o ORDER BY ?o RANGE BETWEEN 3 following AND current row) AS ?rank) WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        do {
+            let q = try p.parseQuery()
+            let s = SPARQLSerializer()
+            let sparql = try s.serialize(q.sparqlTokens())
+            XCTAssertEqual(sparql, "SELECT ( RANK ( ) OVER ( PARTITION BY ?s ?o ORDER BY ?o RANGE BETWEEN \"3\" ^^ <http://www.w3.org/2001/XMLSchema#integer> FOLLOWING AND CURRENT ROW ) AS ?rank ) WHERE { ?s ?p ?o . }")
+        } catch let e {
+            XCTFail("\(e)")
+        }
     }
     
     func testRank() {

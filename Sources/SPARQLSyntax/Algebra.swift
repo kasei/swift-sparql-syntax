@@ -617,9 +617,36 @@ public extension Algebra {
             return child.aggregation
         }
     }
-
+    
     var isAggregation: Bool {
         if let _ = aggregation {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    var window: Algebra? {
+        switch self {
+        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .aggregate(_), .table(_), .subquery(_):
+            return nil
+            
+        case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
+            return child.window
+            
+        case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
+            return lhs.window ?? rhs.window
+            
+        case .window(_):
+            return self
+            
+        case .extend(let child, _, _), .filter(let child, _):
+            return child.window
+        }
+    }
+    
+    var isWindow: Bool {
+        if let _ = window {
             return true
         } else {
             return false

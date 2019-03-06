@@ -1737,7 +1737,7 @@ public struct SPARQLParser {
             try expect(token: ._nil)
             function = .rank
         default:
-            throw parseError("Unrecognized aggregate name '\(name)'")
+            throw parseError("Unrecognized window function name '\(name)'")
         }
 
         try expect(token: .keyword("OVER"))
@@ -1776,9 +1776,17 @@ public struct SPARQLParser {
             to: .unbound
         )
         let range = try attempt(token: .keyword("RANGE"))
-        let row = try attempt(token: .keyword("RANGE"))
+        let row = try attempt(token: .keyword("ROWS"))
         if range || row {
-            fatalError("TODO: Implement parsing of WINDOW frames")
+            try expect(token: .keyword("BETWEEN"))
+            let from = try parseFrameBound()
+            try expect(token: .keyword("AND"))
+            let to = try parseFrameBound()
+            frame = WindowFrame(
+                type: (range ? .range : .rows),
+                from: from,
+                to: to
+            )
         }
         try expect(token: .rparen)
 
@@ -1790,6 +1798,25 @@ public struct SPARQLParser {
         )
     }
 
+    private mutating func parseFrameBound() throws -> WindowFrame.FrameBound {
+        var from: WindowFrame.FrameBound
+        if try attempt(token: .keyword("UNBOUNDED")) {
+            from = .unbound
+        } else if try attempt(token: .keyword("CURRENT")) {
+            try expect(token: .keyword("ROW"))
+            from = .current
+        } else {
+            let e = try parseExpression()
+            if try attempt(token: .keyword("PRECEDING")) {
+                from = .preceding(e)
+            } else {
+                try expect(token: .keyword("FOLLOWING"))
+                from = .following(e)
+            }
+        }
+        return from
+    }
+    
     private mutating func parseAggregate() throws -> Aggregation {
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {

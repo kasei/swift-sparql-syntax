@@ -321,3 +321,97 @@ extension WindowApplication: CustomStringConvertible {
     }
 }
 
+
+
+extension WindowFunction {
+    public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        switch self {
+        case .rank:
+            tokens.append(.keyword("RANK"))
+            tokens.append(.lparen)
+            tokens.append(.rparen)
+        case .rowNumber:
+            tokens.append(.keyword("ROW_NUMBER"))
+            tokens.append(.lparen)
+            tokens.append(.rparen)
+        }
+        return AnySequence(tokens)
+    }
+}
+
+extension WindowFrame {
+    public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        switch (from, to) {
+        case (.unbound, .unbound):
+            return AnySequence(tokens)
+        default:
+            break
+        }
+        
+        switch type {
+        case .range:
+            tokens.append(.keyword("RANGE"))
+        case .rows:
+            tokens.append(.keyword("ROWS"))
+        }
+        
+        tokens.append(.keyword("BETWEEN"))
+        try tokens.append(contentsOf: from.sparqlTokens())
+        tokens.append(.keyword("AND"))
+        try tokens.append(contentsOf: to.sparqlTokens())
+        return AnySequence(tokens)
+    }
+}
+
+extension WindowFrame.FrameBound {
+    public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        switch self {
+        case .unbound:
+            tokens.append(.keyword("UNBOUNDED"))
+        case .current:
+            tokens.append(.keyword("CURRENT"))
+            tokens.append(.keyword("ROW"))
+        case .following(let e):
+            try tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.keyword("FOLLOWING"))
+        case .preceding(let e):
+            try tokens.append(contentsOf: e.sparqlTokens())
+            tokens.append(.keyword("PRECEDING"))
+        }
+        return AnySequence(tokens)
+    }
+}
+
+extension WindowApplication {
+    public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
+        let frame = self.frame
+        let order = self.comparators
+        let groups = self.partition
+        
+        var tokens = [SPARQLToken]()
+        try tokens.append(contentsOf: self.windowFunction.sparqlTokens())
+        tokens.append(.keyword("OVER"))
+        tokens.append(.lparen)
+        if !groups.isEmpty {
+            tokens.append(.keyword("PARTITION"))
+            tokens.append(.keyword("BY"))
+            for g in groups {
+                try tokens.append(contentsOf: g.sparqlTokens())
+            }
+        }
+        if !order.isEmpty {
+            tokens.append(.keyword("ORDER"))
+            tokens.append(.keyword("BY"))
+            for c in order {
+                try tokens.append(contentsOf: c.sparqlTokens())
+            }
+        }
+        try tokens.append(contentsOf: frame.sparqlTokens())
+        tokens.append(.rparen)
+        return AnySequence(tokens)
+    }
+}
+

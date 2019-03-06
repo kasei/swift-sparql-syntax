@@ -809,41 +809,6 @@ extension Aggregation {
     }
 }
 
-extension WindowFunction {
-    public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
-        var tokens = [SPARQLToken]()
-        switch self {
-        case .rank:
-            tokens.append(.keyword("RANK"))
-            tokens.append(.lparen)
-            tokens.append(.rparen)
-        case .rowNumber:
-            tokens.append(.keyword("ROW_NUMBER"))
-            tokens.append(.lparen)
-            tokens.append(.rparen)
-        }
-        return AnySequence(tokens)
-    }
-}
-
-extension WindowApplication {
-    public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
-        let f = self.windowFunction.description
-        let frame = self.frame
-        let order = self.comparators
-        let groups = self.partition
-//        "\(f) OVER (\(frame) PARTITION BY \(groups) ORDER BY \(order))"
-
-        var tokens = [SPARQLToken]()
-        try tokens.append(contentsOf: self.windowFunction.sparqlTokens())
-        tokens.append(.keyword("OVER"))
-        tokens.append(.lparen)
-        print("*** TODO: implement WindowApplication sparqlTokens")
-        tokens.append(.rparen)
-        return AnySequence(tokens)
-    }
-}
-
 extension Algebra {
     var serializableEquivalent: Algebra {
         switch self {
@@ -1069,9 +1034,9 @@ extension Algebra {
         case .aggregate(let lhs, _, _):
             // aggregation serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             return try lhs.sparqlTokens(depth: depth)
-        case .window(let lhs, let funcs):
-            //            fatalError("TODO: implement sparqlTokens() on window: \(lhs) \(groups) \(funcs)")
-            throw SPARQLSyntaxError.serializationError("Cannot serialize window function operator to SPARQL syntax: \(lhs) \(funcs)")
+        case .window(let lhs, _):
+            // window serialization happens in Query.sparqlTokens, so this just serializes the child algebra
+            return try lhs.sparqlTokens(depth: depth)
         }
     }
 }
@@ -1097,8 +1062,8 @@ extension Query {
                     if i > 0 {
                         groupTokens.append(.comma)
                     }
-
-
+                    
+                    
                     var addParens : Bool = g.needsSurroundingParentheses
                     if case .node(.bound(_)) = g {
                         addParens = true
@@ -1111,14 +1076,24 @@ extension Query {
                     } else {
                         groupTokens.append(contentsOf: try g.sparqlTokens())
                     }
-
-//                    try groupTokens.append(contentsOf: g.sparqlTokens())
+                    
+                    //                    try groupTokens.append(contentsOf: g.sparqlTokens())
                 }
             }
             
             algebra = algebra.removeAggregation()
         }
-
+        
+        
+        if let w = algebra.window, case let .window(_, funcs) = w {
+            for f in funcs {
+                let v = f.variableName
+                projectedExpressions[v] = try Array(f.windowApplication.sparqlTokens())
+            }
+            
+            algebra = algebra.removeWindow()
+        }
+        
         var aggExtensionTokens = [String : [SPARQLToken]]()
         for (name,e) in aggExtensions {
             let tokens = try Array(e.sparqlTokens())
@@ -1304,7 +1279,7 @@ internal extension Algebra {
     func removeAggregation() -> Algebra {
         if self.isAggregation {
             switch self {
-            case let .aggregate(child, _, _), let .filter(child, _):
+            case let .aggregate(child, _, _), let .filter(child, _), let .window(child, _):
                 return child.removeAggregation()
             case let .extend(child, expr, name):
                 return .extend(child.removeAggregation(), expr, name)
@@ -1318,6 +1293,28 @@ internal extension Algebra {
                 return .order(child.removeAggregation(), cmps)
             default:
                 fatalError("Unexpected algebra claimed to have an aggregation operator: \(self)")
+            }
+        }
+        return self
+    }
+
+    func removeWindow() -> Algebra {
+        if self.isWindow {
+            switch self {
+            case let .aggregate(child, _, _), let .filter(child, _), let .window(child, _):
+                return child.removeWindow()
+            case let .extend(child, expr, name):
+                return .extend(child.removeWindow(), expr, name)
+            case let .project(child, vars):
+                return .project(child.removeWindow(), vars)
+            case let .slice(child, offset, limit):
+                return .slice(child.removeWindow(), offset, limit)
+            case .distinct(let child):
+                return .distinct(child.removeWindow())
+            case .order(let child, let cmps):
+                return .order(child.removeWindow(), cmps)
+            default:
+                fatalError("Unexpected algebra claimed to have an window operator: \(self)")
             }
         }
         return self
