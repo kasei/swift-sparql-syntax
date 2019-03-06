@@ -165,12 +165,13 @@ public extension WindowApplication {
         let partition = try self.partition.map { (e) in
             try e.replace(map)
         }
-        print("*** TODO: rewrite the frame expressions")
+        let frame = try self.frame.replace(map)
         return WindowApplication(
             windowFunction: windowFunction,
             comparators: cmps,
             partition: partition,
-            frame: frame) // TODO: rewrite the frame expressions
+            frame: frame
+        )
     }
     
     func replace(_ map: (Expression) throws -> Expression?) throws -> WindowApplication {
@@ -180,16 +181,94 @@ public extension WindowApplication {
         let partition = try self.partition.map { (e) in
             try e.replace(map)
         }
-        print("*** TODO: rewrite the frame expressions")
+        let frame = try self.frame.replace(map)
         return WindowApplication(
             windowFunction: windowFunction,
             comparators: cmps,
             partition: partition,
-            frame: frame) // TODO: rewrite the frame expressions
+            frame: frame
+        )
     }
     
     func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> WindowApplication {
-        fatalError("TODO: implement WindowApplication.rewrite(_:) -> RewriteStatus<Expression>")
+        let cmps = try self.comparators.map { (cmp) in
+            try Algebra.SortComparator(ascending: cmp.ascending, expression: cmp.expression.rewrite(map))
+        }
+        let partition = try self.partition.map { (e) in
+            try e.rewrite(map)
+        }
+        let frame = try self.frame.rewrite(map)
+        return WindowApplication(
+            windowFunction: windowFunction,
+            comparators: cmps,
+            partition: partition,
+            frame: frame
+        )
+    }
+}
+
+extension WindowFrame {
+    func replace(_ map: [String:Term]) throws -> WindowFrame {
+        return try WindowFrame(
+            type: type,
+            from: from.replace(map),
+            to: to.replace(map)
+        )
+    }
+    
+    func replace(_ map: (Expression) throws -> Expression?) throws -> WindowFrame {
+        return try WindowFrame(
+            type: type,
+            from: from.replace(map),
+            to: to.replace(map)
+        )
+    }
+    
+    func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> WindowFrame {
+        let from = try self.from.rewrite(map)
+        let to = try self.to.rewrite(map)
+        return WindowFrame(
+            type: type,
+            from: from,
+            to: to
+        )
+    }
+}
+
+extension WindowFrame.FrameBound {
+    func replace(_ map: [String:Term]) throws -> WindowFrame.FrameBound {
+        switch self {
+        case .current, .unbound:
+            return self
+        case .preceding(let e):
+            return try .preceding(e.replace(map))
+        case .following(let e):
+            return try .following(e.replace(map))
+        }
+    }
+    
+    func replace(_ map: (Expression) throws -> Expression?) throws -> WindowFrame.FrameBound {
+        switch self {
+        case .current, .unbound:
+            return self
+        case .preceding(let e):
+            return try .preceding(e.replace(map))
+        case .following(let e):
+            return try .following(e.replace(map))
+        }
+    }
+    
+    func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> WindowFrame.FrameBound {
+        switch self {
+        case .current, .unbound:
+            return self
+        case .preceding(let e):
+            let expr = try e.rewrite(map)
+            return .preceding(expr)
+        case .following(let e):
+            let expr = try e.rewrite(map)
+            return .following(expr)
+        }
     }
 }
 
