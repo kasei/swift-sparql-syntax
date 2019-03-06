@@ -60,19 +60,25 @@ public extension WindowFunction {
 }
 
 public struct WindowFrame: Hashable, Codable {
-    enum FrameBound: Hashable {
+    public enum FrameBound: Hashable {
         case current
         case unbound
         case preceding(Expression)
         case following(Expression)
     }
-    enum FrameType: Hashable {
+    public enum FrameType: Hashable {
         case rows
         case range
     }
-    var type: FrameType
-    var from: FrameBound
-    var to: FrameBound
+    public var type: FrameType
+    public var from: FrameBound
+    public var to: FrameBound
+    
+    public init(type: FrameType, from: FrameBound, to: FrameBound) {
+        self.type = type
+        self.from = from
+        self.to = to
+    }
 }
 
 extension WindowFrame.FrameBound : Codable {
@@ -152,6 +158,12 @@ public struct WindowApplication: Hashable, Codable {
     public var comparators: [Algebra.SortComparator]
     public var partition: [Expression]
     public var frame: WindowFrame
+    public init(windowFunction: WindowFunction, comparators: [Algebra.SortComparator], partition: [Expression], frame: WindowFrame) {
+        self.windowFunction = windowFunction
+        self.comparators = comparators
+        self.partition = partition
+        self.frame = frame
+    }
     public var variables: Set<String> {
         return windowFunction.variables
     }
