@@ -38,6 +38,30 @@ class SPARQLParserWindowTests: XCTestCase {
         }
     }
     
+    func testWindowHaving() throws {
+        let sparql = """
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        SELECT ?name ?o WHERE {
+            ?s a foaf:Person ; foaf:name ?name ; foaf:schoolHomepage ?o
+        }
+        HAVING (RANK() OVER (PARTITION BY ?s) < 2)
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let a = try p.parseAlgebra()
+        XCTAssertEqual(a.inscope, ["name", "o"])
+        guard case let .project(
+            .filter(
+                .window(_, _),
+                _
+            ),
+            projection
+            ) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+        }
+        XCTAssertEqual(projection, ["name", "o"])
+    }
+
     func testRank() {
         guard var p = SPARQLParser(string: "SELECT (RANK() OVER (PARTITION BY ?s ?o ORDER BY ?o) AS ?rank) WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {

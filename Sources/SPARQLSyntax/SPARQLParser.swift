@@ -618,10 +618,14 @@ public struct SPARQLParser {
             }
         }
         
+        var window = window
         var aggregation = aggregation
         var havingExpression: Expression? = nil
         if try attempt(token: .keyword("HAVING")) {
             var e = try parseConstraint()
+            if e.hasWindow {
+                e = e.removeWindows(freshCounter, mapping: &window)
+            }
             if e.hasAggregation {
                 e = e.removeAggregations(freshCounter, mapping: &aggregation)
             }
@@ -641,12 +645,12 @@ public struct SPARQLParser {
             applyWindow = true
         }
 
-        if applyAggregation {
-            algebra = .aggregate(algebra, groups, Set(aggregations))
-        }
-        
         if applyWindow {
             algebra = .window(algebra, windows)
+        }
+        
+        if applyAggregation {
+            algebra = .aggregate(algebra, groups, Set(aggregations))
         }
         
         let inScope = algebra.inscope
