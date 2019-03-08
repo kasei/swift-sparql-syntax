@@ -165,16 +165,16 @@ In the latter case, serialization can be used even if the query contains syntax 
 
 #### Window Functions
 
-Beyond SPARQL 1.1, parsing window functions is supported.
-A SQL-like syntax is supported for projecting window functions in a `SELECT` clause,
-as well has in a `HAVING` clause. In addition to the built-in aggregate functions,
-the following window functions are supported: `RANK`, `ROW_NUMBER`.
+Parsing of window functions is supported as an extension to the SPARQL 1.1 syntax.
+A SQL-like syntax is supported for projecting window functions in a `SELECT` clause, as well as in a `HAVING` clause.
+In addition to the built-in aggregate functions, the following window functions are supported:
+`RANK`, `ROW_NUMBER`.
 
 Shown below are some examples of the supported syntax.
 
 ```swift
-# "limit by resource"
-# limit to two name/school pairs per person
+# "Limit By Resource"
+# This query limits results to two name/school pairs per person
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 SELECT ?name ?school WHERE {
 	?s a foaf:Person ;
@@ -185,7 +185,7 @@ HAVING (RANK() OVER (PARTITION BY ?s) < 2)
 ```
 
 ```swift
-# use of window framing to compute a moving average
+# Use window framing to compute a moving average over the trailing four results
 PREFIX : <http://example.org/>
 SELECT (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
 	VALUES (?date ?value) {
