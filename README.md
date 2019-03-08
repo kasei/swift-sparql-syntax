@@ -20,9 +20,6 @@
 * [SPARQL 1.1] Parser, Tokenizer, and Serializer available via both API and command line tool
 * Abstract syntax representation of SPARQL queries, aligned with the [SPARQL Algebra]
 
-[SPARQL 1.1]: https://www.w3.org/TR/sparql11-query
-[SPARQL Algebra]: https://www.w3.org/TR/sparql11-query/#sparqlAlgebra
-
 ### Building
 
 ```
@@ -39,8 +36,6 @@ add the following to your project's `Package.swift` file:
     .package(url: "https://github.com/kasei/swift-sparql-syntax.git", .upToNextMinor(from: "0.0.91"))
   ]
   ```
-
-[Swift Package Manager]: https://swift.org/package-manager
 
 ### Command Line Usage
 
@@ -112,7 +107,7 @@ The primary components of this API are:
 
 #### `Term`
 
-`struct Term` represents an [RDF Term]: an IRI, a blank node, or an RDF Literal.
+`struct Term` represents an [RDF Term] (an IRI, a blank node, or an RDF Literal).
 `Term` also provides some support for XSD numeric types,
 bridging between `Term`s and `enum NumericValue` which provides numeric functions and [type-promoting operators](https://www.w3.org/TR/xpath20/#promotion).
 
@@ -162,4 +157,7 @@ bind values to specific variables; and replace entire `Expression` sub-trees.
 It can serialize both structured queries (`Query` and `Algebra`) and unstructured queries (a query `String`).
 In the latter case, serialization can be used even if the query contains syntax errors (with data after the error being serialized as-is).
 
+[SPARQL 1.1]: https://www.w3.org/TR/sparql11-query
+[SPARQL Algebra]: https://www.w3.org/TR/sparql11-query/#sparqlAlgebra
+[Swift Package Manager]: https://swift.org/package-manager
 [RDF Term]: https://www.w3.org/TR/sparql11-query/#sparqlBasicTerms
