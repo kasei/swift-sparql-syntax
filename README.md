@@ -14,11 +14,15 @@
    - [Query](#query)
    - [SPARQLParser](#sparqlparser)
    - [SPARQLSerializer](#sparqlserializer)
+ - [Extensions](#extensions)
+   - [Window Functions](#window-functions)
 
 ### Features
 
 * [SPARQL 1.1] Parser, Tokenizer, and Serializer available via both API and command line tool
 * Abstract syntax representation of SPARQL queries, aligned with the [SPARQL Algebra]
+* Supported extensions:
+  - [Window Functions](#window-functions)
 
 ### Building
 
@@ -156,6 +160,46 @@ bind values to specific variables; and replace entire `Expression` sub-trees.
 `struct SPARQLSerializer` provides an API for serializing SPARQL 1.1 queries, optionally applying "pretty printing" rules to produce consistently formatted output.
 It can serialize both structured queries (`Query` and `Algebra`) and unstructured queries (a query `String`).
 In the latter case, serialization can be used even if the query contains syntax errors (with data after the error being serialized as-is).
+
+### Extensions
+
+#### Window Functions
+
+Beyond SPARQL 1.1, parsing window functions is supported.
+A SQL-like syntax is supported for projecting window functions in a `SELECT` clause,
+as well has in a `HAVING` clause. In addition to the built-in aggregate functions,
+the following window functions are supported: `RANK`, `ROW_NUMBER`.
+
+Shown below are some examples of the supported syntax.
+
+```swift
+# "limit by resource"
+# limit to two name/school pairs per person
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+SELECT ?name ?school WHERE {
+	?s a foaf:Person ;
+		foaf:name ?name ;
+		foaf:schoolHomepage ?school
+}
+HAVING (RANK() OVER (PARTITION BY ?s) < 2)
+```
+
+```swift
+# use of window framing to compute a moving average
+PREFIX : <http://example.org/>
+SELECT (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
+	VALUES (?date ?value) {
+		(1 1.0)
+		(2 2.0)
+		(3 3.0)
+		(4 2.0)
+		(5 0.0)
+		(6 0.0)
+		(7 1.0)
+	}
+}
+```
+
 
 [SPARQL 1.1]: https://www.w3.org/TR/sparql11-query
 [SPARQL Algebra]: https://www.w3.org/TR/sparql11-query/#sparqlAlgebra
