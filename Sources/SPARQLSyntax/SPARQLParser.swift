@@ -1695,7 +1695,14 @@ public struct SPARQLParser {
         switch t {
         case .keyword(let kw) where SPARQLLexer.validAggregations.contains(kw):
             let agg = try parseAggregate()
-            return .aggregate(agg)
+            if let t = peekToken(), case .keyword("OVER") = t {
+                // aggregates can be used as window functions
+                let function : WindowFunction = .aggregation(agg)
+                let w = try parseWindow(with: function)
+                return .window(w)
+            } else {
+                return .aggregate(agg)
+            }
         case .keyword(let kw) where SPARQLLexer.validWindowFunctions.contains(kw):
             let w = try parseWindow()
             return .window(w)
@@ -1739,10 +1746,17 @@ public struct SPARQLParser {
         case "RANK":
             try expect(token: ._nil)
             function = .rank
+        case "ROW_NUMBER":
+            try expect(token: ._nil)
+            function = .rowNumber
         default:
             throw parseError("Unrecognized window function name '\(name)'")
         }
 
+        return try parseWindow(with: function)
+    }
+    
+    private mutating func parseWindow(with function: WindowFunction) throws -> WindowApplication {
         try expect(token: .keyword("OVER"))
         try expect(token: .lparen)
 
@@ -1781,6 +1795,7 @@ public struct SPARQLParser {
         let range = try attempt(token: .keyword("RANGE"))
         let row = try attempt(token: .keyword("ROWS"))
         if range || row {
+            // TODO: parse single bound frames (e.g. just "ROWS 3 PRECEDING")
             try expect(token: .keyword("BETWEEN"))
             let from = try parseFrameBound()
             try expect(token: .keyword("AND"))

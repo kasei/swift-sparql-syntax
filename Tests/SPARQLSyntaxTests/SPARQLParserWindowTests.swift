@@ -8,6 +8,8 @@ extension SPARQLParserWindowTests {
         return [
             ("testRank", testRank),
             ("testSerialization", testSerialization),
+            ("testWindowHaving", testWindowHaving),
+            ("testWindowAggregation", testWindowAggregation),
         ]
     }
 }
@@ -36,6 +38,34 @@ class SPARQLParserWindowTests: XCTestCase {
         } catch let e {
             XCTFail("\(e)")
         }
+    }
+    
+    func testWindowAggregation() throws {
+        let sparql = """
+        PREFIX : <http://example.org/>
+        SELECT (AVG(?value) OVER (ORDER BY ?date ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) AS ?movingAverage) WHERE {
+            VALUES (?date ?value) {
+                (1 1.0) # 1.0
+                (2 2.0) # 1.5
+                (3 3.0) # 2.0
+                (4 2.0) # 2.33
+                (5 0.0) # 2.5
+                (6 0.0) # 0.66
+                (7 1.0) # 0.33
+            }
+        }
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let a = try p.parseAlgebra()
+        XCTAssertEqual(a.inscope, ["movingAverage"])
+        guard case let .project(
+            .window(_, _),
+            projection
+            ) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+        }
+        XCTAssertEqual(projection, ["movingAverage"])
     }
     
     func testWindowHaving() throws {

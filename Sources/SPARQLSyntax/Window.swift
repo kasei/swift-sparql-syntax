@@ -7,14 +7,53 @@
 
 import Foundation
 
-public enum WindowFunction : String, Codable {
+public enum WindowFunction {
     case rowNumber
     case rank
+    case aggregation(Aggregation)
     
     public var variables: Set<String> {
         switch self {
         case .rowNumber, .rank:
             return Set()
+        case .aggregation(let agg):
+            return agg.variables
+        }
+    }
+}
+
+extension WindowFunction : Hashable, Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case aggregation
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "ROW_NUMBER":
+            self = .rowNumber
+        case "RANK":
+            self = .rank
+        case "AGGREGATION":
+            let agg = try container.decode(Aggregation.self, forKey: .aggregation)
+            self = .aggregation(agg)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected window function type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .rowNumber:
+            try container.encode("ROW_NUMBER", forKey: .type)
+        case .rank:
+            try container.encode("RANK", forKey: .type)
+        case .aggregation(let agg):
+            try container.encode("AGGREGATION", forKey: .type)
+            try container.encode(agg, forKey: .aggregation)
         }
     }
 }
@@ -26,6 +65,8 @@ extension WindowFunction: CustomStringConvertible {
             return "ROW_NUMBER()"
         case .rank:
             return "RANK()"
+        case .aggregation(let agg):
+            return agg.description
         }
     }
 }
@@ -37,6 +78,8 @@ public extension WindowFunction {
             return self
         case .rowNumber:
             return self
+        case .aggregation(let agg):
+            return try .aggregation(agg.replace(map))
         }
     }
     
@@ -46,6 +89,8 @@ public extension WindowFunction {
             return self
         case .rowNumber:
             return self
+        case .aggregation(let agg):
+            return try .aggregation(agg.replace(map))
         }
     }
     
@@ -55,6 +100,8 @@ public extension WindowFunction {
             return self
         case .rowNumber:
             return self
+        case .aggregation(let agg):
+            return try .aggregation(agg.rewrite(map))
         }
     }
 }
@@ -335,6 +382,8 @@ extension WindowFunction {
             tokens.append(.keyword("ROW_NUMBER"))
             tokens.append(.lparen)
             tokens.append(.rparen)
+        case .aggregation(let agg):
+            return try agg.sparqlTokens()
         }
         return AnySequence(tokens)
     }
