@@ -8,7 +8,7 @@
  - [Command Line Usage](#command-line-usage)
  - [API](#api)
    - [Term](#term)
-   - [Triple](#triple), [Quad](#quad), [TriplePattern](#triplepattern), and [QuadPattern](#quadpattern)
+   - [Triple, Quad, TriplePattern and QuadPattern](#triple-quad-triplepattern-and-quadpattern)
    - [Algebra](#algebra)
    - [Expression](#expression)
    - [Query](#query)
