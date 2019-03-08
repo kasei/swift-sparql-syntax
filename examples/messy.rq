@@ -1,0 +1,9 @@
+prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+select    ?s
+where{
+?s geo:lat ?lat ;geo:long ?long   ;
+	FILTER(?long < -117.0)
+FILTER(?lat >= 31.0)
+  FILTER(?lat <= 33.0)
+} ORDER BY ?s
+
