@@ -72,7 +72,9 @@ class SPARQLParserWindowTests: XCTestCase {
         let sparql = """
         PREFIX foaf: <http://xmlns.com/foaf/0.1/>
         SELECT ?name ?o WHERE {
-            ?s a foaf:Person ; foaf:name ?name ; foaf:schoolHomepage ?o
+            ?s a foaf:Person ;
+                foaf:name ?name ;
+                foaf:schoolHomepage ?o
         }
         HAVING (RANK() OVER (PARTITION BY ?s) < 2)
         """
@@ -93,7 +95,7 @@ class SPARQLParserWindowTests: XCTestCase {
     }
 
     func testRank() {
-        guard var p = SPARQLParser(string: "SELECT (RANK() OVER (PARTITION BY ?s ?o ORDER BY ?o) AS ?rank) WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        guard var p = SPARQLParser(string: "SELECT ?s ?p ?o (RANK() OVER (PARTITION BY ?s ?p ORDER BY ?o) AS ?rank) WHERE { ?s ?p ?o } ORDER BY ?rank") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             let expectedMapping = Algebra.WindowFunctionMapping(
@@ -104,7 +106,7 @@ class SPARQLParserWindowTests: XCTestCase {
                             ascending: true,
                             expression: .node(.variable("o", binding: true)))
                     ],
-                    partition: [.node(.variable("s", binding: true)), .node(.variable("o", binding: true))],
+                    partition: [.node(.variable("s", binding: true)), .node(.variable("p", binding: true))],
                     frame: WindowFrame(
                         type: .rows,
                         from: .unbound,
@@ -114,7 +116,10 @@ class SPARQLParserWindowTests: XCTestCase {
                 variableName: "rank"
             )
             guard case let .project(
-                .window(child, m),
+                .order(
+                    .window(child, m),
+                    _
+                ),
                 projection
                 ) = a else {
                     XCTFail("Unexpected algebra: \(a.serialize())")
@@ -128,8 +133,8 @@ class SPARQLParserWindowTests: XCTestCase {
             let app = gotMapping.windowApplication
             XCTAssertEqual(app.comparators.count, 1)
             XCTAssertEqual(app.partition.count, 2)
-            XCTAssertEqual(projection, ["rank"])
-            XCTAssertEqual(a.inscope, ["rank"])
+            XCTAssertEqual(projection, ["s", "p", "o", "rank"])
+            XCTAssertEqual(a.inscope, ["s", "p", "o", "rank"])
             XCTAssertEqual(Algebra.window(child, m).inscope, ["s", "p", "o", "rank"])
         } catch let e {
             XCTFail("\(e)")
