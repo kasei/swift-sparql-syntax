@@ -12,6 +12,7 @@ import Foundation
 // swiftlint:disable:next type_body_length
 public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
     case node(Node)
+    case window(WindowApplication)
     case aggregate(Aggregation)
     case neg(Expression)
     case not(Expression)
@@ -75,6 +76,8 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             return exprs.reduce(expr.variables) { $0.union($1.variables) }
         case .aggregate(let a):
             return a.variables
+        case .window(let w):
+            return w.variables
         case .exists(let p):
             return p.inscope
         }
@@ -84,6 +87,8 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
         switch self {
         case .aggregate(_):
             return true
+        case .window(_):
+            return false
         case .node(_), .exists(_):
             return false
         case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
@@ -175,11 +180,117 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             mapping[name] = agg
             let node: Node = .variable(name, binding: true)
             return .node(node)
+        case .window(let w):
+            return .window(w)
         case .valuein(let expr, let exprs):
             return .valuein(expr.removeAggregations(counter, mapping: &mapping), exprs.map { $0.removeAggregations(counter, mapping: &mapping) })
         }
     }
-
+    
+    public var hasWindow: Bool {
+        switch self {
+        case .aggregate(_):
+            return false
+        case .window(_):
+            return true
+        case .node(_), .exists(_):
+            return false
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
+            return expr.hasWindow
+        case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
+            return lhs.hasWindow || rhs.hasWindow
+        case .between(let a, let b, let c):
+            return a.hasWindow || b.hasWindow || c.hasWindow
+        case .call(_, let exprs):
+            return exprs.reduce(false) { $0 || $1.hasWindow }
+        case .valuein(let expr, let exprs):
+            return exprs.reduce(expr.hasWindow) { $0 || $1.hasWindow }
+        }
+    }
+    
+    func removeWindows(_ counter: AnyIterator<Int>, mapping: inout [String:WindowApplication]) -> Expression {
+        switch self {
+        case .node(_), .exists(_):
+            return self
+        case .neg(let expr):
+            return .neg(expr.removeWindows(counter, mapping: &mapping))
+        case .not(let expr):
+            return .not(expr.removeWindows(counter, mapping: &mapping))
+        case .isiri(let expr):
+            return .isiri(expr.removeWindows(counter, mapping: &mapping))
+        case .isblank(let expr):
+            return .isblank(expr.removeWindows(counter, mapping: &mapping))
+        case .isliteral(let expr):
+            return .isliteral(expr.removeWindows(counter, mapping: &mapping))
+        case .isnumeric(let expr):
+            return .isnumeric(expr.removeWindows(counter, mapping: &mapping))
+        case .lang(let expr):
+            return .lang(expr.removeWindows(counter, mapping: &mapping))
+        case .langmatches(let expr, let pattern):
+            return .langmatches(expr.removeWindows(counter, mapping: &mapping), pattern.removeWindows(counter, mapping: &mapping))
+        case .sameterm(let expr, let pattern):
+            return .sameterm(expr.removeWindows(counter, mapping: &mapping), pattern.removeWindows(counter, mapping: &mapping))
+        case .datatype(let expr):
+            return .datatype(expr.removeWindows(counter, mapping: &mapping))
+        case .bound(let expr):
+            return .bound(expr.removeWindows(counter, mapping: &mapping))
+        case .boolCast(let expr):
+            return .boolCast(expr.removeWindows(counter, mapping: &mapping))
+        case .intCast(let expr):
+            return .intCast(expr.removeWindows(counter, mapping: &mapping))
+        case .floatCast(let expr):
+            return .floatCast(expr.removeWindows(counter, mapping: &mapping))
+        case .doubleCast(let expr):
+            return .doubleCast(expr.removeWindows(counter, mapping: &mapping))
+        case .decimalCast(let expr):
+            return .decimalCast(expr.removeWindows(counter, mapping: &mapping))
+        case .dateTimeCast(let expr):
+            return .dateTimeCast(expr.removeWindows(counter, mapping: &mapping))
+        case .dateCast(let expr):
+            return .dateCast(expr.removeWindows(counter, mapping: &mapping))
+        case .stringCast(let expr):
+            return .stringCast(expr.removeWindows(counter, mapping: &mapping))
+        case .call(let f, let exprs):
+            return .call(f, exprs.map { $0.removeWindows(counter, mapping: &mapping) })
+        case .eq(let lhs, let rhs):
+            return .eq(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .ne(let lhs, let rhs):
+            return .ne(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .lt(let lhs, let rhs):
+            return .lt(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .le(let lhs, let rhs):
+            return .le(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .gt(let lhs, let rhs):
+            return .gt(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .ge(let lhs, let rhs):
+            return .ge(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .add(let lhs, let rhs):
+            return .add(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .sub(let lhs, let rhs):
+            return .sub(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .div(let lhs, let rhs):
+            return .div(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .mul(let lhs, let rhs):
+            return .mul(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .and(let lhs, let rhs):
+            return .and(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .or(let lhs, let rhs):
+            return .or(lhs.removeWindows(counter, mapping: &mapping), rhs.removeWindows(counter, mapping: &mapping))
+        case .between(let a, let b, let c):
+            return .between(a.removeWindows(counter, mapping: &mapping), b.removeWindows(counter, mapping: &mapping), c.removeWindows(counter, mapping: &mapping))
+        case .aggregate(let agg):
+            return .aggregate(agg)
+        case .window(let w):
+            guard let c = counter.next() else { fatalError("No fresh variable available") }
+            let name = ".window-\(c)"
+            mapping[name] = w
+            let node: Node = .variable(name, binding: true)
+            return .node(node)
+        case .valuein(let expr, let exprs):
+            return .valuein(expr.removeWindows(counter, mapping: &mapping), exprs.map { $0.removeWindows(counter, mapping: &mapping) })
+        }
+    }
+    
     var isBuiltInCall: Bool {
         switch self {
         case .aggregate(_), .stringCast(_), .lang(_), .langmatches(_), .datatype(_), .bound(_), .call("IRI", _), .call("BNODE", _), .call("RAND", _), .call("ABS", _), .call("CEIL", _), .call("FLOOR", _), .call("ROUND", _), .call("CONCAT", _), .call("STRLEN", _), .call("UCASE", _), .call("LCASE", _), .call("ENCODE_FOR_URI", _), .call("CONTAINS", _), .call("STRSTARTS", _), .call("STRENDS", _), .call("STRBEFORE", _), .call("STRAFTER", _), .call("YEAR", _), .call("MONTH", _), .call("DAY", _), .call("HOURS", _), .call("MINUTES", _), .call("SECONDS", _), .call("TIMEZONE", _), .call("TZ", _), .call("NOW", _), .call("UUID", _), .call("STRUUID", _), .call("MD5", _), .call("SHA1", _), .call("SHA256", _), .call("SHA384", _), .call("SHA512", _), .call("COALESCE", _), .call("IF", _), .call("STRLANG", _), .call("STRDT", _), .sameterm(_, _), .isiri(_), .isblank(_), .isliteral(_), .isnumeric(_), .call("REGEX", _), .exists(_), .not(.exists(_)):
@@ -208,6 +319,8 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
         switch self {
         case .aggregate(let a):
             return a.description
+        case .window(let w):
+            return w.description
         case .node(let node):
             return node.description
         case .eq(let lhs, let rhs):
@@ -302,6 +415,7 @@ extension Expression: Codable {
         case name
         case expressions
         case aggregate
+        case window
     }
     
     public init(from decoder: Decoder) throws {
@@ -314,6 +428,9 @@ extension Expression: Codable {
         case "aggregate":
             let agg = try container.decode(Aggregation.self, forKey: .aggregate)
             self = .aggregate(agg)
+        case "window":
+            let window = try container.decode(WindowApplication.self, forKey: .window)
+            self = .window(window)
         case "neg":
             let lhs = try container.decode(Expression.self, forKey: .lhs)
             self = .neg(lhs)
@@ -451,6 +568,9 @@ extension Expression: Codable {
         case let .aggregate(agg):
             try container.encode("aggregate", forKey: .type)
             try container.encode(agg, forKey: .aggregate)
+        case let .window(window):
+            try container.encode("window", forKey: .type)
+            try container.encode(window, forKey: .window)
         case let .neg(lhs):
             try container.encode("neg", forKey: .type)
             try container.encode(lhs, forKey: .lhs)
@@ -592,6 +712,8 @@ public extension Expression {
                 return self
             case .aggregate(let a):
                 return try .aggregate(a.replace(map))
+            case .window(let w):
+                return try .window(w.replace(map))
             case .neg(let expr):
                 return try .neg(expr.replace(map))
             case .eq(let lhs, let rhs):
@@ -689,6 +811,8 @@ public extension Expression {
                 return e
             case .aggregate(let a):
                 return try .aggregate(a.rewrite(map))
+            case .window(let w):
+                return try .window(w.rewrite(map))
             case .neg(let expr):
                 return try .neg(expr.rewrite(map))
             case .eq(let lhs, let rhs):

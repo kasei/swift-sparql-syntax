@@ -63,9 +63,7 @@ func warn(_ items: String...) {
     }
 }
 
-func printSPARQL(_ qfile: String, pretty: Bool = false, silent: Bool = false, includeComments: Bool = false) throws {
-    let url = URL(fileURLWithPath: qfile)
-    let data = try Data(contentsOf: url)
+func printSPARQL(_ data: Data, pretty: Bool = false, silent: Bool = false, includeComments: Bool = false) throws {
     guard let sparql = String(data: data, encoding: .utf8) else {
         fatalError("Failed to decode SPARQL query as utf8")
     }
@@ -178,7 +176,8 @@ if let op = args.next() {
     } else if op == "lint", let qfile = args.next() {
         do {
             let pretty = true
-            try printSPARQL(qfile, pretty: pretty, silent: false, includeComments: true)
+            let (sparql, _) = try data(fromFileOrString: qfile)
+            try printSPARQL(sparql, pretty: pretty, silent: false, includeComments: true)
         } catch let e {
             warn("*** Failed to lint query: \(e)")
         }

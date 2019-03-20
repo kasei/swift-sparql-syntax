@@ -161,7 +161,7 @@ public extension Query {
         case .construct(let triples):
             d += "\(indent)  Construct\n"
             d += "\(indent)    Algebra\n"
-            d += algebra.serialize(depth: depth+6)
+            d += algebra.serialize(depth: depth+3)
             d += "\(indent)    Template\n"
             for t in triples {
                 d += "\(indent)      \(t)\n"
@@ -169,16 +169,16 @@ public extension Query {
         case .describe(let nodes):
             let expressions = nodes.map { "\($0)" }
             d += "\(indent)  Describe { \(expressions.joined(separator: ", ")) }\n"
-            d += algebra.serialize(depth: depth+4)
+            d += algebra.serialize(depth: depth+2)
         case .ask:
             d += "\(indent)  Ask\n"
-            d += algebra.serialize(depth: depth+4)
+            d += algebra.serialize(depth: depth+2)
         case .select(.star):
             d += "\(indent)  Select { * }\n"
-            d += algebra.serialize(depth: depth+4)
+            d += algebra.serialize(depth: depth+2)
         case .select(.variables(let v)):
             d += "\(indent)  Select { \(v.map { "?\($0)" }.joined(separator: ", ")) }\n"
-            d += algebra.serialize(depth: depth+4)
+            d += algebra.serialize(depth: depth+2)
         }
         return d
     }

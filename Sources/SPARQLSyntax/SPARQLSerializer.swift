@@ -245,6 +245,10 @@ public struct SPARQLSerializer {
                 // newline before these keywords
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel)))
+            case (_, .keyword("ORDER"), _) where pstate.openParens > 0:
+                // no newline before an ORDER BY clause that's within a set of parens (e.g. as part of a window function)
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .spaceSeparator))
             case (_, .keyword("GROUP"), _), (_, .keyword("HAVING"), _), (_, .keyword("ORDER"), _), (_, .keyword("LIMIT"), _), (_, .keyword("OFFSET"), _):
                 // newline before, and a space after these keywords
                 outputArray.append((t, .newline(pstate.indentLevel)))
@@ -547,6 +551,8 @@ extension Expression {
             return n.sparqlTokens
         case .aggregate(let a):
             return try a.sparqlTokens()
+        case .window(let w):
+            return try w.sparqlTokens()
         case .neg(let e):
             tokens.append(.minus)
             tokens.append(contentsOf: try e.parenthesizedSparqlTokens())
@@ -860,8 +866,8 @@ extension Algebra {
             default:
                 fatalError("cannot serialize an aggregation whose child is not a projection operator")
             }
-        case .window(let lhs, let exprs, let funcs):
-            return .window(lhs.serializableEquivalent, exprs, funcs)
+        case .window(let lhs, let funcs):
+            return .window(lhs.serializableEquivalent, funcs)
         case .subquery(_):
             return self
         }
@@ -1028,9 +1034,9 @@ extension Algebra {
         case .aggregate(let lhs, _, _):
             // aggregation serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             return try lhs.sparqlTokens(depth: depth)
-        case .window(let lhs, let groups, let funcs):
-            //            fatalError("TODO: implement sparqlTokens() on window: \(lhs) \(groups) \(funcs)")
-            throw SPARQLSyntaxError.serializationError("Cannot serialize window function operator to SPARQL syntax: \(lhs) \(groups) \(funcs)")
+        case .window(let lhs, _):
+            // window serialization happens in Query.sparqlTokens, so this just serializes the child algebra
+            return try lhs.sparqlTokens(depth: depth)
         }
     }
 }
@@ -1056,8 +1062,8 @@ extension Query {
                     if i > 0 {
                         groupTokens.append(.comma)
                     }
-
-
+                    
+                    
                     var addParens : Bool = g.needsSurroundingParentheses
                     if case .node(.bound(_)) = g {
                         addParens = true
@@ -1070,14 +1076,24 @@ extension Query {
                     } else {
                         groupTokens.append(contentsOf: try g.sparqlTokens())
                     }
-
-//                    try groupTokens.append(contentsOf: g.sparqlTokens())
+                    
+                    //                    try groupTokens.append(contentsOf: g.sparqlTokens())
                 }
             }
             
             algebra = algebra.removeAggregation()
         }
-
+        
+        
+        if let w = algebra.window, case let .window(_, funcs) = w {
+            for f in funcs {
+                let v = f.variableName
+                projectedExpressions[v] = try Array(f.windowApplication.sparqlTokens())
+            }
+            
+            algebra = algebra.removeWindow()
+        }
+        
         var aggExtensionTokens = [String : [SPARQLToken]]()
         for (name,e) in aggExtensions {
             let tokens = try Array(e.sparqlTokens())
@@ -1263,7 +1279,7 @@ internal extension Algebra {
     func removeAggregation() -> Algebra {
         if self.isAggregation {
             switch self {
-            case let .aggregate(child, _, _), let .filter(child, _):
+            case let .aggregate(child, _, _), let .filter(child, _), let .window(child, _):
                 return child.removeAggregation()
             case let .extend(child, expr, name):
                 return .extend(child.removeAggregation(), expr, name)
@@ -1281,6 +1297,28 @@ internal extension Algebra {
         }
         return self
     }
+
+    func removeWindow() -> Algebra {
+        if self.isWindow {
+            switch self {
+            case let .aggregate(child, _, _), let .filter(child, _), let .window(child, _):
+                return child.removeWindow()
+            case let .extend(child, expr, name):
+                return .extend(child.removeWindow(), expr, name)
+            case let .project(child, vars):
+                return .project(child.removeWindow(), vars)
+            case let .slice(child, offset, limit):
+                return .slice(child.removeWindow(), offset, limit)
+            case .distinct(let child):
+                return .distinct(child.removeWindow())
+            case .order(let child, let cmps):
+                return .order(child.removeWindow(), cmps)
+            default:
+                fatalError("Unexpected algebra claimed to have an window operator: \(self)")
+            }
+        }
+        return self
+    }
 }
 
 public extension Algebra {
@@ -1290,7 +1328,7 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _, _), .subquery(_):
+             .aggregate(_, _, _), .window(_, _), .subquery(_):
             return nil
         case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child):
             return child.sortComparators
@@ -1307,7 +1345,7 @@ public extension Algebra {
             return false
         case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _), .namedGraph(_, _),
-             .aggregate(_, _, _), .window(_, _, _), .subquery(_), .project(_, _):
+             .aggregate(_, _, _), .window(_, _), .subquery(_), .project(_, _):
             return false
         case .extend(let child, _, _), .order(let child, _), .slice(let child, _, _):
             return child.distinct
@@ -1320,7 +1358,7 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _, _), .subquery(_):
+             .aggregate(_, _, _), .window(_, _), .subquery(_):
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
             return child.limit
@@ -1335,7 +1373,7 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _, _), .subquery(_):
+             .aggregate(_, _, _), .window(_, _), .subquery(_):
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
             return child.offset

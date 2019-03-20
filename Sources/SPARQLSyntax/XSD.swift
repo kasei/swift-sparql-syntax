@@ -111,6 +111,14 @@ public enum NumericValue: CustomStringConvertible, Equatable, Hashable {
         }
     }
     
+    public static func += (lhs: inout NumericValue, rhs: NumericValue) {
+        lhs = lhs + rhs
+    }
+    
+    public static func -= (lhs: inout NumericValue, rhs: NumericValue) {
+        lhs = lhs - rhs
+    }
+    
     public static func + (lhs: NumericValue, rhs: NumericValue) -> NumericValue {
         let value = lhs.value + rhs.value
         return nonDivResultingNumeric(value, lhs, rhs)
