@@ -31,6 +31,14 @@ public struct Namespace {
     public func iri(for local: String) -> IRI? {
         return IRI(string: iriString(for: local))
     }
+    
+    public init(value: String) {
+        self.value = value
+    }
+    
+    public init(url: URL) {
+        self.value = url.absoluteString
+    }
 }
 
 public class IRI : Codable {
