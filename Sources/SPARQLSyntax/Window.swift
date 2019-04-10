@@ -10,11 +10,13 @@ import Foundation
 public enum WindowFunction {
     case rowNumber
     case rank
+    case denseRank
+    case ntile(Int)
     case aggregation(Aggregation)
     
     public var variables: Set<String> {
         switch self {
-        case .rowNumber, .rank:
+        case .rowNumber, .rank, .denseRank, .ntile(_):
             return Set()
         case .aggregation(let agg):
             return agg.variables
@@ -26,6 +28,7 @@ extension WindowFunction : Hashable, Codable {
     private enum CodingKeys: String, CodingKey {
         case type
         case aggregation
+        case ntile
     }
     
     public init(from decoder: Decoder) throws {
@@ -36,6 +39,11 @@ extension WindowFunction : Hashable, Codable {
             self = .rowNumber
         case "RANK":
             self = .rank
+        case "DENSE_RANK":
+            self = .rank
+        case "NTILE":
+            let n = try container.decode(Int.self, forKey: .ntile)
+            self = .ntile(n)
         case "AGGREGATION":
             let agg = try container.decode(Aggregation.self, forKey: .aggregation)
             self = .aggregation(agg)
@@ -51,6 +59,11 @@ extension WindowFunction : Hashable, Codable {
             try container.encode("ROW_NUMBER", forKey: .type)
         case .rank:
             try container.encode("RANK", forKey: .type)
+        case .denseRank:
+            try container.encode("DENSE_RANK", forKey: .type)
+        case .ntile(let n):
+            try container.encode("NTILE", forKey: .type)
+            try container.encode(n, forKey: .ntile)
         case .aggregation(let agg):
             try container.encode("AGGREGATION", forKey: .type)
             try container.encode(agg, forKey: .aggregation)
@@ -65,6 +78,10 @@ extension WindowFunction: CustomStringConvertible {
             return "ROW_NUMBER()"
         case .rank:
             return "RANK()"
+        case .denseRank:
+            return "DENSE_RANK()"
+        case .ntile(let n):
+            return "NTILE(\(n))"
         case .aggregation(let agg):
             return agg.description
         }
@@ -74,9 +91,7 @@ extension WindowFunction: CustomStringConvertible {
 public extension WindowFunction {
     func replace(_ map: [String:Term]) throws -> WindowFunction {
         switch self {
-        case .rank:
-            return self
-        case .rowNumber:
+        case .rank, .denseRank, .rowNumber, .ntile(_):
             return self
         case .aggregation(let agg):
             return try .aggregation(agg.replace(map))
@@ -85,9 +100,7 @@ public extension WindowFunction {
     
     func replace(_ map: (Expression) throws -> Expression?) throws -> WindowFunction {
         switch self {
-        case .rank:
-            return self
-        case .rowNumber:
+        case .rank, .denseRank, .rowNumber, .ntile(_):
             return self
         case .aggregation(let agg):
             return try .aggregation(agg.replace(map))
@@ -96,9 +109,7 @@ public extension WindowFunction {
     
     func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> WindowFunction {
         switch self {
-        case .rank:
-            return self
-        case .rowNumber:
+        case .rank, .denseRank, .rowNumber, .ntile(_):
             return self
         case .aggregation(let agg):
             return try .aggregation(agg.rewrite(map))
@@ -378,9 +389,18 @@ extension WindowFunction {
             tokens.append(.keyword("RANK"))
             tokens.append(.lparen)
             tokens.append(.rparen)
+        case .denseRank:
+            tokens.append(.keyword("DENSE_RANK"))
+            tokens.append(.lparen)
+            tokens.append(.rparen)
         case .rowNumber:
             tokens.append(.keyword("ROW_NUMBER"))
             tokens.append(.lparen)
+            tokens.append(.rparen)
+        case .ntile(let n):
+            tokens.append(.keyword("NTILE"))
+            tokens.append(.lparen)
+            tokens.append(.integer("\(n)"))
             tokens.append(.rparen)
         case .aggregation(let agg):
             return try agg.sparqlTokens()
