@@ -1746,9 +1746,17 @@ public struct SPARQLParser {
         case "RANK":
             try expect(token: ._nil)
             function = .rank
+        case "DENSE_RANK":
+            try expect(token: ._nil)
+            function = .denseRank
         case "ROW_NUMBER":
             try expect(token: ._nil)
             function = .rowNumber
+        case "NTILE":
+            try expect(token: .lparen)
+            let n = try parseInteger()
+            try expect(token: .rparen)
+            function = .ntile(n)
         default:
             throw parseError("Unrecognized window function name '\(name)'")
         }
