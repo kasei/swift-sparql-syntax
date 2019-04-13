@@ -13,13 +13,20 @@ public enum WindowFunction {
     case denseRank
     case ntile(Int)
     case aggregation(Aggregation)
-    
+    case custom(String, [Expression])
+
     public var variables: Set<String> {
         switch self {
         case .rowNumber, .rank, .denseRank, .ntile(_):
             return Set()
         case .aggregation(let agg):
             return agg.variables
+        case .custom(_, let args):
+            var vars = Set<String>()
+            args.forEach { (e) in
+                vars.formUnion(e.variables)
+            }
+            return vars
         }
     }
 }
@@ -29,6 +36,8 @@ extension WindowFunction : Hashable, Codable {
         case type
         case aggregation
         case ntile
+        case iri
+        case arguments
     }
     
     public init(from decoder: Decoder) throws {
@@ -47,6 +56,10 @@ extension WindowFunction : Hashable, Codable {
         case "AGGREGATION":
             let agg = try container.decode(Aggregation.self, forKey: .aggregation)
             self = .aggregation(agg)
+        case "CUSTOM":
+            let iri = try container.decode(String.self, forKey: .iri)
+            let args = try container.decode([Expression].self, forKey: .arguments)
+            self = .custom(iri, args)
         default:
             throw SPARQLSyntaxError.serializationError("Unexpected window function type '\(type)' found")
         }
@@ -67,6 +80,10 @@ extension WindowFunction : Hashable, Codable {
         case .aggregation(let agg):
             try container.encode("AGGREGATION", forKey: .type)
             try container.encode(agg, forKey: .aggregation)
+        case let .custom(iri, args):
+            try container.encode("CUSTOM", forKey: .type)
+            try container.encode(iri, forKey: .iri)
+            try container.encode(args, forKey: .arguments)
         }
     }
 }
@@ -84,6 +101,8 @@ extension WindowFunction: CustomStringConvertible {
             return "NTILE(\(n))"
         case .aggregation(let agg):
             return agg.description
+        case let .custom(iri, args):
+            return "<\(iri)>(\(args.map { $0.description }.joined(separator: ", "))"
         }
     }
 }
@@ -95,6 +114,8 @@ public extension WindowFunction {
             return self
         case .aggregation(let agg):
             return try .aggregation(agg.replace(map))
+        case let .custom(iri, args):
+            return try .custom(iri, args.map { try $0.replace(map) })
         }
     }
     
@@ -104,7 +125,9 @@ public extension WindowFunction {
             return self
         case .aggregation(let agg):
             return try .aggregation(agg.replace(map))
-        }
+        case let .custom(iri, args):
+            return try .custom(iri, args.map { try $0.replace(map) })
+}
     }
     
     func rewrite(_ map: (Expression) throws -> RewriteStatus<Expression>) throws -> WindowFunction {
@@ -113,6 +136,8 @@ public extension WindowFunction {
             return self
         case .aggregation(let agg):
             return try .aggregation(agg.rewrite(map))
+        case let .custom(iri, args):
+            return try .custom(iri, args.map { try $0.rewrite(map) })
         }
     }
 }
@@ -404,6 +429,14 @@ extension WindowFunction {
             tokens.append(.rparen)
         case .aggregation(let agg):
             return try agg.sparqlTokens()
+        case let .custom(iri, args):
+            let t = Term(iri: iri)
+            tokens.append(contentsOf: t.sparqlTokens)
+            tokens.append(.lparen)
+            let at = try args.map { try $0.sparqlTokens() }
+            let j = at.joined(separator: [.comma])
+            tokens.append(contentsOf: j)
+            tokens.append(.rparen)
         }
         return AnySequence(tokens)
     }

@@ -1562,7 +1562,17 @@ public struct SPARQLParser {
             let t = try peekExpectedToken()
             switch t {
             case .iri(_), .prefixname(_, _):
-                return try parseIRIOrFunction()
+                let expr = try parseIRIOrFunction()
+                if let t = peekToken(), case .keyword("OVER") = t {
+                    guard case let .call(iri, exprs) = expr else {
+                        throw parseError("Expected extension window function call but found \(t)")
+                    }
+                    let function: WindowFunction = .custom(iri, exprs)
+                    let w = try parseWindow(with: function)
+                    return .window(w)
+                } else {
+                    return expr
+                }
             case ._nil, .anon, .bnode(_):
                 throw parseError("Expected PrimaryExpression term (IRI, Literal, or Var) but found \(t)")
             case _ where t.isTermOrVar:
@@ -1735,7 +1745,6 @@ public struct SPARQLParser {
     }
     
     private mutating func parseWindow() throws -> WindowApplication {
-        // (RANK() OVER (PARTITION BY ?s ORDER BY ?o) AS ?rank)
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
             throw parseError("Expected window function name but found \(t)")
