@@ -699,3 +699,18 @@ extension Node: CustomStringConvertible {
         }
     }
 }
+
+extension Node {
+    func replace(_ map: [String:Term]) throws -> Node {
+        switch self {
+        case let .variable(name, binding: _):
+            if let t = map[name] {
+                return .bound(t)
+            } else {
+                return self
+            }
+        default:
+            return self
+        }
+    }
+}
