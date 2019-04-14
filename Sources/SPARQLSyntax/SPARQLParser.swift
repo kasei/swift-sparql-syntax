@@ -242,17 +242,24 @@ public struct SPARQLParser {
         }
     }
     
+    private enum QueryCardinality {
+        case full
+        case reduced
+        case distinct
+    }
+    
     private mutating func parseSelectQuery() throws -> Query {
         try expect(token: .keyword("SELECT"))
-        var distinct = false
+        var distinct : QueryCardinality = .full
         var aggregationExpressions = [String:Aggregation]()
         var windowExpressions = [String:WindowApplication]()
         var projectExpressions = [(Expression, String)]()
         
-        if let _ = try attempt(any: [.keyword("DISTINCT"), .keyword("REDUCED")]) {
-            distinct = true
+        if try attempt(token: .keyword("DISTINCT")) {
+            distinct = .distinct
+        } else if try attempt(token: .keyword("REDUCED")) {
+            distinct = .reduced
         }
-        
         
         var projection: SelectProjection
         if try attempt(token: .star) {
@@ -296,7 +303,7 @@ public struct SPARQLParser {
         let values = try parseValuesClause()
         algebra = try parseSolutionModifier(
             algebra: algebra,
-            distinct: distinct,
+            cardinality: distinct,
             projection: projection,
             projectExpressions: projectExpressions,
             aggregation: aggregationExpressions,
@@ -333,7 +340,7 @@ public struct SPARQLParser {
         
         algebra = try parseSolutionModifier(
             algebra: algebra,
-            distinct: true,
+            cardinality: .distinct,
             projection: .star,
             projectExpressions: [],
             aggregation: [:],
@@ -379,7 +386,7 @@ public struct SPARQLParser {
         
         let algebra = try parseSolutionModifier(
             algebra: ggp,
-            distinct: true,
+            cardinality: .distinct,
             projection: .star,
             projectExpressions: [],
             aggregation: [:],
@@ -458,16 +465,18 @@ public struct SPARQLParser {
     private mutating func parseSubSelect() throws -> Algebra {
         try expect(token: .keyword("SELECT"))
         
-        var distinct = false
+        var distinct : QueryCardinality = .full
         var star = false
         var aggregationExpressions = [String:Aggregation]()
         var windowExpressions = [String:WindowApplication]()
         var projectExpressions = [(Expression, String)]()
         
-        if let _ = try attempt(any: [.keyword("DISTINCT"), .keyword("REDUCED")]) {
-            distinct = true
+        if try attempt(token: .keyword("DISTINCT")) {
+            distinct = .distinct
+        } else if try attempt(token: .keyword("REDUCED")) {
+            distinct = .reduced
         }
-        
+
         var projection: SelectProjection
         if try attempt(token: .star) {
             projection = .star
@@ -511,7 +520,7 @@ public struct SPARQLParser {
         
         algebra = try parseSolutionModifier(
             algebra: algebra,
-            distinct: distinct,
+            cardinality: distinct,
             projection: projection,
             projectExpressions: projectExpressions,
             aggregation: aggregationExpressions,
@@ -604,7 +613,7 @@ public struct SPARQLParser {
     }
     
     // swiftlint:disable:next function_parameter_count
-    private mutating func parseSolutionModifier(algebra: Algebra, distinct: Bool, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], window: [String:WindowApplication], valuesBlock: Algebra?) throws -> Algebra {
+    private mutating func parseSolutionModifier(algebra: Algebra, cardinality: QueryCardinality, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], window: [String:WindowApplication], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
         
         var groups = [Expression]()
@@ -688,8 +697,13 @@ public struct SPARQLParser {
             algebra = .project(algebra, Set(projection))
         }
         
-        if distinct {
+        switch cardinality {
+        case .distinct:
             algebra = .distinct(algebra)
+        case .reduced:
+            algebra = .reduced(algebra)
+        default:
+            break
         }
         
         if try attempt(token: .keyword("LIMIT")) {
@@ -2387,7 +2401,7 @@ extension Algebra {
         case .subquery(let q):
             return q.algebra.blankNodeLabels
             
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _):
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _), .project(let child, _), .extend(let child, _, _), .aggregate(let child, _, _), .window(let child, _):
             return child.blankNodeLabels
             
             

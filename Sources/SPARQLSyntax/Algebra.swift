@@ -93,6 +93,7 @@ public indirect enum Algebra : Hashable {
     case minus(Algebra, Algebra)
     case project(Algebra, Set<String>)
     case distinct(Algebra)
+    case reduced(Algebra)
     case service(URL, Algebra, Bool)
     case slice(Algebra, Int?, Int?)
     case order(Algebra, [SortComparator])
@@ -189,6 +190,9 @@ extension Algebra : Codable {
         case "distinct":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
             self = .distinct(lhs)
+        case "reduced":
+            let lhs = try container.decode(Algebra.self, forKey: .lhs)
+            self = .reduced(lhs)
         case "service":
             let lhs = try container.decode(Algebra.self, forKey: .lhs)
             let endpoint = try container.decode(URL.self, forKey: .url)
@@ -282,6 +286,9 @@ extension Algebra : Codable {
         case let .distinct(lhs):
             try container.encode("distinct", forKey: .type)
             try container.encode(lhs, forKey: .lhs)
+        case let .reduced(lhs):
+            try container.encode("reduced", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
         case let .service(endpoint, lhs, silent):
             try container.encode("service", forKey: .type)
             try container.encode(endpoint, forKey: .url)
@@ -373,6 +380,10 @@ public extension Algebra {
             return d
         case .distinct(let child):
             var d = "\(indent)Distinct\n"
+            d += child.serialize(depth: depth+1)
+            return d
+        case .reduced(let child):
+            var d = "\(indent)Reduced\n"
             d += child.serialize(depth: depth+1)
             return d
         case .slice(let child, nil, .some(let limit)), .slice(let child, .some(0), .some(let limit)):
@@ -485,7 +496,7 @@ public extension Algebra {
             return variables
         case .subquery(let q):
             return q.inscope
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _):
             return child.inscope
         case .namedGraph(let child, .variable(let v, let bind)):
             var variables = child.inscope
@@ -543,7 +554,7 @@ public extension Algebra {
             return child.necessarilyBound.union([v])
         case .subquery(let q):
             return q.necessarilyBound
-        case .filter(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _), .leftOuterJoin(let child, _, _):
+        case .filter(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, .bound(_)), .order(let child, _), .service(_, let child, _), .leftOuterJoin(let child, _, _):
             return child.necessarilyBound
         case .namedGraph(let child, .variable(let v, let bind)):
             var variables = child.necessarilyBound
@@ -585,7 +596,7 @@ public extension Algebra {
         case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_), .minus(_, _), .union(_, _), .aggregate(_), .leftOuterJoin(_), .service(_), .filter(_, _), .namedGraph(_, _):
             return [:]
             
-        case .project(let child, _), .distinct(let child), .slice(let child, _, _), .order(let child, _):
+        case .project(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .order(let child, _):
             return child.variableExtensions
             
         case .innerJoin(let lhs, let rhs):
@@ -605,7 +616,7 @@ public extension Algebra {
         case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):
             return nil
             
-        case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
+        case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
             return child.aggregation
             
         case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
@@ -631,7 +642,7 @@ public extension Algebra {
         case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .aggregate(_), .table(_), .subquery(_):
             return nil
             
-        case .project(let child, _), .minus(let child, _), .distinct(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
+        case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
             return child.window
             
         case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
@@ -775,6 +786,8 @@ public extension Algebra {
                 return self
             case .distinct(let a):
                 return try .distinct(a.replace(map))
+            case .reduced(let a):
+                return try .reduced(a.replace(map))
             case .minus(let a, let b):
                 return try .minus(a.replace(map), b.replace(map))
             case .union(let a, let b):
@@ -860,6 +873,8 @@ public extension Algebra {
             return self
         case .distinct(let a):
             return try .distinct(a.replace(map))
+        case .reduced(let a):
+            return try .reduced(a.replace(map))
         case .project(let a, let p):
             return try .project(a.replace(map), p)
         case .minus(let a, let b):
@@ -934,6 +949,8 @@ public extension Algebra {
             return
         case .distinct(let a):
             try a.walk(handler)
+        case .reduced(let a):
+            try a.walk(handler)
         case .project(let a, _):
             try a.walk(handler)
         case .order(let a, _):
@@ -990,6 +1007,13 @@ public extension Algebra {
             case .distinct(let a):
                 var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
                 var rewritten : Algebra = .distinct(aa)
+                if allowReprocessing && ra {
+                    (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
+                }
+                return (rewritten, ra)
+            case .reduced(let a):
+                var (aa, ra) = try a._rewrite(allowReprocessing: allowReprocessing, map)
+                var rewritten : Algebra = .reduced(aa)
                 if allowReprocessing && ra {
                     (rewritten, ra) = try rewritten._rewrite(allowReprocessing: false, map)
                 }
