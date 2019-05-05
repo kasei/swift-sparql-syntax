@@ -1094,11 +1094,12 @@ public struct SPARQLParser {
         let pred = Term(iri: Namespace.rdf.predicate)
         let obj = Term(iri: Namespace.rdf.object)
         
+        let t_reif = TriplePattern(subject: subject, predicate: predicate, object: object)
         let t_type = TriplePattern(subject: .bound(s), predicate: .bound(type), object: .bound(statement))
         let t_subj = TriplePattern(subject: .bound(s), predicate: .bound(subj), object: subject)
         let t_pred = TriplePattern(subject: .bound(s), predicate: .bound(pred), object: predicate)
         let t_obj = TriplePattern(subject: .bound(s), predicate: .bound(obj), object: object)
-        return (.bound(s), [.triple(t_type), .triple(t_subj), .triple(t_pred), .triple(t_obj)])
+        return (.bound(s), [.triple(t_reif), .triple(t_type), .triple(t_subj), .triple(t_pred), .triple(t_obj)])
     }
     
     private mutating func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
