@@ -17,17 +17,28 @@ private func joinReduction(coalesceBGPs: Bool = false) -> (Algebra, Algebra) -> 
     }
 }
 
+private func variableForBlankNode(_ n: Node) -> Node? {
+    switch n {
+    case .bound(let term) where term.type == .blank:
+        return .variable(".blank.\(term.value)", binding: false)
+    default:
+        return nil
+    }
+}
+
 private enum UnfinishedAlgebra {
     case filter(Expression)
     case optional(Algebra)
     case minus(Algebra)
-    case bind(Expression, String)
+//    case bind(Expression, String)
+    case bind(Expression, String, [Algebra])
     case finished(Algebra)
     
     func finish(_ args: inout [Algebra]) throws -> Algebra {
         switch self {
-        case .bind(let e, let name):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+        case let .bind(e, name, embedded_triples): // EXTENSION-002
+            let algebras = args + embedded_triples
+            let algebra: Algebra = algebras.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             if algebra.inscope.contains(name) {
                 throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name))") // TODO: can the line:col be included in this exception?
@@ -838,43 +849,38 @@ public struct SPARQLParser {
         
         var algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
         
-        func replaceBlankNode(_ n: Node) -> Node? {
-            switch n {
-            case .bound(let term) where term.type == .blank:
-                return .variable(".blank.\(term.value)", binding: false)
+        if self.parseBlankNodesAsVariables {
+            algebra = try replaceBlankNodesWithVariables(algebra)
+        }
+        
+        return algebra
+    }
+    
+    private mutating func replaceBlankNodesWithVariables(_ algebra: Algebra) throws -> Algebra {
+        return try algebra.replace { (a) -> Algebra? in
+            switch a {
+            case .bgp(let triples):
+                if let newTriples = try? triples.map({ (t) in return try t.replace(variableForBlankNode) }) {
+                    return .bgp(newTriples)
+                } else {
+                    return nil
+                }
+            case .quad(let q):
+                if let qp = try? q.replace(variableForBlankNode) {
+                    return .quad(qp)
+                } else {
+                    return nil
+                }
+            case .triple(let t):
+                if let tp = try? t.replace(variableForBlankNode) {
+                    return .triple(tp)
+                } else {
+                    return nil
+                }
             default:
                 return nil
             }
         }
-        
-        if self.parseBlankNodesAsVariables {
-            algebra = try algebra.replace { (a) -> Algebra? in
-                switch a {
-                case .bgp(let triples):
-                    if let newTriples = try? triples.map({ (t) in return try t.replace(replaceBlankNode) }) {
-                        return .bgp(newTriples)
-                    } else {
-                        return nil
-                    }
-                case .quad(let q):
-                    if let qp = try? q.replace(replaceBlankNode) {
-                        return .quad(qp)
-                    } else {
-                        return nil
-                    }
-                case .triple(let t):
-                    if let tp = try? t.replace(replaceBlankNode) {
-                        return .triple(tp)
-                    } else {
-                        return nil
-                    }
-                default:
-                    return nil
-                }
-            }
-        }
-        
-        return algebra
     }
     
     private mutating func guardBlankNodeResuse(with currentBlockSeenLabels: Set<String>) throws {
@@ -889,14 +895,25 @@ public struct SPARQLParser {
     private mutating func parseBind() throws -> UnfinishedAlgebra {
         try expect(token: .keyword("BIND"))
         try expect(token: .lparen)
-        let expr = try parseNonAggregatingExpression()
+//        let expr = try parseNonAggregatingExpression()
+        let exprOrEmbTP = try parseExpressionOrEmbTP() // EXTENSION-002
         try expect(token: .keyword("AS"))
         let node = try parseVar()
         try expect(token: .rparen)
         guard case .variable(let name, binding: _) = node else {
             throw parseError("Expecting BIND variable but got \(node)")
         }
-        return .bind(expr, name)
+        switch exprOrEmbTP {
+        case .expression(let expr):
+            return .bind(expr, name, [])
+        case .triplePattern(let embtp):
+            let (node, triples) = triplesFromEmbedding(.triplePattern(embtp))
+            let t = try triples.map { (a) -> Algebra in
+                return try replaceBlankNodesWithVariables(a)
+            }
+            let n = variableForBlankNode(node) ?? node
+            return .bind(.node(n), name, t)
+        }
     }
     
     private mutating func parseInlineData() throws -> Algebra {
@@ -1537,6 +1554,25 @@ public struct SPARQLParser {
             throw parseError("Unexpected aggregation in BIND expression")
         }
         return expr
+    }
+    
+    
+    private enum ExpressionOrEmbTP { // EXTENSION-002
+        case expression(Expression)
+        case triplePattern(EmbeddedTriplePattern)
+    }
+    
+    private mutating func parseExpressionOrEmbTP() throws -> ExpressionOrEmbTP { // EXTENSION-002
+        let t = try peekExpectedToken()
+        if case .dlt = t {
+            return try .triplePattern(parseEmbTP())
+        } else {
+            let expr = try parseExpression()
+            guard !expr.hasAggregation else {
+                throw parseError("Unexpected aggregation in BIND expression")
+            }
+            return try .expression(expr)
+        }
     }
     
     private mutating func parseExpression() throws -> Expression {

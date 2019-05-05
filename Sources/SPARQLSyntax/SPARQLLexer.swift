@@ -93,6 +93,7 @@ public enum SPARQLToken {
             return false
         }
     }
+    
     public var isTermOrVar: Bool {
         if isTerm {
             return true

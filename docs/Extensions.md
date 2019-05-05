@@ -4,7 +4,7 @@ Extensions to SPARQL 1.1
 EXTENSION-001: Window Functions
 -------------
 
-Status: Fully implemented
+*Status*: Fully implemented
 
 Support for [window functions](https://github.com/w3c/sparql-12/issues/47) in `SELECT` or `HAVING` clauses.
 
@@ -45,7 +45,7 @@ where `frametype` is either `ROWS` or `RANGE`.
 EXTENSION-002: SPARQL*
 -------------
 
-Status: Parsing SPARQL* embedded triple patterns resulting in AST using standard RDF reification is supported. Use of embedded triple patterns in expressions (e.g. `BIND`) is not implemented yet.
+*Status*: Parsing SPARQL* embedded triple patterns and `BIND` expressions resulting in AST using standard RDF reification is supported. Use of embedded triple patterns in `CONSTRUCT` patterns is not implemented.
 
 [SPARQL*](https://arxiv.org/pdf/1406.3399.pdf) syntax for expressing reification:
 
@@ -59,8 +59,7 @@ SELECT ?age ?src WHERE {
 EXTENSION-003: `GROUP_CONCAT` ordering
 -------------
 
-Status: AST support is implemented; parsing is not
-
+*Status*: AST support is implemented; parsing is not implemented yet.
 
 Allows values to be sorted before string concatenation occurs:
 
