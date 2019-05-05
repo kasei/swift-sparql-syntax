@@ -11,6 +11,7 @@ public enum SPARQLSyntaxError: Error, CustomStringConvertible {
     case lexicalError(String)
     case parsingError(String)
     case serializationError(String)
+    case unimplemented(String)
     
     public var localizedDescription : String {
         return self.description
@@ -24,6 +25,8 @@ public enum SPARQLSyntaxError: Error, CustomStringConvertible {
             return s
         case .serializationError(let s):
             return s
+        case .unimplemented(let s):
+            return "Unimplemented: \(s)"
         }
     }
 }

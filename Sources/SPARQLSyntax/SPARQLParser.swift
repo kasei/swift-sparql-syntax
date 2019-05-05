@@ -63,6 +63,7 @@ private enum UnfinishedAlgebra {
 // swiftlint:disable:next type_body_length
 public struct SPARQLParser {
     public var parseBlankNodesAsVariables: Bool
+    public var parseSPARQLStarAsRDFReification: Bool // EXTENSION-002
     var lexer: SPARQLLexer
     var prefixes: [String:String]
     var bnodes: [String:Term]
@@ -83,6 +84,7 @@ public struct SPARQLParser {
         self.bnodes = [:]
         self.seenBlankNodeLabels = Set()
         self.parseBlankNodesAsVariables = true
+        self.parseSPARQLStarAsRDFReification = true
     }
     
     public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
@@ -182,12 +184,12 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func expect(token: SPARQLToken) throws {
-        guard let t = nextToken() else {
-            throw parseError("Expected \(token) but got EOF")
+    private mutating func expect(token expected: SPARQLToken) throws {
+        guard let got = nextToken() else {
+            throw parseError("Expected \(expected) but got EOF")
         }
-        guard t == token else {
-            throw parseError("Expected \(token) but got \(t)")
+        guard got == expected else {
+            throw parseError("Expected \(expected) but got \(got)")
         }
         return
     }
@@ -252,7 +254,7 @@ public struct SPARQLParser {
         try expect(token: .keyword("SELECT"))
         var distinct : QueryCardinality = .full
         var aggregationExpressions = [String:Aggregation]()
-        var windowExpressions = [String:WindowApplication]()
+        var windowExpressions = [String:WindowApplication]() // EXTENSION-001
         var projectExpressions = [(Expression, String)]()
         
         if try attempt(token: .keyword("DISTINCT")) {
@@ -272,7 +274,7 @@ public struct SPARQLParser {
                 case .lparen:
                     try expect(token: .lparen)
                     var expression = try parseExpression()
-                    if expression.hasWindow {
+                    if expression.hasWindow { // EXTENSION-001
                         expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
                     }
                     if expression.hasAggregation {
@@ -415,7 +417,7 @@ public struct SPARQLParser {
         } else {
             try expect(token: .dot)
             t = try peekExpectedToken()
-            if t.isTermOrVar {
+            if t.isTermOrVarOrEmbTP {
                 let more = try parseTriplesBlock()
                 return sameSubj + more
             } else {
@@ -468,7 +470,7 @@ public struct SPARQLParser {
         var distinct : QueryCardinality = .full
         var star = false
         var aggregationExpressions = [String:Aggregation]()
-        var windowExpressions = [String:WindowApplication]()
+        var windowExpressions = [String:WindowApplication]() // EXTENSION-001
         var projectExpressions = [(Expression, String)]()
         
         if try attempt(token: .keyword("DISTINCT")) {
@@ -490,7 +492,7 @@ public struct SPARQLParser {
                     try expect(token: .lparen)
                     var expression = try parseExpression()
                     if expression.hasWindow {
-                        expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
+                        expression = expression.removeWindows(freshCounter, mapping: &windowExpressions) // EXTENSION-001
                     }
                     if expression.hasAggregation {
                         expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
@@ -618,7 +620,7 @@ public struct SPARQLParser {
         
         var groups = [Expression]()
         var applyAggregation: Bool = false
-        var applyWindow: Bool = false
+        var applyWindow: Bool = false // EXTENSION-001
         if try attempt(token: .keyword("GROUP")) {
             applyAggregation = true
             try expect(token: .keyword("BY"))
@@ -627,7 +629,7 @@ public struct SPARQLParser {
             }
         }
         
-        var window = window
+        var window = window // EXTENSION-001
         var aggregation = aggregation
         var havingExpression: Expression? = nil
         if try attempt(token: .keyword("HAVING")) {
@@ -738,7 +740,7 @@ public struct SPARQLParser {
     ///   - expression: the Expression to be evaluated
     ///   - variableName: the variable to which the evaluated expression value is to be bound
     /// - Returns: a new Algebra value
-    private func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
+    private func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra { // EXTENSION-001
         if case .node(.variable(let name, _)) = expression {
             if name.hasPrefix(".") {
                 if case .aggregate(_) = algebra {
@@ -773,7 +775,7 @@ public struct SPARQLParser {
         
         while ok {
             let t = try peekExpectedToken()
-            if t.isTermOrVar {
+            if t.isTermOrVarOrEmbTP {
                 if !allowTriplesBlock {
                     break
                 }
@@ -978,7 +980,7 @@ public struct SPARQLParser {
     
     private mutating func parseTriplesSameSubject() throws -> [TriplePattern] {
         let t = try peekExpectedToken()
-        if t.isTermOrVar {
+        if t.isTermOrVarOrEmbTP {
             let subj = try parseVarOrTerm()
             return try parsePropertyListNotEmpty(for: subj)
         } else if t == .lparen || t == .lbracket {
@@ -997,7 +999,7 @@ public struct SPARQLParser {
     }
     
     private mutating func parsePropertyListNotEmpty(for subject: Node) throws -> [TriplePattern] {
-        let algebras = try parsePropertyListPathNotEmpty(for: subject)
+        let algebras = try parsePropertyListPathNotEmpty(for: .node(subject))
         var triples = [TriplePattern]()
         for algebra in algebras {
             switch simplifyPath(algebra) {
@@ -1014,8 +1016,8 @@ public struct SPARQLParser {
     
     private mutating func triplesArrayByParsingTriplesSameSubjectPath() throws -> [Algebra] {
         let t = try peekExpectedToken()
-        if t.isTermOrVar {
-            let subject = try parseVarOrTerm()
+        if t.isTermOrVarOrEmbTP { // EXTENSION-002
+            let subject = try parseVarOrTermOrEmbTP()
             let propertyObjectTriples = try parsePropertyListPathNotEmpty(for: subject)
             // NOTE: in the original code, propertyObjectTriples could be nil here. not sure why this changed, but haven't found cases where this new code is wrong...
             return propertyObjectTriples
@@ -1050,27 +1052,123 @@ public struct SPARQLParser {
     private mutating func parsePropertyListPath(for subject: Node) throws -> [Algebra] {
         let t = try peekExpectedToken()
         guard t.isVerb else { return [] }
-        return try parsePropertyListPathNotEmpty(for: subject)
+        return try parsePropertyListPathNotEmpty(for: .node(subject))
     }
     
-    private mutating func parsePropertyListPathNotEmpty(for subject: Node) throws -> [Algebra] {
-        var t = try peekExpectedToken()
-        var verb: PropertyPath? = nil
-        var varpred: Node? = nil
-        if case ._var(_) = t {
-            varpred = try parseVerbSimple()
+    private enum Verb {
+        case path(PropertyPath)
+        case node(Node)
+    }
+    
+    private mutating func triplePatterns(subject: NodeOrEmbededTriplePattern, predicate: Node, object: NodeOrEmbededTriplePattern) throws -> [TriplePattern] {
+        if self.parseSPARQLStarAsRDFReification {
+            switch (subject, object) {
+            case let (.node(subject), .node(object)):
+                return [TriplePattern(subject: subject, predicate: predicate, object: object)]
+            default:
+                let (s, salgebras) = triplesFromEmbedding(subject)
+                let (o, oalgebras) = triplesFromEmbedding(object)
+                let tp = TriplePattern(subject: s, predicate: predicate, object: o)
+                let cb = { (a: Algebra) -> TriplePattern? in
+                    switch (a) {
+                    case .triple(let tp):
+                        return tp
+                    default:
+                        return nil
+                    }
+                }
+                let striples = salgebras.compactMap(cb)
+                let otriples = oalgebras.compactMap(cb)
+                return [tp] + striples + otriples
+            }
         } else {
-            verb = try parseVerbPath()
+            throw SPARQLSyntaxError.unimplemented("SPARQL* support using non-RDF reification")
+        }
+    }
+    
+    private mutating func reifiedStatement(subject: Node, predicate: Node, object: Node) -> (Node, [Algebra]) {
+        let s = bnode()
+        let type = Term(iri: Namespace.rdf.type)
+        let statement = Term(iri: Namespace.rdf.Statement)
+        let subj = Term(iri: Namespace.rdf.subject)
+        let pred = Term(iri: Namespace.rdf.predicate)
+        let obj = Term(iri: Namespace.rdf.object)
+        
+        let t_type = TriplePattern(subject: .bound(s), predicate: .bound(type), object: .bound(statement))
+        let t_subj = TriplePattern(subject: .bound(s), predicate: .bound(subj), object: subject)
+        let t_pred = TriplePattern(subject: .bound(s), predicate: .bound(pred), object: predicate)
+        let t_obj = TriplePattern(subject: .bound(s), predicate: .bound(obj), object: object)
+        return (.bound(s), [.triple(t_type), .triple(t_subj), .triple(t_pred), .triple(t_obj)])
+    }
+    
+    private mutating func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
+        switch e {
+        case .node(let n):
+            return (n, [])
+        case .triplePattern(let embedding):
+            let (subject, striples) = triplesFromEmbedding(embedding.subject)
+            let (object, otriples) = triplesFromEmbedding(embedding.object)
+            let (s, reification) = reifiedStatement(subject: subject, predicate: embedding.predicate, object: object)
+
+            let triples = reification + striples + otriples
+            return (s, triples)
+        }
+    }
+    
+    private mutating func triplesOrPaths(subject: NodeOrEmbededTriplePattern, predicate: Verb, object: NodeOrEmbededTriplePattern) throws -> [Algebra] {
+        if self.parseSPARQLStarAsRDFReification {
+            switch (subject, object) {
+            case let (.node(subject), .node(object)):
+                switch predicate {
+                case .path(let pp):
+                    return [.path(subject, pp, object)]
+                case .node(let pred):
+                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))]
+                }
+            case let (.node(subject), .triplePattern(embtp)):
+                let (object, triples) = triplesFromEmbedding(.triplePattern(embtp))
+                switch predicate {
+                case .path(let pp):
+                    return [.path(subject, pp, object)] + triples
+                case .node(let pred):
+                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + triples
+                }
+            case let (.triplePattern(embtp), .node(object)):
+                let (subject, triples) = triplesFromEmbedding(.triplePattern(embtp))
+                switch predicate {
+                case .path(let pp):
+                    return [.path(subject, pp, object)] + triples
+                case .node(let pred):
+                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + triples
+                }
+            case let (.triplePattern(subj_embtp), .triplePattern(obj_embtp)):
+                let (subject, striples) = triplesFromEmbedding(.triplePattern(subj_embtp))
+                let (object, otriples) = triplesFromEmbedding(.triplePattern(obj_embtp))
+                switch predicate {
+                case .path(let pp):
+                    return [.path(subject, pp, object)] + striples + otriples
+                case .node(let pred):
+                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + striples + otriples
+                }
+            }
+        } else {
+            throw SPARQLSyntaxError.unimplemented("SPARQL* support using non-RDF reification")
+        }
+    }
+    
+    private mutating func parsePropertyListPathNotEmpty(for subject: NodeOrEmbededTriplePattern) throws -> [Algebra] {
+        var t = try peekExpectedToken()
+        var verb: Verb
+        if case ._var(_) = t {
+            verb = try .node(parseVerbSimple())
+        } else {
+            verb = try .path(parseVerbPath())
         }
         
         let (objectList, triples) = try parseObjectListPathAsNodes()
         var propertyObjects = triples
         for o in objectList {
-            if let verb = verb {
-                propertyObjects.append(.path(subject, verb, o))
-            } else {
-                propertyObjects.append(.triple(TriplePattern(subject: subject, predicate: varpred!, object: o)))
-            }
+            try propertyObjects.append(contentsOf: triplesOrPaths(subject: subject, predicate: verb, object: o))
         }
         
         // push paths to the end
@@ -1081,13 +1179,11 @@ public struct SPARQLParser {
         
         LOOP: while try attempt(token: .semicolon) {
             t = try peekExpectedToken()
-            var verb: PropertyPath? = nil
-            var varpred: Node? = nil
             switch t {
             case ._var(_):
-                varpred = try parseVerbSimple()
+                verb = try .node(parseVerbSimple())
             case .keyword("A"), .lparen, .hat, .bang, .iri(_), .prefixname(_, _):
-                verb = try parseVerbPath()
+                verb = try .path(parseVerbPath())
             default:
                 break LOOP
             }
@@ -1095,11 +1191,7 @@ public struct SPARQLParser {
             let (objectList, triples) = try parseObjectListPathAsNodes()
             propertyObjects.append(contentsOf: triples)
             for o in objectList {
-                if let verb = verb {
-                    propertyObjects.append(.path(subject, verb, o))
-                } else {
-                    propertyObjects.append(.triple(TriplePattern(subject: subject, predicate: varpred!, object: o)))
-                }
+                try propertyObjects.append(contentsOf: triplesOrPaths(subject: subject, predicate: verb, object: o))
             }
         }
         
@@ -1114,7 +1206,7 @@ public struct SPARQLParser {
         return try parseVar()
     }
     
-    private mutating func parseObjectListPathAsNodes() throws -> ([Node], [Algebra]) {
+    private mutating func parseObjectListPathAsNodes() throws -> ([NodeOrEmbededTriplePattern], [Algebra]) {
         var (node, triples) = try parseObjectPathAsNode()
         var objects = [node]
         
@@ -1256,7 +1348,7 @@ public struct SPARQLParser {
          **/
     }
     
-    private mutating func parseObjectPathAsNode() throws -> (Node, [Algebra]) {
+    private mutating func parseObjectPathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
         return try parseGraphNodePathAsNode()
     }
     
@@ -1296,7 +1388,7 @@ public struct SPARQLParser {
         try expect(token: .lbracket)
         let term = bnode()
         let node = Node.bound(term)
-        let path = try parsePropertyListPathNotEmpty(for: node)
+        let path = try parsePropertyListPathNotEmpty(for: .node(node))
         try expect(token: .rbracket)
         return (node, path)
     }
@@ -1339,8 +1431,8 @@ public struct SPARQLParser {
         var patterns = [TriplePattern]()
         if nodes.count > 0 {
             for (i, o) in nodes.enumerated() {
-                let triple = TriplePattern(subject: list, predicate: .bound(rdffirst), object: o)
-                patterns.append(triple)
+                let triples = try triplePatterns(subject: .node(list), predicate: .bound(rdffirst), object: o)
+                patterns.append(contentsOf: triples)
                 if i == (nodes.count-1) {
                     let triple = TriplePattern(subject: list, predicate: .bound(rdfrest), object: .bound(rdfnil))
                     patterns.append(triple)
@@ -1361,13 +1453,56 @@ public struct SPARQLParser {
     
     //    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError }
     
-    private mutating func parseGraphNodePathAsNode() throws -> (Node, [Algebra]) {
+    private mutating func parseGraphNodePathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
         let t = try peekExpectedToken()
-        if t.isTermOrVar {
-            let node = try parseVarOrTerm()
+        if t.isTermOrVarOrEmbTP {
+            let node = try parseVarOrTermOrEmbTP()
             return (node, [])
         } else {
-            return try parseTriplesNodePathAsNode()
+            let (node, algebras) = try parseTriplesNodePathAsNode()
+            return (.node(node), algebras)
+        }
+    }
+    
+    struct EmbeddedTriplePattern { // EXTENSION-002
+        var subject: NodeOrEmbededTriplePattern
+        var predicate: Node
+        var object: NodeOrEmbededTriplePattern
+    }
+    
+    indirect enum NodeOrEmbededTriplePattern { // EXTENSION-002
+        case node(Node)
+        case triplePattern(EmbeddedTriplePattern)
+    }
+
+    private mutating func parseVarOrTermOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
+        // TODO: Not sure how this differs from parseNodeOrEmbTP ("VarOrBlankNodeOrIriOrLitOrEmbTP" in the SPARQL* literature)
+        return try parseNodeOrEmbTP()
+    }
+    
+    private mutating func parseEmbTP() throws -> EmbeddedTriplePattern { // EXTENSION-002
+        try expect(token: .dlt)
+        let s = try parseNodeOrEmbTP()
+        let t = try peekExpectedToken()
+        let p: Node
+        if case .keyword("A") = t {
+            p = .bound(Term.rdf("type"))
+        } else {
+            p = try parseVarOrIRI()
+        }
+        let o = try parseNodeOrEmbTP()
+        try expect(token: .dgt)
+        return EmbeddedTriplePattern(subject: s, predicate: p, object: o)
+    }
+
+    private mutating func parseNodeOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
+        let t = try peekExpectedToken()
+        if case .dlt = t {
+            let emb = try parseEmbTP()
+            return .triplePattern(emb)
+        } else {
+            let n = try parseVarOrTerm()
+            return .node(n)
         }
     }
     
@@ -1577,7 +1712,7 @@ public struct SPARQLParser {
             switch t {
             case .iri(_), .prefixname(_, _):
                 let expr = try parseIRIOrFunction()
-                if let t = peekToken(), case .keyword("OVER") = t {
+                if let t = peekToken(), case .keyword("OVER") = t { // EXTENSION-001
                     guard case let .call(iri, exprs) = expr else {
                         throw parseError("Expected extension window function call but found \(t)")
                     }
@@ -1719,7 +1854,7 @@ public struct SPARQLParser {
         switch t {
         case .keyword(let kw) where SPARQLLexer.validAggregations.contains(kw):
             let agg = try parseAggregate()
-            if let t = peekToken(), case .keyword("OVER") = t {
+            if let t = peekToken(), case .keyword("OVER") = t { // EXTENSION-001
                 // aggregates can be used as window functions
                 let function : WindowFunction = .aggregation(agg)
                 let w = try parseWindow(with: function)
@@ -1727,7 +1862,7 @@ public struct SPARQLParser {
             } else {
                 return .aggregate(agg)
             }
-        case .keyword(let kw) where SPARQLLexer.validWindowFunctions.contains(kw):
+        case .keyword(let kw) where SPARQLLexer.validWindowFunctions.contains(kw): // EXTENSION-001
             let w = try parseWindow()
             return .window(w)
         case .keyword("NOT"):
@@ -1758,7 +1893,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseWindow() throws -> WindowApplication {
+    private mutating func parseWindow() throws -> WindowApplication { // EXTENSION-001
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
             throw parseError("Expected window function name but found \(t)")
@@ -1787,7 +1922,7 @@ public struct SPARQLParser {
         return try parseWindow(with: function)
     }
     
-    private mutating func parseWindow(with function: WindowFunction) throws -> WindowApplication {
+    private mutating func parseWindow(with function: WindowFunction) throws -> WindowApplication { // EXTENSION-001
         try expect(token: .keyword("OVER"))
         try expect(token: .lparen)
 
@@ -1847,7 +1982,7 @@ public struct SPARQLParser {
         )
     }
 
-    private mutating func parseFrameBound() throws -> WindowFrame.FrameBound {
+    private mutating func parseFrameBound() throws -> WindowFrame.FrameBound { // EXTENSION-001
         var from: WindowFrame.FrameBound
         if try attempt(token: .keyword("UNBOUNDED")) {
             from = .unbound
@@ -1927,13 +2062,15 @@ public struct SPARQLParser {
             
             var sep = " "
             if try attempt(token: .semicolon) {
+                // TODO: Implement EXTENSION-003 support for ORDER BY here
                 try expect(token: .keyword("SEPARATOR"))
                 try expect(token: .equals)
                 let t = try nextExpectedToken()
                 let term = try tokenAsTerm(t)
                 sep = term.value
             }
-            let agg: Aggregation = .groupConcat(expr, sep, distinct)
+            let cmp = Algebra.SortComparator(ascending: true, expression: Expression(integer: 0)) // TODO: EXTENSION-003
+            let agg: Aggregation = .groupConcat(expr, sep, [cmp], distinct)
             try expect(token: .rparen)
             return agg
         default:
@@ -1992,7 +2129,7 @@ public struct SPARQLParser {
             try expect(token: .dot)
             let t = try peekExpectedToken()
             switch t {
-            case _ where t.isTermOrVar, .lparen, .lbracket:
+            case _ where t.isTermOrVarOrEmbTP, .lparen, .lbracket:
                 let more = try triplesByParsingTriplesBlock()
                 sameSubj += more
             default:
@@ -2106,7 +2243,8 @@ public struct SPARQLParser {
         case .anon:
             return bnode()
         case .keyword("A"):
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)
+            return Term.rdf("type")
+//            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)
         case .boolean(let value):
             return Term(value: value, type: .datatype(.boolean))
         case .decimal(let value):

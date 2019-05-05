@@ -789,19 +789,44 @@ extension Aggregation {
             tokens.append(.lparen)
             tokens.append(contentsOf: try e.sparqlTokens())
             tokens.append(.rparen)
-        case .groupConcat(let e, let sep, let distinct):
+        case let .groupConcat(e, sep, cmps, distinct):
             tokens.append(.keyword("GROUP_CONCAT"))
             tokens.append(.lparen)
             if distinct {
                 tokens.append(.keyword("DISTINCT"))
             }
             tokens.append(contentsOf: try e.sparqlTokens())
-            if sep != " " {
+            if sep != " " || !cmps.isEmpty {
                 tokens.append(.semicolon)
+            }
+            if sep != " " {
                 tokens.append(.keyword("SEPARATOR"))
                 tokens.append(.equals)
                 let t = Term(string: sep)
                 tokens.append(contentsOf: t.sparqlTokens)
+            }
+            
+            if !cmps.isEmpty { // EXTENSION-003
+                if tokens.last != .some(.semicolon) {
+                    tokens.append(.comma)
+                }
+                var cmpsTokens = [SPARQLToken]()
+                for c in cmps {
+                    try cmpsTokens.append(contentsOf: c.sparqlTokens())
+                    cmpsTokens.append(.comma)
+                }
+                cmpsTokens.removeLast()
+                
+                let skipPattern : [SPARQLToken] = [.lparen, .string1d("0"), .hathat, .iri("http://www.w3.org/2001/XMLSchema#integer"), .rparen]
+                if cmpsTokens != skipPattern {
+                    tokens.append(.keyword("ORDER"))
+                    tokens.append(.keyword("BY"))
+                    tokens.append(contentsOf: cmpsTokens)
+                }
+            }
+
+            if tokens.last == .some(.comma) {
+                tokens.removeLast()
             }
             tokens.append(.rparen)
         }
