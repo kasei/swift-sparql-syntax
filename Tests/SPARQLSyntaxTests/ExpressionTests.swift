@@ -62,6 +62,8 @@ class ExpressionTest: XCTestCase {
         e = .and(e, .valuein(v2, [i1, i2]))
 
         /**
+         case timeCast
+         case durationCast
          case dateTimeCast(Expression)
          case dateCast(Expression)
          case valuein(Expression, [Expression])

@@ -639,6 +639,11 @@ extension Expression {
             tokens.append(.lparen)
             tokens.append(contentsOf: try e.sparqlTokens())
             tokens.append(.rparen)
+        case .timeCast(let e):
+            tokens.append(contentsOf: Term.xsd("time").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: try e.sparqlTokens())
+            tokens.append(.rparen)
         case .dateTimeCast(let e):
             tokens.append(contentsOf: Term.xsd("dateTime").sparqlTokens)
             tokens.append(.lparen)
@@ -646,6 +651,11 @@ extension Expression {
             tokens.append(.rparen)
         case .dateCast(let e):
             tokens.append(contentsOf: Term.xsd("date").sparqlTokens)
+            tokens.append(.lparen)
+            tokens.append(contentsOf: try e.sparqlTokens())
+            tokens.append(.rparen)
+        case .durationCast(let e):
+            tokens.append(contentsOf: Term.xsd("duration").sparqlTokens)
             tokens.append(.lparen)
             tokens.append(contentsOf: try e.sparqlTokens())
             tokens.append(.rparen)

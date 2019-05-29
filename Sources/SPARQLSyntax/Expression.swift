@@ -30,8 +30,10 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
     case floatCast(Expression)
     case doubleCast(Expression)
     case decimalCast(Expression)
+    case timeCast(Expression)
     case dateTimeCast(Expression)
     case dateCast(Expression)
+    case durationCast(Expression)
     case stringCast(Expression)
     case eq(Expression, Expression)
     case ne(Expression, Expression)
@@ -64,7 +66,7 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             return Set([s])
         case .node(_):
             return Set()
-        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .timeCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .durationCast(let expr), .stringCast(let expr), .neg(let expr):
             return expr.variables
         case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
             return lhs.variables.union(rhs.variables)
@@ -91,7 +93,7 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             return false
         case .node(_), .exists(_):
             return false
-        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .timeCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .durationCast(let expr), .stringCast(let expr), .neg(let expr):
             return expr.hasAggregation
         case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
             return lhs.hasAggregation || rhs.hasAggregation
@@ -140,10 +142,14 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             return .doubleCast(expr.removeAggregations(counter, mapping: &mapping))
         case .decimalCast(let expr):
             return .decimalCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .timeCast(let expr):
+            return .timeCast(expr.removeAggregations(counter, mapping: &mapping))
         case .dateTimeCast(let expr):
             return .dateTimeCast(expr.removeAggregations(counter, mapping: &mapping))
         case .dateCast(let expr):
             return .dateCast(expr.removeAggregations(counter, mapping: &mapping))
+        case .durationCast(let expr):
+            return .durationCast(expr.removeAggregations(counter, mapping: &mapping))
         case .stringCast(let expr):
             return .stringCast(expr.removeAggregations(counter, mapping: &mapping))
         case .call(let f, let exprs):
@@ -195,7 +201,7 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             return true
         case .node(_), .exists(_):
             return false
-        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .stringCast(let expr), .neg(let expr):
+        case .not(let expr), .isiri(let expr), .isblank(let expr), .isliteral(let expr), .isnumeric(let expr), .lang(let expr), .datatype(let expr), .bound(let expr), .boolCast(let expr), .intCast(let expr), .floatCast(let expr), .doubleCast(let expr), .decimalCast(let expr), .timeCast(let expr), .dateTimeCast(let expr), .dateCast(let expr), .durationCast(let expr), .stringCast(let expr), .neg(let expr):
             return expr.hasWindow
         case .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs), .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs):
             return lhs.hasWindow || rhs.hasWindow
@@ -244,10 +250,14 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             return .doubleCast(expr.removeWindows(counter, mapping: &mapping))
         case .decimalCast(let expr):
             return .decimalCast(expr.removeWindows(counter, mapping: &mapping))
+        case .timeCast(let expr):
+            return .timeCast(expr.removeWindows(counter, mapping: &mapping))
         case .dateTimeCast(let expr):
             return .dateTimeCast(expr.removeWindows(counter, mapping: &mapping))
         case .dateCast(let expr):
             return .dateCast(expr.removeWindows(counter, mapping: &mapping))
+        case .durationCast(let expr):
+            return .durationCast(expr.removeWindows(counter, mapping: &mapping))
         case .stringCast(let expr):
             return .stringCast(expr.removeWindows(counter, mapping: &mapping))
         case .call(let f, let exprs):
@@ -369,10 +379,14 @@ public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
             return "xsd:double(\(expr.description))"
         case .decimalCast(let expr):
             return "xsd:decimal(\(expr.description))"
+        case .timeCast(let expr):
+            return "xsd:time(\(expr.description))"
         case .dateTimeCast(let expr):
             return "xsd:dateTime(\(expr.description))"
         case .dateCast(let expr):
             return "xsd:date(\(expr.description))"
+        case .durationCast(let expr):
+            return "xsd:duration(\(expr.description))"
         case .stringCast(let expr):
             return "xsd:string(\(expr.description))"
         case .call(let iri, let exprs):
@@ -481,12 +495,18 @@ extension Expression: Codable {
         case "decimal":
             let lhs = try container.decode(Expression.self, forKey: .lhs)
             self = .decimalCast(lhs)
+        case "time":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .timeCast(lhs)
         case "dateTime":
             let lhs = try container.decode(Expression.self, forKey: .lhs)
             self = .dateTimeCast(lhs)
         case "date":
             let lhs = try container.decode(Expression.self, forKey: .lhs)
             self = .dateCast(lhs)
+        case "duration":
+            let lhs = try container.decode(Expression.self, forKey: .lhs)
+            self = .durationCast(lhs)
         case "string":
             let lhs = try container.decode(Expression.self, forKey: .lhs)
             self = .stringCast(lhs)
@@ -621,11 +641,17 @@ extension Expression: Codable {
         case let .decimalCast(lhs):
             try container.encode("decimal", forKey: .type)
             try container.encode(lhs, forKey: .lhs)
+        case let .timeCast(lhs):
+            try container.encode("time", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
         case let .dateTimeCast(lhs):
             try container.encode("dateTime", forKey: .type)
             try container.encode(lhs, forKey: .lhs)
         case let .dateCast(lhs):
             try container.encode("date", forKey: .type)
+            try container.encode(lhs, forKey: .lhs)
+        case let .durationCast(lhs):
+            try container.encode("duration", forKey: .type)
             try container.encode(lhs, forKey: .lhs)
         case let .stringCast(lhs):
             try container.encode("string", forKey: .type)
@@ -760,10 +786,14 @@ public extension Expression {
                 return try .doubleCast(expr.replace(map))
             case .decimalCast(let expr):
                 return try .decimalCast(expr.replace(map))
+            case .timeCast(let expr):
+                return try .timeCast(expr.replace(map))
             case .dateTimeCast(let expr):
                 return try .dateTimeCast(expr.replace(map))
             case .dateCast(let expr):
                 return try .dateCast(expr.replace(map))
+            case .durationCast(let expr):
+                return try .durationCast(expr.replace(map))
             case .stringCast(let expr):
                 return try .stringCast(expr.replace(map))
             case .call(let iri, let exprs):
@@ -859,10 +889,14 @@ public extension Expression {
                 return try .doubleCast(expr.rewrite(map))
             case .decimalCast(let expr):
                 return try .decimalCast(expr.rewrite(map))
+            case .timeCast(let expr):
+                return try .timeCast(expr.rewrite(map))
             case .dateTimeCast(let expr):
                 return try .dateTimeCast(expr.rewrite(map))
             case .dateCast(let expr):
                 return try .dateCast(expr.rewrite(map))
+            case .durationCast(let expr):
+                return try .durationCast(expr.rewrite(map))
             case .stringCast(let expr):
                 return try .stringCast(expr.rewrite(map))
             case .call(let iri, let exprs):
