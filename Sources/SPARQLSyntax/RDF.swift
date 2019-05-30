@@ -581,6 +581,9 @@ extension Term {
         var seconds = 0.0
         var months = 0
         s = String(s.dropFirst())
+        guard !s.isEmpty else {
+            return nil
+        }
         var datePart = true
         while !s.isEmpty {
             let i = s.firstIndex { !$0.isNumber } ?? s.endIndex
@@ -592,6 +595,9 @@ extension Term {
                 }
                 datePart = false
                 s = String(s.dropFirst())
+                guard !s.isEmpty else {
+                    return nil
+                }
                 continue
             }
             guard let v = Int(String(numPart)) else {
