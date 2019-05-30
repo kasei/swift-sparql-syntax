@@ -586,7 +586,7 @@ extension Term {
         }
         var datePart = true
         while !s.isEmpty {
-            let i = s.firstIndex { !$0.isNumber } ?? s.endIndex
+            let i = s.firstIndex { $0.isLetter } ?? s.endIndex
             let numPart = s.prefix(upTo: i)
             let rest = s.suffix(from: i)
             if numPart.isEmpty {
@@ -625,7 +625,7 @@ extension Term {
                 seconds += Double(v * 60)
             case "S":
                 //                print("\(v) seconds")
-                seconds += Double(v)
+                seconds += Double(numPart) ?? 0.0
             default:
                 print("Unrecognized duration part \(c) in '\(value)'")
                 return nil
