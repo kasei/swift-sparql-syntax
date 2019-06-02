@@ -567,6 +567,14 @@ extension Term {
 
 extension Term {
     public var duration: (months: Int, seconds: Double)? {
+        switch type {
+        case .datatype(TermDataType(stringLiteral: Namespace.xsd.duration)),
+             .datatype(TermDataType(stringLiteral: Namespace.xsd.yearMonthDuration)),
+             .datatype(TermDataType(stringLiteral: Namespace.xsd.dayTimeDuration)):
+            break
+        default:
+            return nil
+        }
         var neg = false
         var s = value
         if value.hasPrefix("-") {
@@ -600,9 +608,10 @@ extension Term {
                 }
                 continue
             }
-            guard let v = Int(String(numPart)) else {
+            guard let dv = Double(String(numPart)) else {
                 return nil
             }
+            let v = Int(dv)
             guard let c = rest.first else {
                 return nil
             }
