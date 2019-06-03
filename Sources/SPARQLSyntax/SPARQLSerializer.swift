@@ -880,6 +880,8 @@ extension Algebra {
             return .window(lhs.serializableEquivalent, funcs)
         case .subquery(_):
             return self
+        case .reduced(_):
+            return self
         }
     }
     
@@ -1023,7 +1025,7 @@ extension Algebra {
             }
             tokens.append(.rbrace)
             return AnySequence(tokens)
-        case .project(let lhs, _), .distinct(let lhs), .slice(let lhs, _, _), .order(let lhs, _):
+        case .project(let lhs, _), .distinct(let lhs), .reduced(let lhs), .slice(let lhs, _, _), .order(let lhs, _):
             var tokens = [SPARQLToken]()
             // projection, ordering, distinct, and slice serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             tokens.append(contentsOf: try lhs.sparqlTokens(depth: depth+1))
@@ -1129,6 +1131,7 @@ extension Query {
             if algebra.distinct {
                 tokens.append(.keyword("DISTINCT"))
             }
+            // TODO: how to handle REDUCED queries?
             tokens.append(.star)
             tokens.append(.keyword("WHERE"))
             tokens.append(.lbrace)
@@ -1139,7 +1142,7 @@ extension Query {
             if algebra.distinct {
                 tokens.append(.keyword("DISTINCT"))
             }
-            
+            // TODO: how to handle REDUCED queries?
             for v in vars {
                 if let replacement = aggExtensionTokens[v] {
                     tokens.append(.lparen)
@@ -1340,7 +1343,7 @@ public extension Algebra {
              .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _),
              .aggregate(_, _, _), .window(_, _), .subquery(_):
             return nil
-        case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child):
+        case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child), .reduced(let child):
             return child.sortComparators
         case .order(_, let cmps):
             return cmps
@@ -1357,7 +1360,7 @@ public extension Algebra {
              .filter(_, _), .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _), .namedGraph(_, _),
              .aggregate(_, _, _), .window(_, _), .subquery(_), .project(_, _):
             return false
-        case .extend(let child, _, _), .order(let child, _), .slice(let child, _, _):
+        case .extend(let child, _, _), .order(let child, _), .slice(let child, _, _), .reduced(let child):
             return child.distinct
         }
     }
@@ -1367,7 +1370,7 @@ public extension Algebra {
         case .unionIdentity, .joinIdentity:
             return nil
         case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
-             .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .service(_, _, _), .path(_, _, _),
+             .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .reduced(_), .service(_, _, _), .path(_, _, _),
              .aggregate(_, _, _), .window(_, _), .subquery(_):
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
@@ -1382,7 +1385,7 @@ public extension Algebra {
         case .unionIdentity, .joinIdentity:
             return nil
         case .table(_, _), .quad(_), .triple(_), .bgp(_), .innerJoin(_, _), .leftOuterJoin(_, _, _),
-             .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .service(_, _, _), .path(_, _, _),
+             .filter(_, _), .union(_, _), .minus(_, _), .distinct(_), .reduced(_), .service(_, _, _), .path(_, _, _),
              .aggregate(_, _, _), .window(_, _), .subquery(_):
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
