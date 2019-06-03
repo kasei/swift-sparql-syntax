@@ -1653,6 +1653,7 @@ public struct SPARQLParser {
         //    "REPLACE"
         //    "ROUND"
         //    "SECONDS"
+        //    "ADJUST"
         //    "SHA1"
         //    "SHA256"
         //    "SHA384"
