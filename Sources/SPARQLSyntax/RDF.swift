@@ -351,8 +351,8 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         if offset == 0 {
             v = "\(v)Z"
         } else {
-            let hours = offset / 60
-            let minutes = offset % 60
+            let hours = offset / (60*60)
+            let minutes = offset % (60*60)
             v = String(format: "\(v)%+03d:%02d", hours, minutes)
         }
         self.value = v

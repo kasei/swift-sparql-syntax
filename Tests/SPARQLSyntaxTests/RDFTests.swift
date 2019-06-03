@@ -14,6 +14,7 @@ extension RDFTest {
             ("testConstructorFloat", testConstructorFloat),
             ("testConstructorFloat2", testConstructorFloat2),
             ("testConstructorInteger", testConstructorInteger),
+            ("testDateTerms1", testDateTerms1),
             ("testDecimalRound1", testDecimalRound1),
             ("testDecimalRound2", testDecimalRound2),
             ("testQuadPattern_bindings", testQuadPattern_bindings),
@@ -28,6 +29,10 @@ extension RDFTest {
     }
 }
 #endif
+
+enum TestError: Error {
+    case error
+}
 
 // swiftlint:disable type_body_length
 class RDFTest: XCTestCase {
@@ -50,6 +55,26 @@ class RDFTest: XCTestCase {
     func testConstructorDecimal() {
         let t = Term(decimal: 7.1)
         XCTAssertEqual(t.value, "7.1")
+    }
+    
+    func testDateTerms1() throws {
+        let date = Date(timeIntervalSince1970: 1559577112)
+        let term1 = Term(dateTime: date, timeZone: nil)
+        XCTAssertEqual(term1.value, "2019-06-03T15:51:52")
+        
+        guard let tz2 = TimeZone(secondsFromGMT: 3600) else {
+            throw TestError.error
+        }
+        
+        let term2 = Term(dateTime: date, timeZone: tz2)
+        XCTAssertEqual(term2.value, "2019-06-03T15:51:52+01:00")
+
+        guard let tz3 = TimeZone(secondsFromGMT: -36_000) else {
+            throw TestError.error
+        }
+        
+        let term3 = Term(dateTime: date, timeZone: tz3)
+        XCTAssertEqual(term3.value, "2019-06-03T15:51:52-10:00")
     }
     
     func testDecimalRound1() {
