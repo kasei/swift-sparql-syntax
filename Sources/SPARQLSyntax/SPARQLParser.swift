@@ -1571,7 +1571,7 @@ public struct SPARQLParser {
             guard !expr.hasAggregation else {
                 throw parseError("Unexpected aggregation in BIND expression")
             }
-            return try .expression(expr)
+            return .expression(expr)
         }
     }
     
