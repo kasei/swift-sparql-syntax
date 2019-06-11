@@ -796,7 +796,7 @@ public enum Node : Equatable, Hashable {
         self = .bound(term)
     }
     
-    func bind(_ variable: String, to replacement: Node) -> Node {
+    public func bind(_ variable: String, to replacement: Node) -> Node {
         switch self {
         case .variable(variable, _):
             return replacement
@@ -805,8 +805,8 @@ public enum Node : Equatable, Hashable {
         }
     }
 
-    var isBound: Bool { return !isVariable }
-    var isVariable: Bool {
+    public var isBound: Bool { return !isVariable }
+    public var isVariable: Bool {
         switch self {
         case .bound:
             return false
@@ -815,7 +815,7 @@ public enum Node : Equatable, Hashable {
         }
     }
 
-    var term : Term? {
+    public var term : Term? {
         switch  self {
         case .bound(let t):
             return t
