@@ -804,6 +804,25 @@ public enum Node : Equatable, Hashable {
             return self
         }
     }
+
+    var isBound: Bool { return !isVariable }
+    var isVariable: Bool {
+        switch self {
+        case .bound:
+            return false
+        case .variable:
+            return true
+        }
+    }
+
+    var term : Term? {
+        switch  self {
+        case .bound(let t):
+            return t
+        default:
+            return nil
+        }
+    }
 }
 
 extension Node: Codable {
