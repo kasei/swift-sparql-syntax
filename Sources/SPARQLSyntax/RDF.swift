@@ -594,7 +594,7 @@ extension Term {
         }
         var datePart = true
         while !s.isEmpty {
-            let i = s.firstIndex { $0.isLetter } ?? s.endIndex
+            let i = s.firstIndex(where: { $0.isLetter }) ?? s.endIndex
             let numPart = s.prefix(upTo: i)
             let rest = s.suffix(from: i)
             if numPart.isEmpty {
