@@ -5,7 +5,7 @@ EXTENSION-001: Window Functions
 -------------
 
 *Status*: Fully implemented
-*branch*: sparql-12
+*branch*: master
 
 Support for [window functions](https://github.com/w3c/sparql-12/issues/47) in `SELECT` or `HAVING` clauses.
 
