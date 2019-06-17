@@ -31,14 +31,13 @@ private enum UnfinishedAlgebra {
     case optional(Algebra)
     case minus(Algebra)
 //    case bind(Expression, String)
-    case bind(Expression, String, [Algebra])
+    case bind(Expression, String)
     case finished(Algebra)
     
     func finish(_ args: inout [Algebra]) throws -> Algebra {
         switch self {
-        case let .bind(e, name, embedded_triples): // EXTENSION-002
-            let algebras = args + embedded_triples
-            let algebra: Algebra = algebras.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+        case .bind(let e, let name):
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
             args = []
             if algebra.inscope.contains(name) {
                 throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name))") // TODO: can the line:col be included in this exception?
@@ -74,7 +73,6 @@ private enum UnfinishedAlgebra {
 // swiftlint:disable:next type_body_length
 public struct SPARQLParser {
     public var parseBlankNodesAsVariables: Bool
-    public var parseSPARQLStarAsRDFReification: Bool // EXTENSION-002
     var lexer: SPARQLLexer
     var prefixes: [String:String]
     var bnodes: [String:Term]
@@ -95,7 +93,6 @@ public struct SPARQLParser {
         self.bnodes = [:]
         self.seenBlankNodeLabels = Set()
         self.parseBlankNodesAsVariables = true
-        self.parseSPARQLStarAsRDFReification = true
     }
     
     public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
@@ -428,7 +425,7 @@ public struct SPARQLParser {
         } else {
             try expect(token: .dot)
             t = try peekExpectedToken()
-            if t.isTermOrVarOrEmbTP {
+            if t.isTermOrVar {
                 let more = try parseTriplesBlock()
                 return sameSubj + more
             } else {
@@ -786,7 +783,7 @@ public struct SPARQLParser {
         
         while ok {
             let t = try peekExpectedToken()
-            if t.isTermOrVarOrEmbTP {
+            if t.isTermOrVar {
                 if !allowTriplesBlock {
                     break
                 }
@@ -895,25 +892,14 @@ public struct SPARQLParser {
     private mutating func parseBind() throws -> UnfinishedAlgebra {
         try expect(token: .keyword("BIND"))
         try expect(token: .lparen)
-//        let expr = try parseNonAggregatingExpression()
-        let exprOrEmbTP = try parseExpressionOrEmbTP() // EXTENSION-002
+        let expr = try parseNonAggregatingExpression()
         try expect(token: .keyword("AS"))
         let node = try parseVar()
         try expect(token: .rparen)
         guard case .variable(let name, binding: _) = node else {
             throw parseError("Expecting BIND variable but got \(node)")
         }
-        switch exprOrEmbTP {
-        case .expression(let expr):
-            return .bind(expr, name, [])
-        case .triplePattern(let embtp):
-            let (node, triples) = triplesFromEmbedding(.triplePattern(embtp))
-            let t = try triples.map { (a) -> Algebra in
-                return try replaceBlankNodesWithVariables(a)
-            }
-            let n = variableForBlankNode(node) ?? node
-            return .bind(.node(n), name, t)
-        }
+        return .bind(expr, name)
     }
     
     private mutating func parseInlineData() throws -> Algebra {
@@ -997,7 +983,7 @@ public struct SPARQLParser {
     
     private mutating func parseTriplesSameSubject() throws -> [TriplePattern] {
         let t = try peekExpectedToken()
-        if t.isTermOrVarOrEmbTP {
+        if t.isTermOrVar {
             let subj = try parseVarOrTerm()
             return try parsePropertyListNotEmpty(for: subj)
         } else if t == .lparen || t == .lbracket {
@@ -1016,7 +1002,7 @@ public struct SPARQLParser {
     }
     
     private mutating func parsePropertyListNotEmpty(for subject: Node) throws -> [TriplePattern] {
-        let algebras = try parsePropertyListPathNotEmpty(for: .node(subject))
+        let algebras = try parsePropertyListPathNotEmpty(for: subject)
         var triples = [TriplePattern]()
         for algebra in algebras {
             switch simplifyPath(algebra) {
@@ -1033,8 +1019,8 @@ public struct SPARQLParser {
     
     private mutating func triplesArrayByParsingTriplesSameSubjectPath() throws -> [Algebra] {
         let t = try peekExpectedToken()
-        if t.isTermOrVarOrEmbTP { // EXTENSION-002
-            let subject = try parseVarOrTermOrEmbTP()
+        if t.isTermOrVar {
+            let subject = try parseVarOrTerm()
             let propertyObjectTriples = try parsePropertyListPathNotEmpty(for: subject)
             // NOTE: in the original code, propertyObjectTriples could be nil here. not sure why this changed, but haven't found cases where this new code is wrong...
             return propertyObjectTriples
@@ -1069,7 +1055,7 @@ public struct SPARQLParser {
     private mutating func parsePropertyListPath(for subject: Node) throws -> [Algebra] {
         let t = try peekExpectedToken()
         guard t.isVerb else { return [] }
-        return try parsePropertyListPathNotEmpty(for: .node(subject))
+        return try parsePropertyListPathNotEmpty(for: subject)
     }
     
     private enum Verb {
@@ -1077,116 +1063,24 @@ public struct SPARQLParser {
         case node(Node)
     }
     
-    private mutating func triplePatterns(subject: NodeOrEmbededTriplePattern, predicate: Node, object: NodeOrEmbededTriplePattern) throws -> [TriplePattern] {
-        if self.parseSPARQLStarAsRDFReification {
-            switch (subject, object) {
-            case let (.node(subject), .node(object)):
-                return [TriplePattern(subject: subject, predicate: predicate, object: object)]
-            default:
-                let (s, salgebras) = triplesFromEmbedding(subject)
-                let (o, oalgebras) = triplesFromEmbedding(object)
-                let tp = TriplePattern(subject: s, predicate: predicate, object: o)
-                let cb = { (a: Algebra) -> TriplePattern? in
-                    switch (a) {
-                    case .triple(let tp):
-                        return tp
-                    default:
-                        return nil
-                    }
-                }
-                let striples = salgebras.compactMap(cb)
-                let otriples = oalgebras.compactMap(cb)
-                return [tp] + striples + otriples
-            }
-        } else {
-            throw SPARQLSyntaxError.unimplemented("SPARQL* support using non-RDF reification")
-        }
-    }
-    
-    private mutating func reifiedStatement(subject: Node, predicate: Node, object: Node) -> (Node, [Algebra]) {
-        let s = bnode()
-        let type = Term(iri: Namespace.rdf.type)
-        let statement = Term(iri: Namespace.rdf.Statement)
-        let subj = Term(iri: Namespace.rdf.subject)
-        let pred = Term(iri: Namespace.rdf.predicate)
-        let obj = Term(iri: Namespace.rdf.object)
-        
-        let t_reif = TriplePattern(subject: subject, predicate: predicate, object: object)
-        let t_type = TriplePattern(subject: .bound(s), predicate: .bound(type), object: .bound(statement))
-        let t_subj = TriplePattern(subject: .bound(s), predicate: .bound(subj), object: subject)
-        let t_pred = TriplePattern(subject: .bound(s), predicate: .bound(pred), object: predicate)
-        let t_obj = TriplePattern(subject: .bound(s), predicate: .bound(obj), object: object)
-        return (.bound(s), [.triple(t_reif), .triple(t_type), .triple(t_subj), .triple(t_pred), .triple(t_obj)])
-    }
-    
-    private mutating func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
-        switch e {
-        case .node(let n):
-            return (n, [])
-        case .triplePattern(let embedding):
-            let (subject, striples) = triplesFromEmbedding(embedding.subject)
-            let (object, otriples) = triplesFromEmbedding(embedding.object)
-            let (s, reification) = reifiedStatement(subject: subject, predicate: embedding.predicate, object: object)
-
-            let triples = reification + striples + otriples
-            return (s, triples)
-        }
-    }
-    
-    private mutating func triplesOrPaths(subject: NodeOrEmbededTriplePattern, predicate: Verb, object: NodeOrEmbededTriplePattern) throws -> [Algebra] {
-        if self.parseSPARQLStarAsRDFReification {
-            switch (subject, object) {
-            case let (.node(subject), .node(object)):
-                switch predicate {
-                case .path(let pp):
-                    return [.path(subject, pp, object)]
-                case .node(let pred):
-                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))]
-                }
-            case let (.node(subject), .triplePattern(embtp)):
-                let (object, triples) = triplesFromEmbedding(.triplePattern(embtp))
-                switch predicate {
-                case .path(let pp):
-                    return [.path(subject, pp, object)] + triples
-                case .node(let pred):
-                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + triples
-                }
-            case let (.triplePattern(embtp), .node(object)):
-                let (subject, triples) = triplesFromEmbedding(.triplePattern(embtp))
-                switch predicate {
-                case .path(let pp):
-                    return [.path(subject, pp, object)] + triples
-                case .node(let pred):
-                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + triples
-                }
-            case let (.triplePattern(subj_embtp), .triplePattern(obj_embtp)):
-                let (subject, striples) = triplesFromEmbedding(.triplePattern(subj_embtp))
-                let (object, otriples) = triplesFromEmbedding(.triplePattern(obj_embtp))
-                switch predicate {
-                case .path(let pp):
-                    return [.path(subject, pp, object)] + striples + otriples
-                case .node(let pred):
-                    return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + striples + otriples
-                }
-            }
-        } else {
-            throw SPARQLSyntaxError.unimplemented("SPARQL* support using non-RDF reification")
-        }
-    }
-    
-    private mutating func parsePropertyListPathNotEmpty(for subject: NodeOrEmbededTriplePattern) throws -> [Algebra] {
+    private mutating func parsePropertyListPathNotEmpty(for subject: Node) throws -> [Algebra] {
         var t = try peekExpectedToken()
-        var verb: Verb
+        var verb: PropertyPath? = nil
+        var varpred: Node? = nil
         if case ._var(_) = t {
-            verb = try .node(parseVerbSimple())
+            varpred = try parseVerbSimple()
         } else {
-            verb = try .path(parseVerbPath())
+            verb = try parseVerbPath()
         }
         
         let (objectList, triples) = try parseObjectListPathAsNodes()
         var propertyObjects = triples
         for o in objectList {
-            try propertyObjects.append(contentsOf: triplesOrPaths(subject: subject, predicate: verb, object: o))
+            if let verb = verb {
+                propertyObjects.append(.path(subject, verb, o))
+            } else {
+                propertyObjects.append(.triple(TriplePattern(subject: subject, predicate: varpred!, object: o)))
+            }
         }
         
         // push paths to the end
@@ -1197,11 +1091,13 @@ public struct SPARQLParser {
         
         LOOP: while try attempt(token: .semicolon) {
             t = try peekExpectedToken()
+            var verb: PropertyPath? = nil
+            var varpred: Node? = nil
             switch t {
             case ._var(_):
-                verb = try .node(parseVerbSimple())
+                varpred = try parseVerbSimple()
             case .keyword("A"), .lparen, .hat, .bang, .iri(_), .prefixname(_, _):
-                verb = try .path(parseVerbPath())
+                verb = try parseVerbPath()
             default:
                 break LOOP
             }
@@ -1209,7 +1105,11 @@ public struct SPARQLParser {
             let (objectList, triples) = try parseObjectListPathAsNodes()
             propertyObjects.append(contentsOf: triples)
             for o in objectList {
-                try propertyObjects.append(contentsOf: triplesOrPaths(subject: subject, predicate: verb, object: o))
+                if let verb = verb {
+                    propertyObjects.append(.path(subject, verb, o))
+                } else {
+                    propertyObjects.append(.triple(TriplePattern(subject: subject, predicate: varpred!, object: o)))
+                }
             }
         }
         
@@ -1224,7 +1124,7 @@ public struct SPARQLParser {
         return try parseVar()
     }
     
-    private mutating func parseObjectListPathAsNodes() throws -> ([NodeOrEmbededTriplePattern], [Algebra]) {
+    private mutating func parseObjectListPathAsNodes() throws -> ([Node], [Algebra]) {
         var (node, triples) = try parseObjectPathAsNode()
         var objects = [node]
         
@@ -1366,7 +1266,7 @@ public struct SPARQLParser {
          **/
     }
     
-    private mutating func parseObjectPathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
+    private mutating func parseObjectPathAsNode() throws -> (Node, [Algebra]) {
         return try parseGraphNodePathAsNode()
     }
     
@@ -1406,7 +1306,7 @@ public struct SPARQLParser {
         try expect(token: .lbracket)
         let term = bnode()
         let node = Node.bound(term)
-        let path = try parsePropertyListPathNotEmpty(for: .node(node))
+        let path = try parsePropertyListPathNotEmpty(for: node)
         try expect(token: .rbracket)
         return (node, path)
     }
@@ -1449,8 +1349,8 @@ public struct SPARQLParser {
         var patterns = [TriplePattern]()
         if nodes.count > 0 {
             for (i, o) in nodes.enumerated() {
-                let triples = try triplePatterns(subject: .node(list), predicate: .bound(rdffirst), object: o)
-                patterns.append(contentsOf: triples)
+                let triple = TriplePattern(subject: list, predicate: .bound(rdffirst), object: o)
+                patterns.append(triple)
                 if i == (nodes.count-1) {
                     let triple = TriplePattern(subject: list, predicate: .bound(rdfrest), object: .bound(rdfnil))
                     patterns.append(triple)
@@ -1471,14 +1371,13 @@ public struct SPARQLParser {
     
     //    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError }
     
-    private mutating func parseGraphNodePathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
+    private mutating func parseGraphNodePathAsNode() throws -> (Node, [Algebra]) {
         let t = try peekExpectedToken()
-        if t.isTermOrVarOrEmbTP {
-            let node = try parseVarOrTermOrEmbTP()
+        if t.isTermOrVar {
+            let node = try parseVarOrTerm()
             return (node, [])
         } else {
-            let (node, algebras) = try parseTriplesNodePathAsNode()
-            return (.node(node), algebras)
+            return try parseTriplesNodePathAsNode()
         }
     }
     
@@ -1493,37 +1392,6 @@ public struct SPARQLParser {
         case triplePattern(EmbeddedTriplePattern)
     }
 
-    private mutating func parseVarOrTermOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
-        // TODO: Not sure how this differs from parseNodeOrEmbTP ("VarOrBlankNodeOrIriOrLitOrEmbTP" in the SPARQL* literature)
-        return try parseNodeOrEmbTP()
-    }
-    
-    private mutating func parseEmbTP() throws -> EmbeddedTriplePattern { // EXTENSION-002
-        try expect(token: .dlt)
-        let s = try parseNodeOrEmbTP()
-        let t = try peekExpectedToken()
-        let p: Node
-        if case .keyword("A") = t {
-            p = .bound(Term.rdf("type"))
-        } else {
-            p = try parseVarOrIRI()
-        }
-        let o = try parseNodeOrEmbTP()
-        try expect(token: .dgt)
-        return EmbeddedTriplePattern(subject: s, predicate: p, object: o)
-    }
-
-    private mutating func parseNodeOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
-        let t = try peekExpectedToken()
-        if case .dlt = t {
-            let emb = try parseEmbTP()
-            return .triplePattern(emb)
-        } else {
-            let n = try parseVarOrTerm()
-            return .node(n)
-        }
-    }
-    
     private mutating func parseVarOrTerm() throws -> Node {
         let t = try nextExpectedToken()
         return try tokenAsNode(t)
@@ -1556,24 +1424,6 @@ public struct SPARQLParser {
         return expr
     }
     
-    
-    private enum ExpressionOrEmbTP { // EXTENSION-002
-        case expression(Expression)
-        case triplePattern(EmbeddedTriplePattern)
-    }
-    
-    private mutating func parseExpressionOrEmbTP() throws -> ExpressionOrEmbTP { // EXTENSION-002
-        let t = try peekExpectedToken()
-        if case .dlt = t {
-            return try .triplePattern(parseEmbTP())
-        } else {
-            let expr = try parseExpression()
-            guard !expr.hasAggregation else {
-                throw parseError("Unexpected aggregation in BIND expression")
-            }
-            return .expression(expr)
-        }
-    }
     
     private mutating func parseExpression() throws -> Expression {
         return try parseConditionalOrExpression()
@@ -2166,7 +2016,7 @@ public struct SPARQLParser {
             try expect(token: .dot)
             let t = try peekExpectedToken()
             switch t {
-            case _ where t.isTermOrVarOrEmbTP, .lparen, .lbracket:
+            case _ where t.isTermOrVar, .lparen, .lbracket:
                 let more = try triplesByParsingTriplesBlock()
                 sameSubj += more
             default:

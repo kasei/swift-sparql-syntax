@@ -52,8 +52,6 @@ public enum SPARQLToken {
     case boolean(String)
     case keyword(String)
     case iri(String)
-    case dlt // EXTENSION-002
-    case dgt // EXTENSION-002
 
     public var isVerb: Bool {
         if isTermOrVar {
@@ -75,19 +73,6 @@ public enum SPARQLToken {
         case ._nil, .minus, .plus:
             return true
         case .integer(_), .decimal(_), .double(_), .anon, .boolean(_), .bnode(_), .iri(_), .prefixname(_, _), .string1d(_), .string1s(_), .string3d(_), .string3s(_):
-            return true
-        default:
-            return false
-        }
-    }
-    
-    public var isTermOrVarOrEmbTP: Bool { // EXTENSION-002
-        if isTermOrVar {
-            return true
-        }
-        
-        switch self {
-        case .dlt:
             return true
         default:
             return false
@@ -168,7 +153,7 @@ extension SPARQLToken: Equatable {
             return true
         case (.iri(let a), .iri(let b)) where a == b:
             return true
-        case (.ws, .ws), (._nil, ._nil), (.anon, .anon), (.hathat, .hathat), (.lparen, .lparen), (.rparen, .rparen), (.lbrace, .lbrace), (.rbrace, .rbrace), (.lbracket, .lbracket), (.rbracket, .rbracket), (.equals, .equals), (.notequals, .notequals), (.bang, .bang), (.le, .le), (.ge, .ge), (.lt, .lt), (.gt, .gt), (.andand, .andand), (.oror, .oror), (.semicolon, .semicolon), (.dot, .dot), (.comma, .comma), (.plus, .plus), (.minus, .minus), (.star, .star), (.slash, .slash), (.hat, .hat), (.question, .question), (.or, .or), (.dlt, .dlt), (.dgt, .dgt):
+        case (.ws, .ws), (._nil, ._nil), (.anon, .anon), (.hathat, .hathat), (.lparen, .lparen), (.rparen, .rparen), (.lbrace, .lbrace), (.rbrace, .rbrace), (.lbracket, .lbracket), (.rbracket, .rbracket), (.equals, .equals), (.notequals, .notequals), (.bang, .bang), (.le, .le), (.ge, .ge), (.lt, .lt), (.gt, .gt), (.andand, .andand), (.oror, .oror), (.semicolon, .semicolon), (.dot, .dot), (.comma, .comma), (.plus, .plus), (.minus, .minus), (.star, .star), (.slash, .slash), (.hat, .hat), (.question, .question), (.or, .or):
             return true
         default:
             return false
@@ -266,10 +251,6 @@ extension SPARQLToken {
             return value
         case .iri(let value):
             return "<\(value.escape(for: .iri))>"
-        case .dlt: // EXTENSION-002
-            return "<<"
-        case .dgt: // EXTENSION-002
-            return ">>"
         }
     }
 }
@@ -1187,9 +1168,6 @@ public class SPARQLLexer: IteratorProtocol {
             case "=":
                 dropChar()
                 return .le
-            case "<": // EXTENSION-002
-                dropChar()
-                return .dlt
             default:
                 return .lt
             }
@@ -1200,9 +1178,6 @@ public class SPARQLLexer: IteratorProtocol {
             case "=":
                 dropChar()
                 return .ge
-            case ">": // EXTENSION-002
-                dropChar()
-                return .dgt
             default:
                 return .gt
             }
