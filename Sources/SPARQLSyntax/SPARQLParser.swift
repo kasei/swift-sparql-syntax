@@ -1227,33 +1227,6 @@ public struct SPARQLParser {
             let iri = try parseIRI()
             return .link(iri)
         }
-        /**
-         
-         SPKSPARQLToken* t   = [self peekNextNonCommentToken];
-         if (t.type == HAT) {
-         [self nextNonCommentToken];
-         t   = [self peekNextNonCommentToken];
-         if (t.type == KEYWORD && [t.value isEqualToString: @"A"]) {
-         [self nextNonCommentToken];
-         id<GTWTerm> term    = [[GTWIRI alloc] initWithValue:@"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"];
-         id<SPKTree> path    = [[SPKTree alloc] initWithType:kTreeNode value: term arguments:nil];
-         return [[SPKTree alloc] initWithType:kPathInverse arguments:@[path]];
-         } else {
-         id<SPKTree> path    = [self parseIRIWithErrors: errors];
-         return [[SPKTree alloc] initWithType:kPathInverse arguments:@[path]];
-         }
-         } else if (t.type == KEYWORD && [t.value isEqualToString: @"A"]) {
-         [self nextNonCommentToken];
-         id<GTWTerm> term    = [[GTWIRI alloc] initWithValue:@"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"];
-         return [[SPKTree alloc] initWithType:kTreeNode value: term arguments:nil];
-         } else if (t.type == NIL) {
-         return [self errorMessage:@"Expecting IRI but found NIL" withErrors:errors];
-         } else {
-         return [self parseIRIWithErrors: errors];
-         }
-         
-         
-         **/
     }
     
     private mutating func parseObjectPathAsNode() throws -> (Node, [Algebra]) {
@@ -1461,56 +1434,6 @@ public struct SPARQLParser {
         default:
             return expr
         }
-        /**
-         id<SPKTree> expr    = [self parseNumericExpressionWithErrors:errors];
-         SPKSPARQLToken* t   = [self peekNextNonCommentToken];
-         if (t && (t.type == EQUALS || t.type == NOTEQUALS || t.type == LT || t.type == GT || t.type == LE || t.type == GE)) {
-         [self nextNonCommentToken];
-         id<SPKTree> rhs  = [self parseNumericExpressionWithErrors:errors];
-         ASSERT_EMPTY(errors);
-         SPKTreeType type;
-         switch (t.type) {
-         case EQUALS:
-         type    = kExprEq;
-         break;
-         case NOTEQUALS:
-         type    = kExprNeq;
-         break;
-         case LT:
-         type    = kExprLt;
-         break;
-         case GT:
-         type    = kExprGt;
-         break;
-         case LE:
-         type    = kExprLe;
-         break;
-         case GE:
-         type    = kExprGe;
-         break;
-         default:
-         return nil;
-         }
-         if (!(expr && rhs)) {
-         return [self errorMessage:@"Failed to parse relational expression" withErrors:errors];
-         }
-         expr    = [[SPKTree alloc] initWithType:type arguments:@[expr, rhs]];
-         } else if (t && t.type == KEYWORD && [t.value isEqualToString: @"IN"]) {
-         [self nextNonCommentToken];
-         id<SPKTree> list    = [self parseExpressionListWithErrors: errors];
-         ASSERT_EMPTY(errors);
-         return [[SPKTree alloc] initWithType:kExprIn arguments:@[expr, list]];
-         } else if (t && t.type == KEYWORD && [t.value isEqualToString: @"NOT"]) {
-         [self nextNonCommentToken];
-         [self parseExpectedTokenOfType:KEYWORD withValue:@"IN" withErrors:errors];
-         ASSERT_EMPTY(errors);
-         id<SPKTree> list    = [self parseExpressionListWithErrors: errors];
-         ASSERT_EMPTY(errors);
-         return [[SPKTree alloc] initWithType:kExprNotIn arguments:@[expr, list]];
-         }
-         return expr;
-         
-         **/
     }
     
     private mutating func parseNumericExpression() throws -> Expression {
@@ -1939,39 +1862,6 @@ public struct SPARQLParser {
         default:
             throw parseError("Unrecognized aggregate name '\(name)'")
         }
-        /**
-         
-         SPKSPARQLToken* t   = [self parseExpectedTokenOfType:KEYWORD withErrors:errors];
-         ASSERT_EMPTY(errors);
-         } else if ([t.value isEqualToString: @"GROUP_CONCAT"]) {
-         [self parseExpectedTokenOfType:LPAREN withErrors:errors];
-         ASSERT_EMPTY(errors);
-         SPKSPARQLToken* d   = [self parseOptionalTokenOfType:KEYWORD withValue:@"DISTINCT"];
-         id<SPKTree> expr    = [self parseExpressionWithErrors:errors];
-         ASSERT_EMPTY(errors);
-         
-         SPKSPARQLToken* sc  = [self parseOptionalTokenOfType:SEMICOLON];
-         NSString* separator = @" ";
-         if (sc) {
-         [self parseExpectedTokenOfType:KEYWORD withValue:@"SEPARATOR" withErrors:errors];
-         ASSERT_EMPTY(errors);
-         [self parseExpectedTokenOfType:EQUALS withErrors:errors];
-         ASSERT_EMPTY(errors);
-         SPKSPARQLToken* t   = [self nextNonCommentToken];
-         id<GTWTerm> str     = [self tokenAsTerm:t withErrors:errors];
-         ASSERT_EMPTY(errors);
-         
-         separator   = str.value;
-         }
-         id<SPKTree> agg     = [[SPKTree alloc] initWithType:kExprGroupConcat value: @[@(d ? YES: NO), separator] arguments:@[expr]];
-         [self parseExpectedTokenOfType:RPAREN withErrors:errors];
-         ASSERT_EMPTY(errors);
-         [self addSeenAggregate:agg];
-         return agg;
-         }
-         
-         **/
-        
     }
 
     private mutating func parseIRI() throws -> Term {
