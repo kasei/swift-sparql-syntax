@@ -1952,17 +1952,29 @@ public struct SPARQLParser {
             let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
             
+            var cmps = [Algebra.SortComparator]()
             var sep = " "
-            if try attempt(token: .semicolon) {
-                // TODO: Implement EXTENSION-003 support for ORDER BY here
-                try expect(token: .keyword("SEPARATOR"))
-                try expect(token: .equals)
-                let t = try nextExpectedToken()
-                let term = try tokenAsTerm(t)
-                sep = term.value
+            while try attempt(token: .semicolon) {
+                if try attempt(token: .keyword("SEPARATOR")) {
+                    try expect(token: .equals)
+                    let t = try nextExpectedToken()
+                    let term = try tokenAsTerm(t)
+                    sep = term.value
+                } else if try attempt(token: .keyword("ORDER")) {
+                    
+                    try expect(token: .keyword("BY"))
+                    while true {
+                        guard let c = try parseOrderCondition() else { break }
+                        cmps.append(c)
+                    }
+                } else {
+                    throw parseError("Unrecognized GROUP_CONCAT parameter")
+                }
             }
-            let cmp = Algebra.SortComparator(ascending: true, expression: Expression(integer: 0)) // TODO: EXTENSION-003
-            let agg: Aggregation = .groupConcat(expr, sep, [cmp], distinct)
+            if cmps.isEmpty {
+                cmps = [Algebra.SortComparator(ascending: true, expression: Expression(integer: 0))] // TODO: EXTENSION-003
+            }
+            let agg: Aggregation = .groupConcat(expr, sep, cmps, distinct)
             try expect(token: .rparen)
             return agg
         default:
