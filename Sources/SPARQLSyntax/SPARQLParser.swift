@@ -1971,9 +1971,6 @@ public struct SPARQLParser {
                     throw parseError("Unrecognized GROUP_CONCAT parameter")
                 }
             }
-            if cmps.isEmpty {
-                cmps = [Algebra.SortComparator(ascending: true, expression: Expression(integer: 0))] // TODO: EXTENSION-003
-            }
             let agg: Aggregation = .groupConcat(expr, sep, cmps, distinct)
             try expect(token: .rparen)
             return agg
