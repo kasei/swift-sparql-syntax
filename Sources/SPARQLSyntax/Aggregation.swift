@@ -15,7 +15,12 @@ public enum Aggregation : Equatable, Hashable {
     case min(Expression)
     case max(Expression)
     case sample(Expression)
-    case groupConcat(Expression, String, Bool)
+    case groupConcat(
+        Expression,
+        String,
+        [Algebra.SortComparator], // EXTENSION-003
+        Bool
+    )
     
     public var variables: Set<String> {
         switch self {
@@ -27,7 +32,7 @@ public enum Aggregation : Equatable, Hashable {
              .min(let e),
              .max(let e),
              .sample(let e),
-             .groupConcat(let e, _, _):
+             .groupConcat(let e, _, _, _):
             return e.variables
         }
     }
@@ -39,6 +44,7 @@ extension Aggregation: Codable {
         case expression
         case distinct
         case string
+        case comparators
     }
     
     public init(from decoder: Decoder) throws {
@@ -70,9 +76,10 @@ extension Aggregation: Codable {
             self = .sample(expr)
         case "groupConcat":
             let expr = try container.decode(Expression.self, forKey: .expression)
+            let cmps = try container.decode([Algebra.SortComparator].self, forKey: .comparators) // EXTENSION-003
             let distinct = try container.decode(Bool.self, forKey: .distinct)
             let sep = try container.decode(String.self, forKey: .string)
-            self = .groupConcat(expr, sep, distinct)
+            self = .groupConcat(expr, sep, cmps, distinct)
         default:
             throw SPARQLSyntaxError.serializationError("Unexpected aggregation type '\(type)' found")
         }
@@ -104,9 +111,10 @@ extension Aggregation: Codable {
         case let .sample(expr):
             try container.encode("sample", forKey: .type)
             try container.encode(expr, forKey: .expression)
-        case let .groupConcat(expr, sep, distinct):
+        case let .groupConcat(expr, sep, cmps, distinct):
             try container.encode("groupConcat", forKey: .type)
             try container.encode(expr, forKey: .expression)
+            try container.encode(cmps, forKey: .comparators) // EXTENSION-003
             try container.encode(distinct, forKey: .distinct)
             try container.encode(sep, forKey: .string)
         }
@@ -136,12 +144,13 @@ extension Aggregation: CustomStringConvertible {
             return "MAX(\(expr.description))"
         case .sample(let expr):
             return "SAMPLE(\(expr.description))"
-        case .groupConcat(let expr, let sep, let distinct):
+        case let .groupConcat(expr, sep, cmps, distinct):
             let e = distinct ? "DISTINCT \(expr.description)" : expr.description
             if sep == " " {
                 return "GROUP_CONCAT(\(e))"
             } else {
-                return "GROUP_CONCAT(\(e); SEPARATOR=\"\(sep)\")"
+                let c = cmps.map({ $0.description }).joined(separator: ", ") // EXTENSION-003
+                return "GROUP_CONCAT(\(e); SEPARATOR=\"\(sep)\", ORDER BY \(c))"
             }
         }
     }
@@ -164,8 +173,9 @@ public extension Aggregation {
             return try .max(expr.replace(map))
         case .sample(let expr):
             return try .sample(expr.replace(map))
-        case .groupConcat(let expr, let sep, let distinct):
-            return try .groupConcat(expr.replace(map), sep, distinct)
+        case let .groupConcat(expr, sep, cmps, distinct):
+            let c = try cmps.map { Algebra.SortComparator(ascending: $0.ascending, expression: try $0.expression.replace(map)) } // EXTENSION-003
+            return try .groupConcat(expr.replace(map), sep, c, distinct)
         }
     }
     
@@ -185,8 +195,9 @@ public extension Aggregation {
             return try .max(expr.replace(map))
         case .sample(let expr):
             return try .sample(expr.replace(map))
-        case .groupConcat(let expr, let sep, let distinct):
-            return try .groupConcat(expr.replace(map), sep, distinct)
+        case let .groupConcat(expr, sep, cmps, distinct):
+            let c = try cmps.map { Algebra.SortComparator(ascending: $0.ascending, expression: try $0.expression.replace(map)) } // EXTENSION-003
+            return try .groupConcat(expr.replace(map), sep, c, distinct)
         }
     }
     
@@ -206,8 +217,9 @@ public extension Aggregation {
             return try .max(expr.rewrite(map))
         case .sample(let expr):
             return try .sample(expr.rewrite(map))
-        case .groupConcat(let expr, let sep, let distinct):
-            return try .groupConcat(expr.rewrite(map), sep, distinct)
+        case let .groupConcat(expr, sep, cmps, distinct):
+            let c = try cmps.map { Algebra.SortComparator(ascending: $0.ascending, expression: try $0.expression.rewrite(map)) } // EXTENSION-003
+            return try .groupConcat(expr.rewrite(map), sep, c, distinct)
         }
     }
 }

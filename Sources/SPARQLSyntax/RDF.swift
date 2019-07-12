@@ -594,7 +594,20 @@ extension Term {
         }
         var datePart = true
         while !s.isEmpty {
-            let i = s.firstIndex(where: { (c: Character) -> Bool in return c.isLetter }) ?? s.endIndex
+            #if os(macOS)
+            let i = s.firstIndex(where: { $0.isLetter }) ?? s.endIndex
+            #else
+            let cs = CharacterSet.letters
+            let i = s.firstIndex(where: { (c: Character) -> Bool in
+                // this could be c.isLetter except that that property doesn't seem to be available on docker/swift 4.2
+                for u in c.unicodeScalars {
+                    if cs.contains(u) {
+                        return true
+                    }
+                }
+                return false
+            }) ?? s.endIndex
+            #endif
             let numPart = s.prefix(upTo: i)
             let rest = s.suffix(from: i)
             if numPart.isEmpty {

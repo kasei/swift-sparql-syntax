@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreFoundation
 import SPARQLSyntax
 
 public struct PeekableIterator<T: IteratorProtocol> : IteratorProtocol {

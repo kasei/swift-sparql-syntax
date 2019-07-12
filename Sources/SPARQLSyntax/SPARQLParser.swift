@@ -17,10 +17,20 @@ private func joinReduction(coalesceBGPs: Bool = false) -> (Algebra, Algebra) -> 
     }
 }
 
+private func variableForBlankNode(_ n: Node) -> Node? {
+    switch n {
+    case .bound(let term) where term.type == .blank:
+        return .variable(".blank.\(term.value)", binding: false)
+    default:
+        return nil
+    }
+}
+
 private enum UnfinishedAlgebra {
     case filter(Expression)
     case optional(Algebra)
     case minus(Algebra)
+//    case bind(Expression, String)
     case bind(Expression, String)
     case finished(Algebra)
     
@@ -182,12 +192,12 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func expect(token: SPARQLToken) throws {
-        guard let t = nextToken() else {
-            throw parseError("Expected \(token) but got EOF")
+    private mutating func expect(token expected: SPARQLToken) throws {
+        guard let got = nextToken() else {
+            throw parseError("Expected \(expected) but got EOF")
         }
-        guard t == token else {
-            throw parseError("Expected \(token) but got \(t)")
+        guard got == expected else {
+            throw parseError("Expected \(expected) but got \(got)")
         }
         return
     }
@@ -252,7 +262,7 @@ public struct SPARQLParser {
         try expect(token: .keyword("SELECT"))
         var distinct : QueryCardinality = .full
         var aggregationExpressions = [String:Aggregation]()
-        var windowExpressions = [String:WindowApplication]()
+        var windowExpressions = [String:WindowApplication]() // EXTENSION-001
         var projectExpressions = [(Expression, String)]()
         
         if try attempt(token: .keyword("DISTINCT")) {
@@ -272,7 +282,7 @@ public struct SPARQLParser {
                 case .lparen:
                     try expect(token: .lparen)
                     var expression = try parseExpression()
-                    if expression.hasWindow {
+                    if expression.hasWindow { // EXTENSION-001
                         expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
                     }
                     if expression.hasAggregation {
@@ -468,7 +478,7 @@ public struct SPARQLParser {
         var distinct : QueryCardinality = .full
         var star = false
         var aggregationExpressions = [String:Aggregation]()
-        var windowExpressions = [String:WindowApplication]()
+        var windowExpressions = [String:WindowApplication]() // EXTENSION-001
         var projectExpressions = [(Expression, String)]()
         
         if try attempt(token: .keyword("DISTINCT")) {
@@ -490,7 +500,7 @@ public struct SPARQLParser {
                     try expect(token: .lparen)
                     var expression = try parseExpression()
                     if expression.hasWindow {
-                        expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
+                        expression = expression.removeWindows(freshCounter, mapping: &windowExpressions) // EXTENSION-001
                     }
                     if expression.hasAggregation {
                         expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
@@ -618,7 +628,7 @@ public struct SPARQLParser {
         
         var groups = [Expression]()
         var applyAggregation: Bool = false
-        var applyWindow: Bool = false
+        var applyWindow: Bool = false // EXTENSION-001
         if try attempt(token: .keyword("GROUP")) {
             applyAggregation = true
             try expect(token: .keyword("BY"))
@@ -627,7 +637,7 @@ public struct SPARQLParser {
             }
         }
         
-        var window = window
+        var window = window // EXTENSION-001
         var aggregation = aggregation
         var havingExpression: Expression? = nil
         if try attempt(token: .keyword("HAVING")) {
@@ -741,7 +751,7 @@ public struct SPARQLParser {
     ///   - expression: the Expression to be evaluated
     ///   - variableName: the variable to which the evaluated expression value is to be bound
     /// - Returns: a new Algebra value
-    private func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
+    private func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra { // EXTENSION-001
         if case .node(.variable(let name, _)) = expression {
             if name.hasPrefix(".") {
                 if case .aggregate(_) = algebra {
@@ -839,43 +849,38 @@ public struct SPARQLParser {
         
         var algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
         
-        func replaceBlankNode(_ n: Node) -> Node? {
-            switch n {
-            case .bound(let term) where term.type == .blank:
-                return .variable(".blank.\(term.value)", binding: false)
+        if self.parseBlankNodesAsVariables {
+            algebra = try replaceBlankNodesWithVariables(algebra)
+        }
+        
+        return algebra
+    }
+    
+    private mutating func replaceBlankNodesWithVariables(_ algebra: Algebra) throws -> Algebra {
+        return try algebra.replace { (a) -> Algebra? in
+            switch a {
+            case .bgp(let triples):
+                if let newTriples = try? triples.map({ (t) in return try t.replace(variableForBlankNode) }) {
+                    return .bgp(newTriples)
+                } else {
+                    return nil
+                }
+            case .quad(let q):
+                if let qp = try? q.replace(variableForBlankNode) {
+                    return .quad(qp)
+                } else {
+                    return nil
+                }
+            case .triple(let t):
+                if let tp = try? t.replace(variableForBlankNode) {
+                    return .triple(tp)
+                } else {
+                    return nil
+                }
             default:
                 return nil
             }
         }
-        
-        if self.parseBlankNodesAsVariables {
-            algebra = try algebra.replace { (a) -> Algebra? in
-                switch a {
-                case .bgp(let triples):
-                    if let newTriples = try? triples.map({ (t) in return try t.replace(replaceBlankNode) }) {
-                        return .bgp(newTriples)
-                    } else {
-                        return nil
-                    }
-                case .quad(let q):
-                    if let qp = try? q.replace(replaceBlankNode) {
-                        return .quad(qp)
-                    } else {
-                        return nil
-                    }
-                case .triple(let t):
-                    if let tp = try? t.replace(replaceBlankNode) {
-                        return .triple(tp)
-                    } else {
-                        return nil
-                    }
-                default:
-                    return nil
-                }
-            }
-        }
-        
-        return algebra
     }
     
     private mutating func guardBlankNodeResuse(with currentBlockSeenLabels: Set<String>) throws {
@@ -1054,6 +1059,11 @@ public struct SPARQLParser {
         let t = try peekExpectedToken()
         guard t.isVerb else { return [] }
         return try parsePropertyListPathNotEmpty(for: subject)
+    }
+    
+    private enum Verb {
+        case path(PropertyPath)
+        case node(Node)
     }
     
     private mutating func parsePropertyListPathNotEmpty(for subject: Node) throws -> [Algebra] {
@@ -1374,6 +1384,17 @@ public struct SPARQLParser {
         }
     }
     
+    struct EmbeddedTriplePattern { // EXTENSION-002
+        var subject: NodeOrEmbededTriplePattern
+        var predicate: Node
+        var object: NodeOrEmbededTriplePattern
+    }
+    
+    indirect enum NodeOrEmbededTriplePattern { // EXTENSION-002
+        case node(Node)
+        case triplePattern(EmbeddedTriplePattern)
+    }
+
     private mutating func parseVarOrTerm() throws -> Node {
         let t = try nextExpectedToken()
         return try tokenAsNode(t)
@@ -1405,6 +1426,7 @@ public struct SPARQLParser {
         }
         return expr
     }
+    
     
     private mutating func parseExpression() throws -> Expression {
         return try parseConditionalOrExpression()
@@ -1580,7 +1602,7 @@ public struct SPARQLParser {
             switch t {
             case .iri(_), .prefixname(_, _):
                 let expr = try parseIRIOrFunction()
-                if let t = peekToken(), case .keyword("OVER") = t {
+                if let t = peekToken(), case .keyword("OVER") = t { // EXTENSION-001
                     guard case let .call(iri, exprs) = expr else {
                         throw parseError("Expected extension window function call but found \(t)")
                     }
@@ -1727,7 +1749,7 @@ public struct SPARQLParser {
         switch t {
         case .keyword(let kw) where SPARQLLexer.validAggregations.contains(kw):
             let agg = try parseAggregate()
-            if let t = peekToken(), case .keyword("OVER") = t {
+            if let t = peekToken(), case .keyword("OVER") = t { // EXTENSION-001
                 // aggregates can be used as window functions
                 let function : WindowFunction = .aggregation(agg)
                 let w = try parseWindow(with: function)
@@ -1735,7 +1757,7 @@ public struct SPARQLParser {
             } else {
                 return .aggregate(agg)
             }
-        case .keyword(let kw) where SPARQLLexer.validWindowFunctions.contains(kw):
+        case .keyword(let kw) where SPARQLLexer.validWindowFunctions.contains(kw): // EXTENSION-001
             let w = try parseWindow()
             return .window(w)
         case .keyword("NOT"):
@@ -1766,7 +1788,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseWindow() throws -> WindowApplication {
+    private mutating func parseWindow() throws -> WindowApplication { // EXTENSION-001
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
             throw parseError("Expected window function name but found \(t)")
@@ -1795,7 +1817,7 @@ public struct SPARQLParser {
         return try parseWindow(with: function)
     }
     
-    private mutating func parseWindow(with function: WindowFunction) throws -> WindowApplication {
+    private mutating func parseWindow(with function: WindowFunction) throws -> WindowApplication { // EXTENSION-001
         try expect(token: .keyword("OVER"))
         try expect(token: .lparen)
 
@@ -1855,7 +1877,7 @@ public struct SPARQLParser {
         )
     }
 
-    private mutating func parseFrameBound() throws -> WindowFrame.FrameBound {
+    private mutating func parseFrameBound() throws -> WindowFrame.FrameBound { // EXTENSION-001
         var from: WindowFrame.FrameBound
         if try attempt(token: .keyword("UNBOUNDED")) {
             from = .unbound
@@ -1933,15 +1955,26 @@ public struct SPARQLParser {
             let distinct = try attempt(token: .keyword("DISTINCT"))
             let expr = try parseNonAggregatingExpression()
             
+            var cmps = [Algebra.SortComparator]()
             var sep = " "
-            if try attempt(token: .semicolon) {
-                try expect(token: .keyword("SEPARATOR"))
-                try expect(token: .equals)
-                let t = try nextExpectedToken()
-                let term = try tokenAsTerm(t)
-                sep = term.value
+            while try attempt(token: .semicolon) {
+                if try attempt(token: .keyword("SEPARATOR")) {
+                    try expect(token: .equals)
+                    let t = try nextExpectedToken()
+                    let term = try tokenAsTerm(t)
+                    sep = term.value
+                } else if try attempt(token: .keyword("ORDER")) {
+                    
+                    try expect(token: .keyword("BY"))
+                    while true {
+                        guard let c = try parseOrderCondition() else { break }
+                        cmps.append(c)
+                    }
+                } else {
+                    throw parseError("Unrecognized GROUP_CONCAT parameter")
+                }
             }
-            let agg: Aggregation = .groupConcat(expr, sep, distinct)
+            let agg: Aggregation = .groupConcat(expr, sep, cmps, distinct)
             try expect(token: .rparen)
             return agg
         default:
@@ -2114,7 +2147,8 @@ public struct SPARQLParser {
         case .anon:
             return bnode()
         case .keyword("A"):
-            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)
+            return Term.rdf("type")
+//            return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)
         case .boolean(let value):
             return Term(value: value, type: .datatype(.boolean))
         case .decimal(let value):

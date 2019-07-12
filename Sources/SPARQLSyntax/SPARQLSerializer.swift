@@ -799,19 +799,44 @@ extension Aggregation {
             tokens.append(.lparen)
             tokens.append(contentsOf: try e.sparqlTokens())
             tokens.append(.rparen)
-        case .groupConcat(let e, let sep, let distinct):
+        case let .groupConcat(e, sep, cmps, distinct):
             tokens.append(.keyword("GROUP_CONCAT"))
             tokens.append(.lparen)
             if distinct {
                 tokens.append(.keyword("DISTINCT"))
             }
             tokens.append(contentsOf: try e.sparqlTokens())
-            if sep != " " {
+            if sep != " " || !cmps.isEmpty {
                 tokens.append(.semicolon)
+            }
+            if sep != " " {
                 tokens.append(.keyword("SEPARATOR"))
                 tokens.append(.equals)
                 let t = Term(string: sep)
                 tokens.append(contentsOf: t.sparqlTokens)
+            }
+            
+            if !cmps.isEmpty { // EXTENSION-003
+                if tokens.last != .some(.semicolon) {
+                    tokens.append(.comma)
+                }
+                var cmpsTokens = [SPARQLToken]()
+                for c in cmps {
+                    try cmpsTokens.append(contentsOf: c.sparqlTokens())
+                    cmpsTokens.append(.comma)
+                }
+                cmpsTokens.removeLast()
+                
+                let skipPattern : [SPARQLToken] = [.lparen, .string1d("0"), .hathat, .iri("http://www.w3.org/2001/XMLSchema#integer"), .rparen]
+                if cmpsTokens != skipPattern {
+                    tokens.append(.keyword("ORDER"))
+                    tokens.append(.keyword("BY"))
+                    tokens.append(contentsOf: cmpsTokens)
+                }
+            }
+
+            if tokens.last == .some(.comma) {
+                tokens.removeLast()
             }
             tokens.append(.rparen)
         }
@@ -844,6 +869,13 @@ extension Algebra {
             return .minus(lhs.serializableEquivalent, rhs.serializableEquivalent)
         case .project(let lhs, let names):
             return .project(lhs.serializableEquivalent, names)
+        case .reduced(let lhs):
+            switch lhs {
+            case .slice(_), .order(_), .aggregate(_), .project(_):
+                return .reduced(lhs.serializableEquivalent)
+            default:
+                return .reduced(.project(lhs.serializableEquivalent, lhs.inscope))
+            }
         case .distinct(let lhs):
             switch lhs {
             case .slice(_), .order(_), .aggregate(_), .project(_):
@@ -879,8 +911,6 @@ extension Algebra {
         case .window(let lhs, let funcs):
             return .window(lhs.serializableEquivalent, funcs)
         case .subquery(_):
-            return self
-        case .reduced(_):
             return self
         }
     }

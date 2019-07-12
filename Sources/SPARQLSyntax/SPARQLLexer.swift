@@ -52,7 +52,7 @@ public enum SPARQLToken {
     case boolean(String)
     case keyword(String)
     case iri(String)
-    
+
     public var isVerb: Bool {
         if isTermOrVar {
             return true
@@ -307,18 +307,18 @@ public class SPARQLLexer: IteratorProtocol {
     }()
     
     private static let _keywordRegex: NSRegularExpression = {
-        let windowKeywords = "OVER|PARTITION|RANGE|ROWS|BETWEEN|UNBOUNDED|PRECEDING|CURRENT|ROW|FOLLOWING|AND|RANK|DENSE_RANK|ROW_NUMBER|NTILE"
+        let windowKeywords = "OVER|PARTITION|RANGE|ROWS|BETWEEN|UNBOUNDED|PRECEDING|CURRENT|ROW|FOLLOWING|AND|RANK|DENSE_RANK|ROW_NUMBER|NTILE" // EXTENSION-001
         guard let r = try? NSRegularExpression(pattern: "(\(windowKeywords)|ABS|ADD|ALL|ASC|ASK|AS|AVG|BASE|BIND|BNODE|BOUND|BY|CEIL|CLEAR|COALESCE|CONCAT|CONSTRUCT|CONTAINS|COPY|COUNT|CREATE|DATATYPE|DAY|DEFAULT|DELETE|DELETE WHERE|DESCRIBE|DESC|DISTINCT|DISTINCT|DROP|ENCODE_FOR_URI|EXISTS|FILTER|FLOOR|FROM|GRAPH|GROUP_CONCAT|GROUP|HAVING|HOURS|IF|INSERT|INSERT|DATA|INTO|IN|IRI|ISBLANK|ISIRI|ISLITERAL|ISNUMERIC|ISURI|LANGMATCHES|LANG|LCASE|LIMIT|LOAD|MAX|MD5|MINUS|MINUTES|MIN|MONTH|MOVE|NAMED|NOT|NOW|OFFSET|OPTIONAL|ORDER|PREFIX|RAND|REDUCED|REGEX|REPLACE|ROUND|SAMETERM|SAMPLE|SECONDS|ADJUST|SELECT|SEPARATOR|SERVICE|SHA1|SHA256|SHA384|SHA512|SILENT|STRAFTER|STRBEFORE|STRDT|STRENDS|STRLANG|STRLEN|STRSTARTS|STRUUID|STR|SUBSTR|SUM|TIMEZONE|TO|TZ|UCASE|UNDEF|UNION|URI|USING|UUID|VALUES|WHERE|WITH|YEAR)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError("Failed to compile built-in regular expression") }
         return r
     }()
     
     internal static let validFunctionNames: Set<String> = {
-        let windowKeywords = Set(["RANK", "DENSE_RANK", "ROW_NUMBER", "NTILE"])
+        let windowKeywords = Set(["RANK", "DENSE_RANK", "ROW_NUMBER", "NTILE"]) // EXTENSION-001
         let funcs = Set(["STR", "LANG", "LANGMATCHES", "DATATYPE", "BOUND", "IRI", "URI", "BNODE", "RAND", "ABS", "CEIL", "FLOOR", "ROUND", "CONCAT", "STRLEN", "UCASE", "LCASE", "ENCODE_FOR_URI", "CONTAINS", "STRSTARTS", "STRENDS", "STRBEFORE", "STRAFTER", "YEAR", "MONTH", "DAY", "HOURS", "MINUTES", "SECONDS", "ADJUST", "TIMEZONE", "TZ", "NOW", "UUID", "STRUUID", "MD5", "SHA1", "SHA256", "SHA384", "SHA512", "COALESCE", "IF", "STRLANG", "STRDT", "SAMETERM", "SUBSTR", "REPLACE", "ISIRI", "ISURI", "ISBLANK", "ISLITERAL", "ISNUMERIC", "REGEX"])
         return funcs.union(windowKeywords)
     }()
     
-    internal static let validWindowFunctions: Set<String> = {
+    internal static let validWindowFunctions: Set<String> = { // EXTENSION-001
         let aggs = Set(["RANK", "DENSE_RANK", "ROW_NUMBER", "NTILE"])
         return aggs
     }()
@@ -1164,19 +1164,21 @@ public class SPARQLLexer: IteratorProtocol {
         } else if buffer.hasPrefix("<") {
             try getChar(expecting: "<")
             guard let c = try peekChar() else { throw lexError("Expecting relational expression near EOF") }
-            if c == "=" {
+            switch c {
+            case "=":
                 dropChar()
                 return .le
-            } else {
+            default:
                 return .lt
             }
         } else {
             try getChar(expecting: ">")
             guard let c = try peekChar() else { throw lexError("Expecting relational expression near EOF") }
-            if c == "=" {
+            switch c {
+            case "=":
                 dropChar()
                 return .ge
-            } else {
+            default:
                 return .gt
             }
         }
