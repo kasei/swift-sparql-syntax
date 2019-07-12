@@ -1047,4 +1047,51 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+
+    func testSPARQLParser_aggregationInOrderBy() throws {
+        // GitHub issue kineo#22
+        // The ORDER BY below doesn't work (results are not consistently ordered);
+        // however, replacing COUNT(DISTINCT ?acq) within the ordering clause with
+        // the semantically equivalent ?acquisitions does work.
+        let sparql = """
+            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            SELECT
+                ?obj
+                (SAMPLE(?label) AS ?label)
+                (COUNT(DISTINCT ?acq) AS ?acquisitions)
+            WHERE {
+                ?acq a crm:E8_Acquisition ;
+                    crm:P24_transferred_title_of ?obj .
+                ?obj a crm:E22_Human-Made_Object ;
+                    rdfs:label ?label .
+            }
+            GROUP BY ?obj
+            HAVING(COUNT(DISTINCT ?acq) > 1)
+            ORDER BY DESC(COUNT(DISTINCT ?acq)) ?label
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        
+        do {
+            let a0 = try p.parseAlgebra()
+            print(a0.serialize())
+            guard case .project(let a1, _) = a0 else {
+                XCTFail("Unexpected algebra: \(a0.serialize())")
+                return
+            }
+            guard case .order(_, let cmps) = a1 else {
+                XCTFail("Unexpected algebra: \(a1.serialize())")
+                return
+            }
+            
+            let expected = [
+                Algebra.SortComparator(ascending: false, expression: .node(Node.variable(".agg-4", binding: true))),
+                Algebra.SortComparator(ascending: true, expression: .node(Node.variable("label", binding: true))),
+            ]
+            
+            XCTAssertEqual(cmps, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }
