@@ -452,6 +452,77 @@ public extension Algebra {
         return vars.popLast()!
     }
     
+    var allVariables: Set<String> {
+        var variables = Set<String>()
+        do {
+            try self.walk { (a) in
+                switch a {
+                case .unionIdentity, .joinIdentity:
+                    break
+                case .table(let nodes, _):
+                    for node in nodes {
+                        if case .variable(let name, _) = node {
+                            variables.insert(name)
+                        }
+                    }
+                case .triple(let t):
+                    for node in [t.subject, t.predicate, t.object] {
+                        if case .variable(let name, _) = node {
+                            variables.insert(name)
+                        }
+                    }
+                case .quad(let q):
+                    for node in [q.subject, q.predicate, q.object, q.graph] {
+                        if case .variable(let name, _) = node {
+                            variables.insert(name)
+                        }
+                    }
+                case .bgp(let triples):
+                    for t in triples {
+                        for node in [t.subject, t.predicate, t.object] {
+                            if case .variable(let name, _) = node {
+                                variables.insert(name)
+                            }
+                        }
+                    }
+                case let .innerJoin(l, r), let .union(l, r):
+                    variables.formUnion(l.allVariables)
+                    variables.formUnion(r.allVariables)
+                case let .leftOuterJoin(l, r, _):
+                    variables.formUnion(l.allVariables)
+                    variables.formUnion(r.allVariables)
+                case .filter(let child, _), .namedGraph(let child, _), .minus(let child, _), .project(let child, _), .distinct(let child), .reduced(let child),
+                     .order(let child, _), .slice(let child, _, _), .service(_, let child, _):
+                    variables.formUnion(child.allVariables)
+                case let .extend(child, _, v):
+                    variables.formUnion(child.allVariables)
+                    variables.insert(v)
+                case let .path(s, _, o):
+                    for node in [s, o] {
+                        if case .variable(let name, true) = node {
+                            variables.insert(name)
+                        }
+                    }
+                case let .aggregate(child, _, aggs):
+                    variables.formUnion(child.allVariables)
+                    for a in aggs {
+                        variables.insert(a.variableName)
+                    }
+                case let .window(child, windows):
+                    variables.formUnion(child.allVariables)
+                    for w in windows {
+                        variables.insert(w.variableName)
+                    }
+                case .subquery(let q):
+                    variables.formUnion(q.algebra.allVariables)
+                }
+            }
+        } catch let e {
+            print(e)
+        }
+        return variables
+    }
+
     var inscope: Set<String> {
         var variables = Set<String>()
         switch self {
