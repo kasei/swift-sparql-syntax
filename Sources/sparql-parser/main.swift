@@ -52,10 +52,6 @@ func getCurrentDateSeconds() -> UInt64 {
     return UInt64(startTime)
 }
 
-func getCurrentTime() -> CFAbsoluteTime {
-    return CFAbsoluteTimeGetCurrent()
-}
-
 func warn(_ items: String...) {
     for string in items {
         fputs(string, stderr)
@@ -124,7 +120,6 @@ if let next = args.peek(), next == "-v" {
     verbose = true
 }
 
-let startTime = getCurrentTime()
 let startSecond = getCurrentDateSeconds()
 var count = 0
 
