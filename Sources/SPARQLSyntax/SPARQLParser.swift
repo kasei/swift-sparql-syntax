@@ -75,6 +75,7 @@ private enum UnfinishedAlgebra {
 public struct SPARQLParser {
     public var parseBlankNodesAsVariables: Bool
     public var parseSPARQLStarAsRDFReification: Bool // EXTENSION-002
+    public var parseSPARQLStarReificationForWikidata: Bool // EXTENSION-002
     var lexer: SPARQLLexer
     var prefixes: [String:String]
     var bnodes: [String:Term]
@@ -96,6 +97,7 @@ public struct SPARQLParser {
         self.seenBlankNodeLabels = Set()
         self.parseBlankNodesAsVariables = true
         self.parseSPARQLStarAsRDFReification = true
+        self.parseSPARQLStarReificationForWikidata = false
     }
     
     public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
@@ -907,7 +909,7 @@ public struct SPARQLParser {
         case .expression(let expr):
             return .bind(expr, name, [])
         case .triplePattern(let embtp):
-            let (node, triples) = triplesFromEmbedding(.triplePattern(embtp))
+            let (node, triples) = try triplesFromEmbedding(.triplePattern(embtp))
             let t = try triples.map { (a) -> Algebra in
                 return try replaceBlankNodesWithVariables(a)
             }
@@ -1083,8 +1085,8 @@ public struct SPARQLParser {
             case let (.node(subject), .node(object)):
                 return [TriplePattern(subject: subject, predicate: predicate, object: object)]
             default:
-                let (s, salgebras) = triplesFromEmbedding(subject)
-                let (o, oalgebras) = triplesFromEmbedding(object)
+                let (s, salgebras) = try triplesFromEmbedding(subject)
+                let (o, oalgebras) = try triplesFromEmbedding(object)
                 let tp = TriplePattern(subject: s, predicate: predicate, object: o)
                 let cb = { (a: Algebra) -> TriplePattern? in
                     switch (a) {
@@ -1103,30 +1105,68 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func reifiedStatement(subject: Node, predicate: Node, object: Node) -> (Node, [Algebra]) {
+    private mutating func reifiedStatement(subject: Node, predicate: Node, object: Node) throws -> (Node, [Algebra]) {
         let s = bnode()
-        let type = Term(iri: Namespace.rdf.type)
-        let statement = Term(iri: Namespace.rdf.Statement)
-        let subj = Term(iri: Namespace.rdf.subject)
-        let pred = Term(iri: Namespace.rdf.predicate)
-        let obj = Term(iri: Namespace.rdf.object)
-        
-        let t_reif = TriplePattern(subject: subject, predicate: predicate, object: object)
-        let t_type = TriplePattern(subject: .bound(s), predicate: .bound(type), object: .bound(statement))
-        let t_subj = TriplePattern(subject: .bound(s), predicate: .bound(subj), object: subject)
-        let t_pred = TriplePattern(subject: .bound(s), predicate: .bound(pred), object: predicate)
-        let t_obj = TriplePattern(subject: .bound(s), predicate: .bound(obj), object: object)
-        return (.bound(s), [.triple(t_reif), .triple(t_type), .triple(t_subj), .triple(t_pred), .triple(t_obj)])
+        let tp_reif = TriplePattern(subject: subject, predicate: predicate, object: object)
+        if parseSPARQLStarReificationForWikidata {
+            /*
+             
+             PREFIX wd: <http://www.wikidata.org/entity/>
+             PREFIX wds: <http://www.wikidata.org/entity/statement/>
+             PREFIX wdv: <http://www.wikidata.org/value/>
+             PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+             PREFIX wikibase: <http://wikiba.se/ontology#>
+             PREFIX p: <http://www.wikidata.org/prop/>
+             PREFIX ps: <http://www.wikidata.org/prop/statement/>
+             PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+             PREFIX bd: <http://www.bigdata.com/rdf#>
+
+             */
+
+            guard case .bound(let p) = predicate else {
+                throw SPARQLSyntaxError.parsingError("Cannot reify a Wikidata triple pattern with unbounded predicate")
+            }
+            let direct_prefix = "http://www.wikidata.org/prop/direct/"
+            
+            guard p.value.hasPrefix(direct_prefix) else {
+                throw SPARQLSyntaxError.parsingError("Cannot reify a Wikidata triple pattern using a predicate not in the wdt namespace")
+            }
+            
+            let i = p.value.index(p.value.startIndex, offsetBy: direct_prefix.count)
+            let rest = p.value.suffix(from: i)
+            let reify_prop = Term(iri: "http://www.wikidata.org/prop/\(rest)")
+            let reify_value_prop = Term(iri: "http://www.wikidata.org/prop/statement/\(rest)")
+            
+            let tp_statement = TriplePattern(subject: subject, predicate: .bound(reify_prop), object: .bound(s))
+            let tp_obj = TriplePattern(subject: .bound(s), predicate: .bound(reify_value_prop), object: object)
+            return (.bound(s), [.triple(tp_reif), .triple(tp_statement), .triple(tp_obj)])
+
+            
+//            throw SPARQLSyntaxError.unimplemented("SPARQL* support for Wikidata")
+        } else {
+            let statement_type = Term(iri: Namespace.rdf.Statement)
+            let p_type = Term(iri: Namespace.rdf.type)
+            let p_subj = Term(iri: Namespace.rdf.subject)
+            let p_pred = Term(iri: Namespace.rdf.predicate)
+            let p_obj = Term(iri: Namespace.rdf.object)
+            
+            let tp_type = TriplePattern(subject: .bound(s), predicate: .bound(p_type), object: .bound(statement_type))
+            let tp_subj = TriplePattern(subject: .bound(s), predicate: .bound(p_subj), object: subject)
+            let tp_pred = TriplePattern(subject: .bound(s), predicate: .bound(p_pred), object: predicate)
+            let tp_obj = TriplePattern(subject: .bound(s), predicate: .bound(p_obj), object: object)
+            return (.bound(s), [.triple(tp_reif), .triple(tp_type), .triple(tp_subj), .triple(tp_pred), .triple(tp_obj)])
+        }
     }
     
-    private mutating func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
+    private mutating func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) throws -> (Node, [Algebra]) {
         switch e {
         case .node(let n):
             return (n, [])
         case .triplePattern(let embedding):
-            let (subject, striples) = triplesFromEmbedding(embedding.subject)
-            let (object, otriples) = triplesFromEmbedding(embedding.object)
-            let (s, reification) = reifiedStatement(subject: subject, predicate: embedding.predicate, object: object)
+            let (subject, striples) = try triplesFromEmbedding(embedding.subject)
+            let (object, otriples) = try triplesFromEmbedding(embedding.object)
+            let (s, reification) = try reifiedStatement(subject: subject, predicate: embedding.predicate, object: object)
 
             let triples = reification + striples + otriples
             return (s, triples)
@@ -1144,7 +1184,7 @@ public struct SPARQLParser {
                     return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))]
                 }
             case let (.node(subject), .triplePattern(embtp)):
-                let (object, triples) = triplesFromEmbedding(.triplePattern(embtp))
+                let (object, triples) = try triplesFromEmbedding(.triplePattern(embtp))
                 switch predicate {
                 case .path(let pp):
                     return [.path(subject, pp, object)] + triples
@@ -1152,7 +1192,7 @@ public struct SPARQLParser {
                     return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + triples
                 }
             case let (.triplePattern(embtp), .node(object)):
-                let (subject, triples) = triplesFromEmbedding(.triplePattern(embtp))
+                let (subject, triples) = try triplesFromEmbedding(.triplePattern(embtp))
                 switch predicate {
                 case .path(let pp):
                     return [.path(subject, pp, object)] + triples
@@ -1160,8 +1200,8 @@ public struct SPARQLParser {
                     return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + triples
                 }
             case let (.triplePattern(subj_embtp), .triplePattern(obj_embtp)):
-                let (subject, striples) = triplesFromEmbedding(.triplePattern(subj_embtp))
-                let (object, otriples) = triplesFromEmbedding(.triplePattern(obj_embtp))
+                let (subject, striples) = try triplesFromEmbedding(.triplePattern(subj_embtp))
+                let (object, otriples) = try triplesFromEmbedding(.triplePattern(obj_embtp))
                 switch predicate {
                 case .path(let pp):
                     return [.path(subject, pp, object)] + striples + otriples

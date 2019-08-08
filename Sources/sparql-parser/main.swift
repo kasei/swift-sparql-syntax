@@ -87,6 +87,24 @@ func data(fromFileOrString qfile: String) throws -> (Data, String?) {
     return (data, base)
 }
 
+func ok_prefix_for_special_variables(_ vars: Set<String>) -> String {
+    let count = vars.map { (v) in v.prefix(while: { $0 == "_" }).count }.reduce(0, max)
+    let prefix = String(repeating: "_", count: count+1)
+    return prefix
+}
+
+func special_variable_rewrite_map(_ vars: Set<String>) -> [String:Term] {
+    let prefix = ok_prefix_for_special_variables(vars)
+    var map = [String:Term]()
+    for v in vars {
+        if v.hasPrefix(".") {
+            let newName = prefix + v.suffix(from: v.index(v.startIndex, offsetBy: 1))
+            map[v] = Term(value: newName, type: .blank)
+        }
+    }
+    return map
+}
+
 var verbose = true
 let argscount = CommandLine.arguments.count
 var args = PeekableIterator(generator: CommandLine.arguments.makeIterator())
@@ -96,6 +114,7 @@ guard argscount > 2 else {
     print("       \(pname) parse query.rq")
     print("       \(pname) lint query.rq")
     print("       \(pname) tokens query.rq")
+    print("       \(pname) wikidata query.rq")
     print("")
     exit(1)
 }
@@ -110,7 +129,7 @@ let startSecond = getCurrentDateSeconds()
 var count = 0
 
 if let op = args.next() {
-    if op == "parse" {
+    if op == "parse" || op == "wikidata" {
         var printAlgebra = false
         var printSPARQL = false
         var pretty = true
@@ -133,7 +152,14 @@ if let op = args.next() {
         do {
             let (sparql, base) = try data(fromFileOrString: qfile)
             guard var p = SPARQLParser(data: sparql, base: base) else { fatalError("Failed to construct SPARQL parser") }
-            let query = try p.parseQuery()
+            if op == "wikidata" {
+                p.parseSPARQLStarReificationForWikidata = true
+            }
+            var query = try p.parseQuery()
+            let vars = query.algebra.allVariables
+            let rewrite_map = special_variable_rewrite_map(vars)
+            query = try query.replace(rewrite_map)
+            
             count = 1
             if printAlgebra {
                 print(query.serialize())
