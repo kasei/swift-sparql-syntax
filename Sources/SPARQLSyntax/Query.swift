@@ -215,6 +215,11 @@ public extension Query {
 
 public extension Query {
     func replace(_ map: [String:Term]) throws -> Query {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> Query {
         let algebra = try self.algebra.replace(map)
         return try Query(form: self.form, algebra: algebra, dataset: self.dataset, base: self.base)
     }

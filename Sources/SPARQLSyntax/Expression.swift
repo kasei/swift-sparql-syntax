@@ -700,11 +700,16 @@ extension Expression: Codable {
 
 public extension Expression {
     func replace(_ map: [String:Term]) throws -> Expression {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> Expression {
         return try self.replace({ (e) -> Expression? in
             switch e {
             case let .node(.variable(name, _)):
-                if let t = map[name] {
-                    return .node(.bound(t))
+                if let n = map[name] {
+                    return .node(n)
                 } else {
                     return e
                 }

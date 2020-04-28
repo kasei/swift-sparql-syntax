@@ -706,6 +706,11 @@ public extension Algebra {
     }
     
     func replace(_ map: [String:Term]) throws -> Algebra {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> Algebra {
         let a = try self.replace({ (e) -> Expression? in
             return try e.replace(map)
         })
@@ -717,7 +722,7 @@ public extension Algebra {
                     switch n {
                     case .variable(let name, _):
                         if let t = map[name] {
-                            return .bound(t)
+                            return t
                         } else {
                             return n
                         }
@@ -731,7 +736,7 @@ public extension Algebra {
                     switch n {
                     case .variable(let name, _):
                         if let t = map[name] {
-                            return .bound(t)
+                            return t
                         } else {
                             return n
                         }
@@ -746,7 +751,7 @@ public extension Algebra {
                         switch n {
                         case .variable(let name, _):
                             if let t = map[name] {
-                                return .bound(t)
+                                return t
                             } else {
                                 return n
                             }
@@ -761,12 +766,12 @@ public extension Algebra {
                 var obj = o
                 if case .variable(let name, _) = s {
                     if let t = map[name] {
-                        subj = .bound(t)
+                        subj = t
                     }
                 }
                 if case .variable(let name, _) = o {
                     if let t = map[name] {
-                        obj = .bound(t)
+                        obj = t
                     }
                 }
                 return .path(subj, pp, obj)
@@ -776,7 +781,7 @@ public extension Algebra {
                 var graph = g
                 if case .variable(let name, _) = g {
                     if let t = map[name] {
-                        graph = .bound(t)
+                        graph = t
                     }
                 }
                 return try .namedGraph(a.replace(map), graph)
