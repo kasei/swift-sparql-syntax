@@ -593,7 +593,7 @@ public extension Algebra {
     
     internal var variableExtensions: [String:Expression] {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_), .minus(_, _), .union(_, _), .aggregate(_), .leftOuterJoin(_), .service(_), .filter(_, _), .namedGraph(_, _):
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .minus(_, _), .union(_, _), .aggregate, .leftOuterJoin, .service, .filter(_, _), .namedGraph(_, _):
             return [:]
             
         case .project(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .order(let child, _):
@@ -613,7 +613,7 @@ public extension Algebra {
     
     var aggregation: Algebra? {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .window(_), .table(_), .subquery(_):
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery:
             return nil
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
@@ -622,7 +622,7 @@ public extension Algebra {
         case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
             return lhs.aggregation ?? rhs.aggregation
             
-        case .aggregate(_):
+        case .aggregate:
             return self
         case .extend(let child, _, _), .filter(let child, _):
             return child.aggregation
@@ -639,7 +639,7 @@ public extension Algebra {
 
     var window: Algebra? {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple(_), .quad(_), .bgp(_), .path(_), .aggregate(_), .table(_), .subquery(_):
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .aggregate, .table, .subquery:
             return nil
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
@@ -648,7 +648,7 @@ public extension Algebra {
         case .innerJoin(let lhs, let rhs), .union(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _):
             return lhs.window ?? rhs.window
             
-        case .window(_):
+        case .window:
             return self
             
         case .extend(let child, _, _), .filter(let child, _):
@@ -706,6 +706,11 @@ public extension Algebra {
     }
     
     func replace(_ map: [String:Term]) throws -> Algebra {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> Algebra {
         let a = try self.replace({ (e) -> Expression? in
             return try e.replace(map)
         })
@@ -717,7 +722,7 @@ public extension Algebra {
                     switch n {
                     case .variable(let name, _):
                         if let t = map[name] {
-                            return .bound(t)
+                            return t
                         } else {
                             return n
                         }
@@ -731,7 +736,7 @@ public extension Algebra {
                     switch n {
                     case .variable(let name, _):
                         if let t = map[name] {
-                            return .bound(t)
+                            return t
                         } else {
                             return n
                         }
@@ -746,7 +751,7 @@ public extension Algebra {
                         switch n {
                         case .variable(let name, _):
                             if let t = map[name] {
-                                return .bound(t)
+                                return t
                             } else {
                                 return n
                             }
@@ -761,12 +766,12 @@ public extension Algebra {
                 var obj = o
                 if case .variable(let name, _) = s {
                     if let t = map[name] {
-                        subj = .bound(t)
+                        subj = t
                     }
                 }
                 if case .variable(let name, _) = o {
                     if let t = map[name] {
-                        obj = .bound(t)
+                        obj = t
                     }
                 }
                 return .path(subj, pp, obj)
@@ -776,7 +781,7 @@ public extension Algebra {
                 var graph = g
                 if case .variable(let name, _) = g {
                     if let t = map[name] {
-                        graph = .bound(t)
+                        graph = t
                     }
                 }
                 return try .namedGraph(a.replace(map), graph)
@@ -869,7 +874,7 @@ public extension Algebra {
         switch self {
         case .subquery(let q):
             return try .subquery(q.replace(map))
-        case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table:
             return self
         case .distinct(let a):
             return try .distinct(a.replace(map))
@@ -945,7 +950,7 @@ public extension Algebra {
     func walk(_ handler: (Algebra) throws -> ()) throws {
         try handler(self)
         switch self {
-        case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_), .subquery(_):
+        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .subquery:
             return
         case .distinct(let a):
             try a.walk(handler)
@@ -1001,7 +1006,7 @@ public extension Algebra {
             case .subquery(let q):
                 let qq = try q.rewrite(map)
                 return (.subquery(qq), false)
-            case .unionIdentity, .joinIdentity, .triple(_), .quad(_), .path(_), .bgp(_), .table(_):
+            case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table:
                 let rewritten : Algebra = a
                 return (rewritten, true)
             case .distinct(let a):

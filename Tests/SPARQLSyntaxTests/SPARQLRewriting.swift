@@ -27,7 +27,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
         super.tearDown()
     }
     
-    func testNodeReplacement() {
+    func testTermReplacement() {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
@@ -41,6 +41,37 @@ class SPARQLNodeReplacementTests: XCTestCase {
                 let pattern,
                 .ne(
                     .node(.bound(Term(integer: 8))),
+                    .node(.bound(Term(value: "7.0", type: .datatype(.decimal))))
+                )) = replaced else {
+                    XCTFail("Unexpected algebra: \(a.serialize())")
+                    return
+            }
+            
+            guard case .triple(let got) = pattern else {
+                XCTFail("Unexpected algebra: \(pattern.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(got, tp)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testNodeReplacement() {
+        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseAlgebra()
+            let replaced = try a.replace(["o": .variable("xyz", binding: true)])
+            let tp = TriplePattern(
+                subject: .variable(".blank.b1", binding: false),
+                predicate: .bound(Term(iri: "http://example.org/value")),
+                object: .variable("xyz", binding: true)
+            )
+            guard case .filter(
+                let pattern,
+                .ne(
+                    .node(.variable("xyz", binding: true)),
                     .node(.bound(Term(value: "7.0", type: .datatype(.decimal))))
                 )) = replaced else {
                     XCTFail("Unexpected algebra: \(a.serialize())")

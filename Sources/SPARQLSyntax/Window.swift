@@ -109,6 +109,11 @@ extension WindowFunction: CustomStringConvertible {
 
 public extension WindowFunction {
     func replace(_ map: [String:Term]) throws -> WindowFunction {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> WindowFunction {
         switch self {
         case .rank, .denseRank, .rowNumber, .ntile(_):
             return self
@@ -254,6 +259,11 @@ public struct WindowApplication: Hashable, Codable {
 
 public extension WindowApplication {
     func replace(_ map: [String:Term]) throws -> WindowApplication {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> WindowApplication {
         let cmps = try self.comparators.map { (cmp) in
             try Algebra.SortComparator(ascending: cmp.ascending, expression: cmp.expression.replace(map))
         }
@@ -304,6 +314,11 @@ public extension WindowApplication {
 
 extension WindowFrame {
     func replace(_ map: [String:Term]) throws -> WindowFrame {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> WindowFrame {
         return try WindowFrame(
             type: type,
             from: from.replace(map),
@@ -332,6 +347,11 @@ extension WindowFrame {
 
 extension WindowFrame.FrameBound {
     func replace(_ map: [String:Term]) throws -> WindowFrame.FrameBound {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> WindowFrame.FrameBound {
         switch self {
         case .current, .unbound:
             return self

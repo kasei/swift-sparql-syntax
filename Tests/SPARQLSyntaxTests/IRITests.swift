@@ -31,10 +31,13 @@ class IRITest: XCTestCase {
 
     func testIRI_FragmentWithBase() {
         let base = IRI(string: "file:///Users/greg/data/prog/git/sparql/kineo/rdf-tests/sparql11/data-r2/algebra/two-nested-opt.rq")
+        XCTAssertNotNil(base)
         let rel = "#x1"
         let i = IRI(string: rel, relativeTo: base)
         XCTAssertNotNil(i)
-        XCTAssertEqual(i!.absoluteString, "file:///Users/greg/data/prog/git/sparql/kineo/rdf-tests/sparql11/data-r2/algebra/two-nested-opt.rq#x1")
+        if let i = i {
+            XCTAssertEqual(i.absoluteString, "file:///Users/greg/data/prog/git/sparql/kineo/rdf-tests/sparql11/data-r2/algebra/two-nested-opt.rq#x1")
+        }
     }
     
     func testIRI_RelativeWithBase() {

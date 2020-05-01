@@ -1037,7 +1037,7 @@ class SPARQLParserTests: XCTestCase {
         do {
             let a = try p.parseAlgebra()
             print(a)
-            guard case .project(_) = a else {
+            guard case .project = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
