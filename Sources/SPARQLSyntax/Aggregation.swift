@@ -158,6 +158,11 @@ extension Aggregation: CustomStringConvertible {
 
 public extension Aggregation {
     func replace(_ map: [String:Term]) throws -> Aggregation {
+        let nodes = map.mapValues { Node.bound($0) }
+        return try self.replace(nodes)
+    }
+    
+    func replace(_ map: [String:Node]) throws -> Aggregation {
         switch self {
         case .countAll:
             return self

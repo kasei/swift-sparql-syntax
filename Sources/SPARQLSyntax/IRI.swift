@@ -44,30 +44,8 @@ public struct Namespace {
 public class IRI : Codable {
     public let absoluteString: String
 
-    public init?(string: String) {
-        do {
-            var uri = SERD_URI_NULL
-            let absolute = try withUnsafeMutablePointer(to: &uri) { (u) throws -> String? in
-                guard let stringData = string.cString(using: .utf8) else { return nil }
-                return try stringData.withUnsafeBytes { (bytes) throws -> String? in
-                    let stringPtr = bytes.bindMemory(to: UInt8.self)
-                    let status = serd_uri_parse(stringPtr.baseAddress, u)
-                    if status == SERD_SUCCESS {
-                        return try u.pointee.value()
-                    } else {
-                        return nil
-                    }
-                }
-            }
-            if let a = absolute {
-                absoluteString = a
-            } else {
-                return nil
-            }
-        } catch {
-            print("IRI error: \(error)")
-            return nil
-        }
+    convenience public init?(string: String) {
+        self.init(string: string, relativeTo: nil)
     }
     
     public init?(fileURLWithPath path: String) {
@@ -92,40 +70,67 @@ public class IRI : Codable {
     }
     
     public init?(string: String, relativeTo iri: IRI?) {
-        let baseString = iri?.absoluteString ?? ""
-        var rel = SERD_URI_NULL
-//        print("<\(iri?.absoluteString ?? "")> + <\(string)>")
-        let absolute = withUnsafeMutablePointer(to: &rel) { (r) -> String? in
-            guard let stringData = string.cString(using: .utf8) else { return nil }
-            return stringData.withUnsafeBytes { (bytes) -> String? in
-                let stringPtr = bytes.bindMemory(to: UInt8.self)
-                let status = serd_uri_parse(stringPtr.baseAddress, r)
-                guard status == SERD_SUCCESS else { return nil }
-//                print("Relative IRI: \(r.pointee.value)")
-                var base = SERD_URI_NULL
-                return withUnsafeMutablePointer(to: &base) { (b) -> String? in
-                    guard let baseData = baseString.data(using: .utf8) else { return nil }
-                    return baseData.withUnsafeBytes { (basePtr : UnsafePointer<UInt8>) -> String? in
-                        let status = serd_uri_parse(basePtr, b)
-                        guard status == SERD_SUCCESS else { return nil }
-//                        print("Base IRI: \(b.pointee.value)")
-                        var uri = SERD_URI_NULL
-                        return withUnsafeMutablePointer(to: &uri) { (out) -> String? in
-                            let rr = UnsafePointer(r)
-                            let bb = UnsafePointer(b)
-                            serd_uri_resolve(rr, bb, out)
-                            let absolute = try? out.pointee.value()
-                            return absolute
+        if let iri = iri {
+            let baseString = iri.absoluteString
+            var rel = SERD_URI_NULL
+//            print("<\(iri.absoluteString ?? "")> + <\(string)>")
+            let absolute = withUnsafeMutablePointer(to: &rel) { (r) -> String? in
+                guard let stringData = string.cString(using: .utf8) else { return nil }
+                return stringData.withUnsafeBytes { (bytes) -> String? in
+                    let stringPtr = bytes.bindMemory(to: UInt8.self)
+                    let status = serd_uri_parse(stringPtr.baseAddress, r)
+                    guard status == SERD_SUCCESS else { return nil }
+//                    try? print("Relative IRI: <\(r.pointee.value())>")
+                    var base = SERD_URI_NULL
+                    return withUnsafeMutablePointer(to: &base) { (b) -> String? in
+                        guard let baseData = baseString.cString(using: .utf8) else { return nil }
+                        return baseData.withUnsafeBytes { (baseBytes) -> String? in
+                            let basePtr = baseBytes.bindMemory(to: UInt8.self)
+                            let status = serd_uri_parse(basePtr.baseAddress, b)
+                            guard status == SERD_SUCCESS else { return nil }
+//                            try? print("Base IRI: <\(b.pointee.value())>")
+                            var uri = SERD_URI_NULL
+                            return withUnsafeMutablePointer(to: &uri) { (out) -> String? in
+                                let rr = UnsafePointer(r)
+                                let bb = UnsafePointer(b)
+                                serd_uri_resolve(rr, bb, out)
+                                let absolute = try? out.pointee.value()
+                                return absolute
+                            }
                         }
                     }
                 }
             }
-        }
-
-        if let a = absolute {
-            absoluteString = a
+            
+            if let a = absolute {
+                absoluteString = a
+            } else {
+                return nil
+            }
         } else {
-            return nil
+            do {
+                var uri = SERD_URI_NULL
+                let absolute = try withUnsafeMutablePointer(to: &uri) { (u) throws -> String? in
+                    guard let stringData = string.cString(using: .utf8) else { return nil }
+                    return try stringData.withUnsafeBytes { (bytes) throws -> String? in
+                        let stringPtr = bytes.bindMemory(to: UInt8.self)
+                        let status = serd_uri_parse(stringPtr.baseAddress, u)
+                        if status == SERD_SUCCESS {
+                            return try u.pointee.value()
+                        } else {
+                            return nil
+                        }
+                    }
+                }
+                if let a = absolute {
+                    absoluteString = a
+                } else {
+                    return nil
+                }
+            } catch {
+                print("IRI error: \(error)")
+                return nil
+            }
         }
     }
     

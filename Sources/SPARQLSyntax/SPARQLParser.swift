@@ -373,7 +373,7 @@ public struct SPARQLParser {
             while let t = peekToken() {
                 if t.isTerm {
                     describe.append(try parseVarOrIRI())
-                } else if case ._var(_) = t {
+                } else if case ._var = t {
                     describe.append(try parseVarOrIRI())
                 } else {
                     break
@@ -565,9 +565,9 @@ public struct SPARQLParser {
             }
         } else {
             guard let t = peekToken() else { return nil }
-            if case ._var(_) = t {
+            if case ._var = t {
                 node = try parseVar()
-                guard case .variable(_) = node else {
+                guard case .variable = node else {
                     throw parseError("Expecting GROUP variable but got \(node)")
                 }
                 return .node(node)
@@ -592,7 +592,7 @@ public struct SPARQLParser {
         guard let t = peekToken() else { return nil }
         if try forceBrackettedExpression || peek(token: .lparen) {
             expr = try parseBrackettedExpression()
-        } else if case ._var(_) = t {
+        } else if case ._var = t {
             expr = try .node(parseVarOrTerm())
         } else if let e = try? parseConstraint() {
             expr = e
@@ -608,7 +608,7 @@ public struct SPARQLParser {
         } else {
             let t = try peekExpectedToken()
             switch t {
-            case .iri(_), .prefixname(_, _):
+            case .iri, .prefixname(_, _):
                 return try parseFunctionCall()
             default:
                 let expr = try parseBuiltInCall()
@@ -754,11 +754,11 @@ public struct SPARQLParser {
     private func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra { // EXTENSION-001
         if case .node(.variable(let name, _)) = expression {
             if name.hasPrefix(".") {
-                if case .aggregate(_) = algebra {
+                if case .aggregate = algebra {
                     if let a = algebra.renameAggregateAndWindowVariables(from: name, to: variableName) {
                         return a
                     }
-                } else if case .window(_) = algebra {
+                } else if case .window = algebra {
                     if let a = algebra.renameAggregateAndWindowVariables(from: name, to: variableName) {
                         return a
                     }
@@ -795,19 +795,19 @@ public struct SPARQLParser {
                 patterns.append(contentsOf: algebras.map { .finished($0) })
             } else {
                 switch t {
-                case .lparen, .lbracket, ._var, .iri(_), .anon, .prefixname(_, _), .bnode(_), .string1d(_), .string1s(_), .string3d(_), .string3s(_), .boolean(_), .double(_), .decimal(_), .integer(_):
+                case .lparen, .lbracket, ._var, .iri, .anon, .prefixname(_, _), .bnode, .string1d, .string1s, .string3d, .string3s, .boolean, .double, .decimal, .integer:
                     if !allowTriplesBlock {
                         break
                     }
                     let algebras = try triplesByParsingTriplesBlock()
                     allowTriplesBlock = false
                     patterns.append(contentsOf: algebras.map { .finished($0) })
-                case .lbrace, .keyword(_):
+                case .lbrace, .keyword:
                     guard let unfinished = try treeByParsingGraphPatternNotTriples() else {
                         throw parseError("Could not parse GraphPatternNotTriples in GroupGraphPatternSub (near \(t))")
                     }
                     
-                    if case .filter(_) = unfinished {
+                    if case .filter = unfinished {
                         filters.append(unfinished)
                     } else {
                         patterns.append(unfinished)
@@ -915,7 +915,7 @@ public struct SPARQLParser {
     //[64]      InlineDataFull      ::=      ( NIL | '(' Var* ')' ) '{' ( '(' DataBlockValue* ')' | NIL )* '}'
     private mutating func parseDataBlock() throws -> Algebra {
         var t = try peekExpectedToken()
-        if case ._var(_) = t {
+        if case ._var = t {
             let node = try parseVar()
             guard case .variable(_, binding: _) = node else {
                 throw parseError("Expecting variable but got \(node)")
@@ -1070,7 +1070,7 @@ public struct SPARQLParser {
         var t = try peekExpectedToken()
         var verb: PropertyPath? = nil
         var varpred: Node? = nil
-        if case ._var(_) = t {
+        if case ._var = t {
             varpred = try parseVerbSimple()
         } else {
             verb = try parseVerbPath()
@@ -1087,7 +1087,7 @@ public struct SPARQLParser {
         }
         
         // push paths to the end
-        propertyObjects.sort { (l, r) in if case .path(_) = l { return false } else { return true } }
+        propertyObjects.sort { (l, r) in if case .path = l { return false } else { return true } }
 //        let algebra: Algebra = propertyObjects.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
 //        propertyObjects = [algebra]
         
@@ -1097,9 +1097,9 @@ public struct SPARQLParser {
             var verb: PropertyPath? = nil
             var varpred: Node? = nil
             switch t {
-            case ._var(_):
+            case ._var:
                 varpred = try parseVerbSimple()
-            case .keyword("A"), .lparen, .hat, .bang, .iri(_), .prefixname(_, _):
+            case .keyword("A"), .lparen, .hat, .bang, .iri, .prefixname(_, _):
                 verb = try parseVerbPath()
             default:
                 break LOOP
@@ -1240,33 +1240,6 @@ public struct SPARQLParser {
             let iri = try parseIRI()
             return .link(iri)
         }
-        /**
-         
-         SPKSPARQLToken* t   = [self peekNextNonCommentToken];
-         if (t.type == HAT) {
-         [self nextNonCommentToken];
-         t   = [self peekNextNonCommentToken];
-         if (t.type == KEYWORD && [t.value isEqualToString: @"A"]) {
-         [self nextNonCommentToken];
-         id<GTWTerm> term    = [[GTWIRI alloc] initWithValue:@"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"];
-         id<SPKTree> path    = [[SPKTree alloc] initWithType:kTreeNode value: term arguments:nil];
-         return [[SPKTree alloc] initWithType:kPathInverse arguments:@[path]];
-         } else {
-         id<SPKTree> path    = [self parseIRIWithErrors: errors];
-         return [[SPKTree alloc] initWithType:kPathInverse arguments:@[path]];
-         }
-         } else if (t.type == KEYWORD && [t.value isEqualToString: @"A"]) {
-         [self nextNonCommentToken];
-         id<GTWTerm> term    = [[GTWIRI alloc] initWithValue:@"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"];
-         return [[SPKTree alloc] initWithType:kTreeNode value: term arguments:nil];
-         } else if (t.type == NIL) {
-         return [self errorMessage:@"Expecting IRI but found NIL" withErrors:errors];
-         } else {
-         return [self parseIRIWithErrors: errors];
-         }
-         
-         
-         **/
     }
     
     private mutating func parseObjectPathAsNode() throws -> (Node, [Algebra]) {
@@ -1402,7 +1375,7 @@ public struct SPARQLParser {
     
     private mutating func parseVarOrIRI() throws -> Node {
         let node = try parseVarOrTerm()
-        if case .variable(_) = node {
+        if case .variable = node {
         } else if case .bound(let term) = node, term.type == .iri {
         } else {
             throw parseError("Expected variable but found \(node)")
@@ -1413,7 +1386,7 @@ public struct SPARQLParser {
     private mutating func parseVar() throws -> Node {
         let t = try nextExpectedToken()
         let node = try tokenAsNode(t)
-        guard case .variable(_) = node else {
+        guard case .variable = node else {
             throw parseError("Expected variable but found \(node)")
         }
         return node
@@ -1486,56 +1459,6 @@ public struct SPARQLParser {
         default:
             return expr
         }
-        /**
-         id<SPKTree> expr    = [self parseNumericExpressionWithErrors:errors];
-         SPKSPARQLToken* t   = [self peekNextNonCommentToken];
-         if (t && (t.type == EQUALS || t.type == NOTEQUALS || t.type == LT || t.type == GT || t.type == LE || t.type == GE)) {
-         [self nextNonCommentToken];
-         id<SPKTree> rhs  = [self parseNumericExpressionWithErrors:errors];
-         ASSERT_EMPTY(errors);
-         SPKTreeType type;
-         switch (t.type) {
-         case EQUALS:
-         type    = kExprEq;
-         break;
-         case NOTEQUALS:
-         type    = kExprNeq;
-         break;
-         case LT:
-         type    = kExprLt;
-         break;
-         case GT:
-         type    = kExprGt;
-         break;
-         case LE:
-         type    = kExprLe;
-         break;
-         case GE:
-         type    = kExprGe;
-         break;
-         default:
-         return nil;
-         }
-         if (!(expr && rhs)) {
-         return [self errorMessage:@"Failed to parse relational expression" withErrors:errors];
-         }
-         expr    = [[SPKTree alloc] initWithType:type arguments:@[expr, rhs]];
-         } else if (t && t.type == KEYWORD && [t.value isEqualToString: @"IN"]) {
-         [self nextNonCommentToken];
-         id<SPKTree> list    = [self parseExpressionListWithErrors: errors];
-         ASSERT_EMPTY(errors);
-         return [[SPKTree alloc] initWithType:kExprIn arguments:@[expr, list]];
-         } else if (t && t.type == KEYWORD && [t.value isEqualToString: @"NOT"]) {
-         [self nextNonCommentToken];
-         [self parseExpectedTokenOfType:KEYWORD withValue:@"IN" withErrors:errors];
-         ASSERT_EMPTY(errors);
-         id<SPKTree> list    = [self parseExpressionListWithErrors: errors];
-         ASSERT_EMPTY(errors);
-         return [[SPKTree alloc] initWithType:kExprNotIn arguments:@[expr, list]];
-         }
-         return expr;
-         
-         **/
     }
     
     private mutating func parseNumericExpression() throws -> Expression {
@@ -1600,7 +1523,7 @@ public struct SPARQLParser {
         } else {
             let t = try peekExpectedToken()
             switch t {
-            case .iri(_), .prefixname(_, _):
+            case .iri, .prefixname(_, _):
                 let expr = try parseIRIOrFunction()
                 if let t = peekToken(), case .keyword("OVER") = t { // EXTENSION-001
                     guard case let .call(iri, exprs) = expr else {
@@ -1612,7 +1535,7 @@ public struct SPARQLParser {
                 } else {
                     return expr
                 }
-            case ._nil, .anon, .bnode(_):
+            case ._nil, .anon, .bnode:
                 throw parseError("Expected PrimaryExpression term (IRI, Literal, or Var) but found \(t)")
             case _ where t.isTermOrVar:
                 return try .node(parseVarOrTerm())
@@ -1829,7 +1752,7 @@ public struct SPARQLParser {
                 guard let t = peekToken() else { break }
                 if try peek(token: .lparen) {
                     partition.append(try parseBrackettedExpression())
-                } else if case ._var(_) = t {
+                } else if case ._var = t {
                     partition.append(try .node(parseVarOrTerm()))
                 } else if let e = try? parseConstraint() {
                     partition.append(e)
@@ -1980,39 +1903,6 @@ public struct SPARQLParser {
         default:
             throw parseError("Unrecognized aggregate name '\(name)'")
         }
-        /**
-         
-         SPKSPARQLToken* t   = [self parseExpectedTokenOfType:KEYWORD withErrors:errors];
-         ASSERT_EMPTY(errors);
-         } else if ([t.value isEqualToString: @"GROUP_CONCAT"]) {
-         [self parseExpectedTokenOfType:LPAREN withErrors:errors];
-         ASSERT_EMPTY(errors);
-         SPKSPARQLToken* d   = [self parseOptionalTokenOfType:KEYWORD withValue:@"DISTINCT"];
-         id<SPKTree> expr    = [self parseExpressionWithErrors:errors];
-         ASSERT_EMPTY(errors);
-         
-         SPKSPARQLToken* sc  = [self parseOptionalTokenOfType:SEMICOLON];
-         NSString* separator = @" ";
-         if (sc) {
-         [self parseExpectedTokenOfType:KEYWORD withValue:@"SEPARATOR" withErrors:errors];
-         ASSERT_EMPTY(errors);
-         [self parseExpectedTokenOfType:EQUALS withErrors:errors];
-         ASSERT_EMPTY(errors);
-         SPKSPARQLToken* t   = [self nextNonCommentToken];
-         id<GTWTerm> str     = [self tokenAsTerm:t withErrors:errors];
-         ASSERT_EMPTY(errors);
-         
-         separator   = str.value;
-         }
-         id<SPKTree> agg     = [[SPKTree alloc] initWithType:kExprGroupConcat value: @[@(d ? YES: NO), separator] arguments:@[expr]];
-         [self parseExpectedTokenOfType:RPAREN withErrors:errors];
-         ASSERT_EMPTY(errors);
-         [self addSeenAggregate:agg];
-         return agg;
-         }
-         
-         **/
-        
     }
 
     private mutating func parseIRI() throws -> Term {
@@ -2088,7 +1978,7 @@ public struct SPARQLParser {
             return .finished(data)
         } else if case .keyword("BIND") = t {
             return try parseBind()
-        } else if case .keyword(_) = t {
+        } else if case .keyword = t {
             throw parseError("Expecting KEYWORD but got \(t)")
         } else if case .lbrace = t {
             var ggp = try parseGroupGraphPattern()
@@ -2422,7 +2312,7 @@ extension String {
 extension Algebra {
     internal var adjacentBlankNodeUseOK: Bool {
         switch self {
-        case .triple(_), .quad(_), .bgp(_), .path(_):
+        case .triple, .quad, .bgp, .path:
             return true
         default:
             return false
@@ -2498,10 +2388,10 @@ extension Algebra {
             let r = rhs.blankNodeLabels
             
             switch (lhs, rhs) {
-            case (.bgp(_), .path(_)), (.path(_), .bgp(_)),
-                 (.triple(_), .path(_)), (.path(_), .triple(_)),
-                 (.quad(_), .path(_)), (.path(_), .quad(_)),
-                 (.path(_), .path(_)):
+            case (.bgp, .path), (.path, .bgp),
+                 (.triple, .path), (.path, .triple),
+                 (.quad, .path), (.path, .quad),
+                 (.path, .path):
                 // reuse of bnode labels should be acceptable when in adjacent BGPs and property paths
                 // https://www.w3.org/2013/sparql-errata#errata-query-17
                 return l.union(r)

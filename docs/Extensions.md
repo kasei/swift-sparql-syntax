@@ -5,6 +5,7 @@ EXTENSION-001: Window Functions
 -------------
 
 *Status*: Fully implemented
+*branch*: master
 
 Support for [window functions](https://github.com/w3c/sparql-12/issues/47) in `SELECT` or `HAVING` clauses.
 
@@ -46,6 +47,7 @@ EXTENSION-002: SPARQL*
 -------------
 
 *Status*: Parsing SPARQL* embedded triple patterns and `BIND` expressions resulting in AST using standard RDF reification is supported. Use of embedded triple patterns in `CONSTRUCT` patterns is not implemented.
+*branch*: sparql-star
 
 [SPARQL*](https://arxiv.org/pdf/1406.3399.pdf) syntax for expressing reification:
 
@@ -60,9 +62,17 @@ EXTENSION-003: `GROUP_CONCAT` ordering
 -------------
 
 *Status*: AST support is implemented; parsing is not implemented yet.
+*branch*: sparql-star
 
 Allows values to be sorted before string concatenation occurs:
 
 ```
 GROUP_CONCAT(DISTINCT ?names; SEPARATOR=", ", ORDER BY ?names)
 ```
+
+EXTENSION-004: `xsd:duration` support
+
+*Status*: AST support for casts and datetime functions, and init/property Term extensions implemented
+*branch*: sparql-12
+
+Allows SPARQL function-style casting to `xsd:time` and `xsd:duration`, and use of `ADJUST` function.

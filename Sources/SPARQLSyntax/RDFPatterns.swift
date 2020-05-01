@@ -33,7 +33,7 @@ extension TermPattern {
 
     public var isGround: Bool {
         for n in makeIterator() {
-            if case .variable(_) = n {
+            if case .variable = n {
                 return false
             }
         }
