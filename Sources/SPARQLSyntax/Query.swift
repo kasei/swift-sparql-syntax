@@ -246,7 +246,7 @@ enum SPARQLResultError: Error {
 
 public struct SPARQLResultSolution<T: Hashable>: Hashable, CustomStringConvertible {
     public typealias TermType = T
-    var bindings: [String: T]
+    public private(set) var bindings: [String: T]
     
     public init(bindings: [String: T]) {
         self.bindings = bindings
