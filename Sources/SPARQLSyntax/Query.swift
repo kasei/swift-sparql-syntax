@@ -239,3 +239,113 @@ public extension Query {
         return try Query(form: self.form, algebra: algebra, dataset: self.dataset, base: self.base)
     }
 }
+
+enum SPARQLResultError: Error {
+    case compatabilityError(String)
+}
+
+public struct SPARQLResultSolution<T: Hashable>: Hashable, CustomStringConvertible {
+    public typealias TermType = T
+    public private(set) var bindings: [String: T]
+    
+    public init(bindings: [String: T]) {
+        self.bindings = bindings
+    }
+    
+    public var keys: [String] { return Array(self.bindings.keys) }
+    
+    public func join(_ rhs: Self<T>) -> Self<T>? {
+        let lvars = Set(bindings.keys)
+        let rvars = Set(rhs.bindings.keys)
+        let shared = lvars.intersection(rvars)
+        for key in shared {
+            guard bindings[key] == rhs.bindings[key] else { return nil }
+        }
+        var b = bindings
+        for (k, v) in rhs.bindings {
+            b[k] = v
+        }
+        
+        let result = Self(bindings: b)
+        //        print("]]]] \(self) |><| \(rhs) ==> \(result)")
+        return result
+    }
+    
+    public func projected(variables: Set<String>) -> Self<T> {
+        var bindings = [String:TermType]()
+        for name in variables {
+            if let term = self[name] {
+                bindings[name] = term
+            }
+        }
+        return Self(bindings: bindings)
+    }
+
+    public subscript(key: Node) -> TermType? {
+        get {
+            switch key {
+            case .variable(let name, _):
+                return self.bindings[name]
+            default:
+                return nil
+            }
+        }
+
+        set(value) {
+            if case .variable(let name, _) = key {
+                self.bindings[name] = value
+            }
+        }
+    }
+
+    public subscript(key: String) -> TermType? {
+        get {
+            return bindings[key]
+        }
+
+        set(value) {
+            bindings[key] = value
+        }
+    }
+
+    public mutating func extend(variable: String, value: TermType) throws {
+        if let existing = self.bindings[variable] {
+            if existing != value {
+                throw SPARQLResultError.compatabilityError("Cannot extend solution mapping due to existing incompatible term value")
+            }
+        }
+        self.bindings[variable] = value
+    }
+
+    public func extended(variable: String, value: TermType) -> Self<T>? {
+        var b = bindings
+        if let existing = b[variable] {
+            if existing != value {
+                print("*** cannot extend result with new term: (\(variable) <- \(value); \(self)")
+                return nil
+            }
+        }
+        b[variable] = value
+        return Self(bindings: b)
+    }
+
+    public var description: String {
+        let pairs = bindings.sorted { $0.0 < $1.0 }.map { "\($0): \($1)" }.joined(separator: ", ")
+        return "Result[\(pairs)]"
+    }
+
+    public func makeIterator() -> DictionaryIterator<String, TermType> {
+        let i = bindings.makeIterator()
+        return i
+    }
+
+    public func removing(variables: Set<String>) -> Self<T> {
+        var bindings = [String: T]()
+        for (k, v) in self.bindings {
+            if !variables.contains(k) {
+                bindings[k] = v
+            }
+        }
+        return Self(bindings: bindings)
+    }
+}
