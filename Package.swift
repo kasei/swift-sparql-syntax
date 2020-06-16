@@ -9,6 +9,12 @@ let package = Package(
         .library(
             name: "SPARQLSyntax",
             targets: ["SPARQLSyntax"]),
+        .executable(
+        	name: "sparqllint",
+        	targets: ["sparqllint"]),
+        .executable(
+        	name: "sparql-parser",
+        	targets: ["sparql-parser"]),
     ],
     dependencies: [
 		.package(url: "https://github.com/kasei/swift-serd.git", from: "0.0.3"),
