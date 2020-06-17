@@ -169,7 +169,7 @@ extension TermType: Hashable {
     }
 }
 
-public struct Term: CustomStringConvertible, Hashable, Codable {
+public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hashable, Codable {
     public var value: String
     public var type: TermType
     public var _doubleValue: Double?
@@ -393,6 +393,37 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         }
     }
 
+    public var debugDescription: String {
+           switch type {
+           case .iri:
+               return "<\(value)>"
+           case .blank:
+               return "_:\(value)"
+           case .language(let lang):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"@\(lang)"
+           case .datatype(.string):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"^^xsd:string"
+           case .datatype(.float):
+               let s = "\(value)"
+               if s.lowercased().contains("e") {
+                   return s
+               } else {
+                   return "\"\(s)e0\"^^xsd:float"
+               }
+           case .datatype(.integer):
+               return "\"\(value)\"^^xsd:integer"
+           case .datatype(.decimal):
+               return "\"\(value)\"^^xsd:decimal"
+           case .datatype(.boolean):
+               return "\"\(value)\"^^xsd:boolean"
+           case .datatype(let dt):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"^^<\(dt.value)>"
+           }
+       }
+    
     public var description: String {
         switch type {
             //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
@@ -729,6 +760,12 @@ extension Term {
 }
 
 public struct Triple: Codable, Hashable, CustomStringConvertible {
+    public enum Position: String, CaseIterable {
+        case subject
+        case predicate
+        case object
+    }
+
     public var subject: Term
     public var predicate: Term
     public var object: Term
@@ -739,6 +776,19 @@ public struct Triple: Codable, Hashable, CustomStringConvertible {
     }
     public var description: String {
         return "\(subject) \(predicate) \(object) ."
+    }
+}
+
+extension Triple {
+    public subscript(_ position: Triple.Position) -> Term {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        }
     }
 }
 
@@ -766,6 +816,13 @@ extension Triple: Sequence {
 }
 
 public struct Quad: Codable, Hashable, CustomStringConvertible {
+    public enum Position: String, CaseIterable {
+        case subject
+        case predicate
+        case object
+        case graph
+    }
+
     public var subject: Term
     public var predicate: Term
     public var object: Term
@@ -788,6 +845,21 @@ public struct Quad: Codable, Hashable, CustomStringConvertible {
 
     public var triple: Triple {
         return Triple(subject: subject, predicate: predicate, object: object)
+    }
+}
+
+extension Quad {
+    public subscript(_ position: Quad.Position) -> Term {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        case .graph:
+            return self.graph
+        }
     }
 }
 
