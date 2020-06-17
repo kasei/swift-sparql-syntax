@@ -106,6 +106,19 @@ public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomSt
     }
 }
 
+extension TriplePattern {
+    public subscript(_ position: Triple.Position) -> Node {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        }
+    }
+}
+
 extension TriplePattern: Sequence {
     public func makeIterator() -> IndexingIterator<[Node]> {
         return [subject, predicate, object].makeIterator()
@@ -221,6 +234,21 @@ public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStri
             object: .variable("object", binding: true),
             graph: .variable("graph", binding: true)
         )
+    }
+}
+
+extension QuadPattern {
+    public subscript(_ position: Quad.Position) -> Node {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        case .graph:
+            return self.graph
+        }
     }
 }
 
