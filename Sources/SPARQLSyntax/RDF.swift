@@ -164,7 +164,7 @@ extension TermType: Hashable {
     }
 }
 
-public struct Term: CustomStringConvertible, Hashable, Codable {
+public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hashable, Codable {
     public var value: String
     public var type: TermType
     public var _doubleValue: Double?
@@ -388,6 +388,37 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         }
     }
 
+    public var debugDescription: String {
+           switch type {
+           case .iri:
+               return "<\(value)>"
+           case .blank:
+               return "_:\(value)"
+           case .language(let lang):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"@\(lang)"
+           case .datatype(.string):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"^^xsd:string"
+           case .datatype(.float):
+               let s = "\(value)"
+               if s.lowercased().contains("e") {
+                   return s
+               } else {
+                   return "\"\(s)e0\"^^xsd:float"
+               }
+           case .datatype(.integer):
+               return "\"\(value)\"^^xsd:integer"
+           case .datatype(.decimal):
+               return "\"\(value)\"^^xsd:decimal"
+           case .datatype(.boolean):
+               return "\"\(value)\"^^xsd:boolean"
+           case .datatype(let dt):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"^^<\(dt.value)>"
+           }
+       }
+    
     public var description: String {
         switch type {
             //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
