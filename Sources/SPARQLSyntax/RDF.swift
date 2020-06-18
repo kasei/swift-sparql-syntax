@@ -332,6 +332,53 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         self.type = .datatype(.date)
     }
 
+    public init(date: Date, timeZone tz: TimeZone?) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        
+        let year = calendar.component(.year, from: date)
+        let month = calendar.component(.month, from: date)
+        let day = calendar.component(.day, from: date)
+        if let tz = tz {
+            let offset = tz.secondsFromGMT(for: date)
+            self.init(year: year, month: month, day: day, offset: offset)
+        } else {
+            self.init(year: year, month: month, day: day, offset: 0)
+            value.removeLast() // remove the trailing 'Z'
+        }
+    }
+    
+    public init(time components: DateComponents) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
+        let second = components.second ?? 0
+        let nanoseconds = components.nanosecond ?? 0
+        let seconds = Double(second) + 1_000_000_000.0 * Double(nanoseconds)
+        let value: String
+        if seconds == 0 {
+            value = String(format: "%02d:%02d:%02d", hour, minute, seconds)
+        } else {
+            value = String(format: "%02d:%02d:%02lf", hour, minute, seconds)
+        }
+        if let tz = components.timeZone {
+            let offset = tz.secondsFromGMT(for: Date())
+            if offset == 0 {
+                let v = "\(value)Z"
+                self.init(value: v, type: .datatype(.time))
+            } else {
+                let hours = offset / (60*60)
+                let minutes = offset % (60*60)
+                let v = String(format: "\(value)%+03d:%02d", hours, minutes)
+                self.init(value: v, type: .datatype(.time))
+            }
+        } else {
+            self.init(value: value, type: .datatype(.time))
+        }
+    }
+
     public init(dateTime date: Date, timeZone tz: TimeZone?) {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -362,6 +409,19 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         }
         self.value = v
         self.type = .datatype(.dateTime)
+    }
+    
+    public init(year: Int, month: Int, day: Int, offset: Int) {
+        var v = String(format: "%04d-%02d-%02d", year, month, day)
+        if offset == 0 {
+            v = "\(v)Z"
+        } else {
+            let hours = offset / (60*60)
+            let minutes = offset % (60*60)
+            v = String(format: "\(v)%+03d:%02d", hours, minutes)
+        }
+        self.value = v
+        self.type = .datatype(.date)
     }
     
     public init?(numeric value: Double, type: TermType) {
