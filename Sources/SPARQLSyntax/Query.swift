@@ -334,6 +334,12 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
         return "Result[\(pairs)]"
     }
 
+    public func description(orderedBy variables: [String]) -> String {
+        let order = Dictionary(uniqueKeysWithValues: variables.enumerated().map { ($0.element, $0.offset) })
+        let pairs = bindings.sorted { order[$0.0, default: Int.max] < order[$1.0, default: Int.max] }.map { "\($0): \($1)" }.joined(separator: ", ")
+        return "Result[\(pairs)]"
+    }
+
     public func makeIterator() -> DictionaryIterator<String, TermType> {
         let i = bindings.makeIterator()
         return i
