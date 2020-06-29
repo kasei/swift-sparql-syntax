@@ -54,13 +54,16 @@ public class IRI : Codable {
             absoluteString = try withUnsafeMutablePointer(to: &uri) { (u) throws -> String in
                 let uu = UnsafeMutablePointer<SerdURI>(u)
                 let data = path.data(using: .utf8)!
-                var node = data.withUnsafeBytes { (s) in
-                    serd_node_new_file_uri(s, nil, uu, false)
+                var node = data.withUnsafeBytes { (bp : UnsafeRawBufferPointer) -> SerdNode in
+                    let p = bp.bindMemory(to: UInt8.self)
+                    return serd_node_new_file_uri(p.baseAddress!, nil, uu, false)
+                }
+                defer {
+                    withUnsafeMutablePointer(to: &node) { (n) in
+                        serd_node_free(n)
+                    }
                 }
                 let absolute = try u.pointee.value()
-                withUnsafeMutablePointer(to: &node) { (n) in
-                    serd_node_free(n)
-                }
                 return absolute
             }
         } catch {
