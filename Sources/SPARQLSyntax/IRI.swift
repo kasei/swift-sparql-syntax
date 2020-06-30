@@ -53,10 +53,12 @@ public class IRI : Codable {
             var uri = SERD_URI_NULL
             absoluteString = try withUnsafeMutablePointer(to: &uri) { (u) throws -> String in
                 let uu = UnsafeMutablePointer<SerdURI>(u)
-                let data = path.data(using: .utf8)!
-                var node = data.withUnsafeBytes { (bp : UnsafeRawBufferPointer) -> SerdNode in
-                    let p = bp.bindMemory(to: UInt8.self)
-                    return serd_node_new_file_uri(p.baseAddress!, nil, uu, false)
+                var data = path.data(using: .utf8)!
+                var node = try data.withUnsafeMutableBytes { (bp : UnsafeMutableRawBufferPointer) -> SerdNode in
+                    guard let p = bp.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                        throw IRIError.encodingError("Failed to bind IRI memory to expected type")
+                    }
+                    return serd_node_new_file_uri(p, nil, uu, false)
                 }
                 defer {
                     withUnsafeMutablePointer(to: &node) { (n) in
@@ -78,18 +80,18 @@ public class IRI : Codable {
             var rel = SERD_URI_NULL
 //            print("<\(iri.absoluteString ?? "")> + <\(string)>")
             let absolute = withUnsafeMutablePointer(to: &rel) { (r) -> String? in
-                guard let stringData = string.cString(using: .utf8) else { return nil }
-                return stringData.withUnsafeBytes { (bytes) -> String? in
-                    let stringPtr = bytes.bindMemory(to: UInt8.self)
-                    let status = serd_uri_parse(stringPtr.baseAddress, r)
+                guard var stringData = string.cString(using: .utf8) else { return nil }
+                return stringData.withUnsafeMutableBytes { (bytes) -> String? in
+                    guard let stringPtr = bytes.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+                    let status = serd_uri_parse(stringPtr, r)
                     guard status == SERD_SUCCESS else { return nil }
 //                    try? print("Relative IRI: <\(r.pointee.value())>")
                     var base = SERD_URI_NULL
                     return withUnsafeMutablePointer(to: &base) { (b) -> String? in
-                        guard let baseData = baseString.cString(using: .utf8) else { return nil }
-                        return baseData.withUnsafeBytes { (baseBytes) -> String? in
-                            let basePtr = baseBytes.bindMemory(to: UInt8.self)
-                            let status = serd_uri_parse(basePtr.baseAddress, b)
+                        guard var baseData = baseString.cString(using: .utf8) else { return nil }
+                        return baseData.withUnsafeMutableBytes { (baseBytes) -> String? in
+                            guard let basePtr = baseBytes.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+                            let status = serd_uri_parse(basePtr, b)
                             guard status == SERD_SUCCESS else { return nil }
 //                            try? print("Base IRI: <\(b.pointee.value())>")
                             var uri = SERD_URI_NULL
@@ -114,10 +116,10 @@ public class IRI : Codable {
             do {
                 var uri = SERD_URI_NULL
                 let absolute = try withUnsafeMutablePointer(to: &uri) { (u) throws -> String? in
-                    guard let stringData = string.cString(using: .utf8) else { return nil }
-                    return try stringData.withUnsafeBytes { (bytes) throws -> String? in
-                        let stringPtr = bytes.bindMemory(to: UInt8.self)
-                        let status = serd_uri_parse(stringPtr.baseAddress, u)
+                    guard var stringData = string.cString(using: .utf8) else { return nil }
+                    return try stringData.withUnsafeMutableBytes { (bytes) throws -> String? in
+                        guard let stringPtr = bytes.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+                        let status = serd_uri_parse(stringPtr, u)
                         if status == SERD_SUCCESS {
                             return try u.pointee.value()
                         } else {
