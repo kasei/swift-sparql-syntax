@@ -60,6 +60,10 @@ private enum UnfinishedAlgebra {
     }
 }
 
+public enum SPARQLParserError: Error {
+    case initializationError
+}
+
 // swiftlint:disable:next type_body_length
 public struct SPARQLParser {
     public var parseBlankNodesAsVariables: Bool
@@ -74,6 +78,12 @@ public struct SPARQLParser {
     private mutating func parseError(_ message: String) -> SPARQLSyntaxError {
         let rest = lexer.buffer
         return SPARQLSyntaxError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
+    }
+    
+    public static func parse(query: String) throws -> Query {
+        guard var p = SPARQLParser(string: query) else { throw SPARQLParserError.initializationError }
+        let q = try p.parseQuery()
+        return q
     }
     
     public init(lexer: SPARQLLexer, prefixes: [String:String] = [:], base: String? = nil) {
