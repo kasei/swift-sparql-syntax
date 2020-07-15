@@ -7,6 +7,11 @@ public protocol RDFSerializer {
     func serialize<T: TextOutputStream, S: Sequence>(_ triples: S, to: inout T) throws where S.Element == Triple
 }
 
+public protocol PrefixableRDFSerializer {
+    var prefixes: [String:Term] { get }
+    mutating func add(name: String, for namespace: String)
+}
+
 public typealias TripleHandler = (Term, Term, Term) -> Void
 public typealias QuadHandler = (Term, Term, Term, Term) -> Void
 
