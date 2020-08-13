@@ -47,7 +47,12 @@ extension SPARQLParserTests {
             ("testSubSelectAggregationAcceptableProjection", testSubSelectAggregationAcceptableProjection),
             ("testSubSelectAggregationProjection", testSubSelectAggregationProjection),
             ("testi18n", testi18n),
-            ("testi18nNormalization", testi18nNormalization)
+            ("testi18nNormalization", testi18nNormalization),
+            ("testLoad", testLoad),
+            ("testClear", testClear),
+            ("testDrop", testDrop()),
+            ("testCreate", testCreate),
+            ("testDropLoad", testDropLoad),
         ]
     }
 }
@@ -1042,6 +1047,109 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
             
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testLoad() {
+        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> LOAD <http://example.org/data.ttl>\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops.first!
+            let url = Term(iri: "http://example.org/data.ttl")
+            guard case .load(url, nil, false) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testClear() {
+        guard var p = SPARQLParser(string: "CLEAR SILENT <http://example.org/graph>\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops.first!
+            let url = Term(iri: "http://example.org/graph")
+            guard case .clear(url, true) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testDrop() {
+        guard var p = SPARQLParser(string: "DROP SILENT <http://example.org/graph> ;\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops.first!
+            let url = Term(iri: "http://example.org/graph")
+            guard case .drop(url, true) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testCreate() {
+        guard var p = SPARQLParser(string: "CREATE SILENT <http://example.org/graph> ;\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops.first!
+            let url = Term(iri: "http://example.org/graph")
+            guard case .create(url, true) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testDropLoad() {
+        guard var p = SPARQLParser(string: "DROP SILENT <http://example.org/graph> ; LOAD <http://example.org/data.ttl> INTO GRAPH <http://example.org/graph>\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 2)
+            let drop = ops[0]
+            let load = ops[1]
+            let graph = Term(iri: "http://example.org/graph")
+            guard case .drop(graph, true) = drop else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+            
+            let url = Term(iri: "http://example.org/data.ttl")
+            guard case .load(url, graph, false) = load else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                print(a.serialize())
+                return
+            }
+
             XCTAssert(true)
         } catch let e {
             XCTFail("\(e)")

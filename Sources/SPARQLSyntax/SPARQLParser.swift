@@ -229,6 +229,61 @@ public struct SPARQLParser {
         return query
     }
     
+    public mutating func parseUpdate() throws -> Update {
+        try parsePrologue()
+        
+        
+        var updates = [UpdateOperation]()
+        while let t = peekToken() {
+            guard case .keyword(let kw) = t else { throw parseError("Expected update method not found") }
+            var update: UpdateOperation
+            switch kw {
+            case "LOAD":
+                update = try parseLoadUpdate()
+            case "CLEAR":
+                update = try parseClearUpdate()
+            case "DROP":
+                update = try parseDropUpdate()
+            case "CREATE":
+                update = try parseCreateUpdate()
+            case "ADD":
+                fatalError()
+            case "MOVE":
+                fatalError()
+            case "COPY":
+                fatalError()
+            case "INSERT":
+                // insert data
+                // insert where
+                // insert {} where {}
+                fatalError()
+            case "DELETE":
+                // delete data
+                // delete where
+                // delete {} where {}
+                // delete {} insert {} where {}
+                fatalError()
+            case "WITH":
+                // with IRI insert {} where {}
+                // with IRI delete {} insert {} where {}
+                fatalError()
+            default:
+                throw parseError("Expected update method not found: \(kw)")
+            }
+            try attempt(token: .semicolon)
+            updates.append(update)
+        }
+        if let extra = peekToken() {
+            throw parseError("Expected EOF, but found: \(extra)")
+        } else if lexer.hasRemainingContent {
+            throw parseError("Expected EOF, but found extra content: <<\(lexer.buffer)>>")
+        }
+        guard !updates.isEmpty else {
+            throw parseError("Expected Update operation, but found none")
+        }
+        return try Update(operations: updates)
+    }
+    
     public mutating func parseAlgebra() throws -> Algebra {
         let query : Query = try self.parseQuery()
         return query.algebra
@@ -256,6 +311,40 @@ public struct SPARQLParser {
         case full
         case reduced
         case distinct
+    }
+    
+    private mutating func parseClearUpdate() throws -> UpdateOperation {
+        try expect(token: .keyword("CLEAR"))
+        let silent = try attempt(token: .keyword("SILENT"))
+        let graph = try parseIRI()
+        return .clear(graph, silent)
+    }
+    
+    private mutating func parseDropUpdate() throws -> UpdateOperation {
+        try expect(token: .keyword("DROP"))
+        let silent = try attempt(token: .keyword("SILENT"))
+        let graph = try parseIRI()
+        return .drop(graph, silent)
+    }
+    
+    private mutating func parseCreateUpdate() throws -> UpdateOperation {
+        try expect(token: .keyword("CREATE"))
+        let silent = try attempt(token: .keyword("SILENT"))
+        let graph = try parseIRI()
+        return .create(graph, silent)
+    }
+    
+    private mutating func parseLoadUpdate() throws -> UpdateOperation {
+        try expect(token: .keyword("LOAD"))
+        let silent = try attempt(token: .keyword("SILENT"))
+        let iri = try parseIRI()
+        if try attempt(token: .keyword("INTO")) {
+            try expect(token: .keyword("GRAPH"))
+            let graph = try parseIRI()
+            return .load(iri, graph, silent)
+        } else {
+            return .load(iri, nil, silent)
+        }
     }
     
     private mutating func parseSelectQuery() throws -> Query {

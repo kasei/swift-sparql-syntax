@@ -140,6 +140,72 @@ public struct Query : Codable, Hashable, Equatable {
     }
 }
 
+public enum UpdateOperation : Hashable {
+    case load(Term, Term?, Bool)
+    case clear(Term, Bool)
+    case drop(Term, Bool)
+    case create(Term, Bool)
+    case add(Term, Term, Bool)
+    case move(Term, Term, Bool)
+    case copy(Term, Term, Bool)
+    case insertData([Triple], [Quad])
+    case deleteData([Triple], [Quad])
+    case deleteWhere(Algebra)
+}
+
+public struct Update : Hashable, Equatable {
+    public var base: String?
+    public var operations: [UpdateOperation]
+    public var dataset: Dataset?
+    
+    public init(operations: [UpdateOperation], dataset: Dataset? = nil, base: String? = nil) throws {
+        self.base = base
+        self.operations = operations
+        self.dataset = dataset
+    }
+}
+
+
+public extension Update {
+    func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        var d = "\(indent)Update\n"
+        if let dataset = self.dataset {
+            if !dataset.isEmpty {
+                d += "\(indent)  Dataset\n"
+                for g in dataset.defaultGraphs {
+                    d += "\(indent)    Default graph: \(g)\n"
+                }
+                for g in dataset.namedGraphs {
+                    d += "\(indent)    Named graph: \(g)\n"
+                }
+            }
+        }
+        for op in self.operations {
+            switch op {
+            case let .load(data, graph, silent):
+                let s = silent ? " (SILENT)" : ""
+                if let g = graph {
+                    d += "\(indent)  Load \(data) INTO \(g)\(s)\n"
+                } else {
+                    d += "\(indent)  Load \(data)\(s)\n"
+                }
+            case let .clear(graph, silent):
+                let s = silent ? " (SILENT)" : ""
+                d += "\(indent)  Clear \(graph)\(s)\n"
+            case let .drop(graph, silent):
+                let s = silent ? " (SILENT)" : ""
+                d += "\(indent)  Drop \(graph)\(s)\n"
+            case let .create(graph, silent):
+                let s = silent ? " (SILENT)" : ""
+                d += "\(indent)  Create \(graph)\(s)\n"
+            default:
+                fatalError("Unexpected UpdateForm")
+            }
+        }
+        return d
+    }
+}
 
 public extension Query {
     func serialize(depth: Int=0) -> String {
