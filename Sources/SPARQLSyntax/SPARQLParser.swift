@@ -247,25 +247,27 @@ public struct SPARQLParser {
             case "CREATE":
                 update = try parseCreateUpdate()
             case "ADD":
-                fatalError()
+                update = try parseAddUpdate()
             case "MOVE":
-                fatalError()
+                update = try parseMoveUpdate()
             case "COPY":
-                fatalError()
+                update = try parseCopyUpdate()
             case "INSERT":
-                // insert data
-                // insert where
-                // insert {} where {}
+                if try attempt(token: .keyword("DATA")) {
+                    fatalError()
+                }
+                // INSERT {} USING* WHERE
                 fatalError()
             case "DELETE":
-                // delete data
-                // delete where
-                // delete {} where {}
-                // delete {} insert {} where {}
+                if try attempt(token: .keyword("DATA")) {
+                    fatalError()
+                }
+                // DELETE {} INSERT? USING* WHERE
                 fatalError()
             case "WITH":
-                // with IRI insert {} where {}
-                // with IRI delete {} insert {} where {}
+                let graph = try parseIRI()
+                // INSERT {} USING* WHERE
+                // DELETE {} INSERT? USING* WHERE
                 fatalError()
             default:
                 throw parseError("Expected update method not found: \(kw)")
@@ -332,6 +334,43 @@ public struct SPARQLParser {
         let silent = try attempt(token: .keyword("SILENT"))
         let graph = try parseIRI()
         return .create(graph, silent)
+    }
+    
+    private mutating func parseAddUpdate() throws -> UpdateOperation {
+        try expect(token: .keyword("ADD"))
+        let silent = try attempt(token: .keyword("SILENT"))
+        let src = try parseGraphOrDefault()
+        try expect(token: .keyword("TO"))
+        let dst = try parseGraphOrDefault()
+        return .add(src, dst, silent)
+    }
+    
+    private mutating func parseMoveUpdate() throws -> UpdateOperation {
+        try expect(token: .keyword("MOVE"))
+        let silent = try attempt(token: .keyword("SILENT"))
+        let src = try parseGraphOrDefault()
+        try expect(token: .keyword("TO"))
+        let dst = try parseGraphOrDefault()
+        return .move(src, dst, silent)
+    }
+    
+    private mutating func parseCopyUpdate() throws -> UpdateOperation {
+        try expect(token: .keyword("COPY"))
+        let silent = try attempt(token: .keyword("SILENT"))
+        let src = try parseGraphOrDefault()
+        try expect(token: .keyword("TO"))
+        let dst = try parseGraphOrDefault()
+        return .copy(src, dst, silent)
+    }
+    
+    private mutating func parseGraphOrDefault() throws -> UpdateOperation.GraphOrDefault {
+        if try attempt(token: .keyword("DEFAULT")) {
+            return .defaultGraph
+        } else {
+           try attempt(token: .keyword("GRAPH"))
+            let g = try parseIRI()
+            return .namedGraph(g)
+        }
     }
     
     private mutating func parseLoadUpdate() throws -> UpdateOperation {

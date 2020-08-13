@@ -53,6 +53,9 @@ extension SPARQLParserTests {
             ("testDrop", testDrop()),
             ("testCreate", testCreate),
             ("testDropLoad", testDropLoad),
+            ("testAdd", testAdd),
+            ("testMove", testMove),
+            ("testCopy", testCopy),
         ]
     }
 }
@@ -1147,6 +1150,64 @@ class SPARQLParserTests: XCTestCase {
             guard case .load(url, graph, false) = load else {
                 XCTFail("Unexpected update: \(a.serialize())")
                 print(a.serialize())
+                return
+            }
+
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testAdd() {
+        guard var p = SPARQLParser(string: "ADD DEFAULT TO GRAPH <http://example.org/graph>\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops[0]
+            let graph = Term(iri: "http://example.org/graph")
+            guard case .add(.defaultGraph, .namedGraph(graph), false) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testMove() {
+        guard var p = SPARQLParser(string: "MOVE <http://example.org/graph> TO DEFAULT\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops[0]
+            let graph = Term(iri: "http://example.org/graph")
+            guard case .move(.namedGraph(graph), .defaultGraph, false) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testCopy() {
+        guard var p = SPARQLParser(string: "COPY SILENT <http://example.org/graph1> TO <http://example.org/graph2>\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops[0]
+            let src = Term(iri: "http://example.org/graph1")
+            let dst = Term(iri: "http://example.org/graph2")
+            guard case .copy(.namedGraph(src), .namedGraph(dst), true) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
                 return
             }
 

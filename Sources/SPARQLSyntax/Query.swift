@@ -141,13 +141,17 @@ public struct Query : Codable, Hashable, Equatable {
 }
 
 public enum UpdateOperation : Hashable {
+    public enum GraphOrDefault: Hashable {
+        case defaultGraph
+        case namedGraph(Term)
+    }
     case load(Term, Term?, Bool)
     case clear(Term, Bool)
     case drop(Term, Bool)
     case create(Term, Bool)
-    case add(Term, Term, Bool)
-    case move(Term, Term, Bool)
-    case copy(Term, Term, Bool)
+    case add(GraphOrDefault, GraphOrDefault, Bool)
+    case move(GraphOrDefault, GraphOrDefault, Bool)
+    case copy(GraphOrDefault, GraphOrDefault, Bool)
     case insertData([Triple], [Quad])
     case deleteData([Triple], [Quad])
     case deleteWhere(Algebra)
