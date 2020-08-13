@@ -203,8 +203,16 @@ public extension Update {
             case let .create(graph, silent):
                 let s = silent ? " (SILENT)" : ""
                 d += "\(indent)  Create \(graph)\(s)\n"
+            case let .insertData(triples, quads):
+                d += "\(indent)  Insert Data:\n"
+                for t in triples {
+                    d += "\(indent)    \(t) .\n"
+                }
+                for q in quads {
+                    d += "\(indent)    \(q) .\n"
+                }
             default:
-                fatalError("Unexpected UpdateForm")
+                fatalError("Unexpected UpdateForm: \(op)")
             }
         }
         return d

@@ -1216,4 +1216,31 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testInsertData() {
+        guard var p = SPARQLParser(string: """
+            INSERT DATA {
+                <s> <p> 1, 2 .
+                GRAPH <g> {
+                    <x> <y> <z>
+                }
+            }
+            """) else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops[0]
+            guard case let .insertData(triples, quads) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(triples.count, 2)
+            XCTAssertEqual(quads.count, 1)
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
 }

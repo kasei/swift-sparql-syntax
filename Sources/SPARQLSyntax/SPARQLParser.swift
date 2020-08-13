@@ -253,17 +253,23 @@ public struct SPARQLParser {
             case "COPY":
                 update = try parseCopyUpdate()
             case "INSERT":
+                try expect(token: .keyword("INSERT"))
                 if try attempt(token: .keyword("DATA")) {
+                    let (triples, quads) = try self.parseQuads()
+                    update = .insertData(triples, quads)
+                } else {
+                    // INSERT {} USING* WHERE
                     fatalError()
                 }
-                // INSERT {} USING* WHERE
-                fatalError()
             case "DELETE":
+                try expect(token: .keyword("DELETE"))
                 if try attempt(token: .keyword("DATA")) {
+                    let (triples, quads) = try self.parseQuads()
+                    update = .deleteData(triples, quads)
+                } else {
+                    // DELETE {} INSERT? USING* WHERE
                     fatalError()
                 }
-                // DELETE {} INSERT? USING* WHERE
-                fatalError()
             case "WITH":
                 let graph = try parseIRI()
                 // INSERT {} USING* WHERE
@@ -286,9 +292,50 @@ public struct SPARQLParser {
         return try Update(operations: updates)
     }
     
+    mutating func parseQuads() throws -> ([Triple], [Quad]) {
+        let algebra = try parseGroupGraphPattern()
+        let (triples, quads) = try self.extractStatements(algebra, activeGraph: nil)
+        return (triples, quads)
+    }
+    
     public mutating func parseAlgebra() throws -> Algebra {
         let query : Query = try self.parseQuery()
         return query.algebra
+    }
+    
+    mutating func extractStatements(_ algebra: Algebra, activeGraph: Term?) throws -> ([Triple], [Quad]) {
+        print(algebra.serialize())
+        var triples = [Triple]()
+        var quads = [Quad]()
+        switch algebra {
+        case .triple(let t):
+            if let ground = t.ground {
+                if let graph = activeGraph {
+                    quads.append(Quad(triple: ground, graph: graph))
+                } else {
+                    triples.append(ground)
+                }
+            }
+        case .bgp(let t):
+            let ground = t.compactMap { $0.ground }
+            if let graph = activeGraph {
+                quads.append(contentsOf: ground.map { Quad(triple: $0, graph: graph) })
+            } else {
+                triples.append(contentsOf: ground)
+            }
+        case let .namedGraph(a, .bound(graph)):
+            return try self.extractStatements(a, activeGraph: graph)
+        case let .namedGraph(a, _):
+            return try self.extractStatements(a, activeGraph: activeGraph)
+        case let .innerJoin(l, r):
+            let (a, b) = try self.extractStatements(l, activeGraph: activeGraph)
+            let (c, d) = try self.extractStatements(r, activeGraph: activeGraph)
+            return (a+c, b+d)
+        default:
+            throw parseError("Unexpected algebra in Quads block: \(algebra.serialize())")
+        }
+        
+        return (triples, quads)
     }
     
     private mutating func parsePrologue() throws {
