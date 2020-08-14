@@ -316,6 +316,8 @@ public struct SPARQLParser {
         var triples = [Triple]()
         var quads = [Quad]()
         switch algebra {
+        case .joinIdentity:
+            break
         case .triple(let t):
             if let ground = t.ground {
                 if let graph = activeGraph {
@@ -350,6 +352,8 @@ public struct SPARQLParser {
         var triples = [TriplePattern]()
         var quads = [QuadPattern]()
         switch algebra {
+        case .joinIdentity:
+            break
         case .triple(let t):
             if let graph = activeGraph {
                 quads.append(QuadPattern(triplePattern: t, graph: .bound(graph)))
