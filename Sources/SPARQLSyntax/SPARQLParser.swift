@@ -230,11 +230,16 @@ public struct SPARQLParser {
     }
     
     public mutating func parseUpdate() throws -> Update {
-        try parsePrologue()
-        
-        
         var updates = [UpdateOperation]()
-        while let t = peekToken() {
+        while true {
+            try parsePrologue()
+            guard let t = peekToken() else {
+                break
+            }
+            if case .semicolon = t {
+                try expect(token: .semicolon)
+                continue
+            }
             guard case .keyword(let kw) = t else { throw parseError("Expected update method not found") }
             var update: UpdateOperation
             switch kw {
