@@ -1134,7 +1134,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testCreate() {
-        guard var p = SPARQLParser(string: "CREATE SILENT <http://example.org/graph> ;\n") else { XCTFail(); return }
+        guard var p = SPARQLParser(string: "CREATE SILENT GRAPH <http://example.org/graph> ;\n") else { XCTFail(); return }
         do {
             let a = try p.parseUpdate()
             let ops = a.operations
@@ -1282,7 +1282,7 @@ class SPARQLParserTests: XCTestCase {
             let ops = a.operations
             XCTAssertEqual(ops.count, 1)
             let form = ops[0]
-            guard case let .modify(dt, dq, it, iq, ds, algebra) = form else {
+            guard case let .modify(dt, dq, it, iq, _ds, algebra) = form else {
                 XCTFail("Unexpected update: \(a.serialize())")
                 return
             }
@@ -1292,6 +1292,10 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
 
+            guard let ds = _ds else {
+                XCTFail("Missing dataset in modify update")
+                return
+            }
             XCTAssertEqual(ds.defaultGraphs.count, 1)
             XCTAssertEqual(ds.namedGraphs.count, 0)
 
@@ -1322,7 +1326,7 @@ class SPARQLParserTests: XCTestCase {
             let ops = a.operations
             XCTAssertEqual(ops.count, 1)
             let form = ops[0]
-            guard case let .modify(dt, dq, it, iq, ds, algebra) = form else {
+            guard case let .modify(dt, dq, it, iq, _ds, algebra) = form else {
                 XCTFail("Unexpected update: \(a.serialize())")
                 return
             }
@@ -1332,6 +1336,10 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
 
+            guard let ds = _ds else {
+                XCTFail("Missing dataset in modify update")
+                return
+            }
             XCTAssertEqual(ds.defaultGraphs.count, 0)
             XCTAssertEqual(ds.namedGraphs.count, 1)
 

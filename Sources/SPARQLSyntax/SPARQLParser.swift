@@ -265,6 +265,10 @@ public struct SPARQLParser {
                 if try attempt(token: .keyword("DATA")) {
                     let (triples, quads) = try self.parseQuads()
                     update = .deleteData(triples, quads)
+                } else if try attempt(token: .keyword("WHERE")) {
+                    let algebra = try parseGroupGraphPattern()
+                    let (triples, quads) = try self.extractPatterns(from: algebra, activeGraph: nil)
+                    update = UpdateOperation.modify(triples, quads, [], [], nil, algebra)
                 } else {
                     update = try self.parseModify(token: t)
                 }

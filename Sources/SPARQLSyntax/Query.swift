@@ -174,7 +174,7 @@ public enum UpdateOperation : Hashable {
     case copy(GraphOrDefault, GraphOrDefault, Bool)
     case insertData([Triple], [Quad])
     case deleteData([Triple], [Quad])
-    case modify([TriplePattern], [QuadPattern], [TriplePattern], [QuadPattern], Dataset, Algebra)
+    case modify([TriplePattern], [QuadPattern], [TriplePattern], [QuadPattern], Dataset?, Algebra)
 }
 
 public struct Update : Hashable, Equatable {
@@ -225,7 +225,9 @@ public extension Update {
                 }
             case let .modify(dt, dq, it, iq, ds, algebra):
                 d += "\(indent)  Modify:\n"
-                d += ds.serialize(depth: depth+2)
+                if let ds = ds {
+                    d += ds.serialize(depth: depth+2)
+                }
                 let delete = dt.count + dq.count
                 if delete > 0 {
                     d += "\(indent)    Delete:\n"
