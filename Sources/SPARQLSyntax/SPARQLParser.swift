@@ -253,23 +253,24 @@ public struct SPARQLParser {
             case "COPY":
                 update = try parseCopyUpdate()
             case "INSERT":
+                try expect(token: .keyword("INSERT"))
                 if try attempt(token: .keyword("DATA")) {
-                    try expect(token: .keyword("INSERT"))
                     let (triples, quads) = try self.parseQuads()
                     update = .insertData(triples, quads)
                 } else {
-                    update = try self.parseModify()
+                    update = try self.parseModify(token: t)
                 }
             case "DELETE":
+                try expect(token: .keyword("DELETE"))
                 if try attempt(token: .keyword("DATA")) {
-                    try expect(token: .keyword("DELETE"))
                     let (triples, quads) = try self.parseQuads()
                     update = .deleteData(triples, quads)
                 } else {
-                    update = try self.parseModify()
+                    update = try self.parseModify(token: t)
                 }
             case "WITH":
-                update = try self.parseModify()
+                try expect(token: .keyword("WITH"))
+                update = try self.parseModify(token: t)
             default:
                 throw parseError("Expected update method not found: \(kw)")
             }
@@ -393,13 +394,15 @@ public struct SPARQLParser {
         case distinct
     }
     
-    private mutating func parseModify() throws -> UpdateOperation {
+    private mutating func parseModify(token: SPARQLToken) throws -> UpdateOperation {
+        var t = token
         var graph: Term? = nil
-        if try attempt(token: .keyword("WITH")) {
+        if t == .keyword("WITH") {
             graph = try self.parseIRI()
+            t = try nextExpectedToken()
         }
 
-        if case .keyword("INSERT") = try peekExpectedToken() {
+        if t == .keyword("INSERT") {
             return try self.parseInsertUpdate(graph: graph)
         } else {
             return try self.parseDeleteInsertUpdate(graph: graph)
@@ -407,7 +410,6 @@ public struct SPARQLParser {
     }
     
     private mutating func parseInsertUpdate(graph: Term?) throws -> UpdateOperation {
-        try expect(token: .keyword("INSERT"))
         let (triples, quads) = try self.parseQuadPatterns(graph: graph)
         
         var ds = Dataset()
@@ -427,7 +429,6 @@ public struct SPARQLParser {
     }
     
     private mutating func parseDeleteInsertUpdate(graph: Term?) throws -> UpdateOperation {
-        try expect(token: .keyword("DELETE"))
         let (deleteTriples, deleteQuads) = try self.parseQuadPatterns(graph: graph)
         
         let insertTriples: [TriplePattern]
