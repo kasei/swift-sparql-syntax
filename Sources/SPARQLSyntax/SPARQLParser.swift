@@ -327,7 +327,7 @@ public struct SPARQLParser {
             throw parseError("Disallowed variable(s) found in Quads data: \(algebra.inscope)")
         }
         
-        let (triples, quads) = try self.extractStatements(from: algebra, activeGraph: graph)
+        let (triples, quads) = try self.extractStatements(from: algebra, activeGraph: graph, inNamedGraph: false)
         return (triples, quads)
     }
     
@@ -347,7 +347,7 @@ public struct SPARQLParser {
         return query.algebra
     }
     
-    mutating func extractStatements(from algebra: Algebra, activeGraph: Term?) throws -> ([Triple], [Quad]) {
+    mutating func extractStatements(from algebra: Algebra, activeGraph: Term?, inNamedGraph: Bool) throws -> ([Triple], [Quad]) {
         var triples = [Triple]()
         var quads = [Quad]()
         switch algebra {
@@ -369,12 +369,15 @@ public struct SPARQLParser {
                 triples.append(contentsOf: ground)
             }
         case let .namedGraph(a, .bound(graph)):
-            return try self.extractStatements(from: a, activeGraph: graph)
+            if inNamedGraph {
+                throw parseError("Cannot nest named graphs in INSERT/DELETE DATA operations")
+            }
+            return try self.extractStatements(from: a, activeGraph: graph, inNamedGraph: true)
         case let .namedGraph(a, _):
-            return try self.extractStatements(from: a, activeGraph: activeGraph)
+            return try self.extractStatements(from: a, activeGraph: activeGraph, inNamedGraph: inNamedGraph)
         case let .innerJoin(l, r):
-            let (a, b) = try self.extractStatements(from: l, activeGraph: activeGraph)
-            let (c, d) = try self.extractStatements(from: r, activeGraph: activeGraph)
+            let (a, b) = try self.extractStatements(from: l, activeGraph: activeGraph, inNamedGraph: inNamedGraph)
+            let (c, d) = try self.extractStatements(from: r, activeGraph: activeGraph, inNamedGraph: inNamedGraph)
             return (a+c, b+d)
         default:
             throw parseError("Unexpected algebra in Quads block: \(algebra.serialize())")
