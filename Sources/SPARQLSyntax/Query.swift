@@ -102,6 +102,20 @@ public struct Dataset : Codable, Equatable, Hashable {
     }
 }
 
+public extension Dataset {
+    func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        var d = "\(indent)Dataset\n"
+        for g in self.defaultGraphs {
+            d += "\(indent)  Default graph: \(g)\n"
+        }
+        for g in self.namedGraphs {
+            d += "\(indent)  Named graph: \(g)\n"
+        }
+        return d
+    }
+}
+
 public struct Query : Codable, Hashable, Equatable {
     public var base: String?
     public var form: QueryForm
@@ -154,7 +168,7 @@ public enum UpdateOperation : Hashable {
     case copy(GraphOrDefault, GraphOrDefault, Bool)
     case insertData([Triple], [Quad])
     case deleteData([Triple], [Quad])
-    case deleteWhere(Algebra)
+    case modify([TriplePattern], [QuadPattern], [TriplePattern], [QuadPattern], Dataset, Algebra)
 }
 
 public struct Update : Hashable, Equatable {
@@ -175,15 +189,7 @@ public extension Update {
         let indent = String(repeating: " ", count: (depth*2))
         var d = "\(indent)Update\n"
         if let dataset = self.dataset {
-            if !dataset.isEmpty {
-                d += "\(indent)  Dataset\n"
-                for g in dataset.defaultGraphs {
-                    d += "\(indent)    Default graph: \(g)\n"
-                }
-                for g in dataset.namedGraphs {
-                    d += "\(indent)    Named graph: \(g)\n"
-                }
-            }
+            d += dataset.serialize(depth: depth+1)
         }
         for op in self.operations {
             switch op {
@@ -211,6 +217,32 @@ public extension Update {
                 for q in quads {
                     d += "\(indent)    \(q) .\n"
                 }
+            case let .modify(dt, dq, it, iq, ds, algebra):
+                d += "\(indent)  Modify:\n"
+                d += ds.serialize(depth: depth+2)
+                let delete = dt.count + dq.count
+                if delete > 0 {
+                    d += "\(indent)    Delete:\n"
+                    for t in dt {
+                        d += "\(indent)      \(t)\n"
+                    }
+                    for q in dq {
+                        d += "\(indent)      \(q)\n"
+                    }
+                }
+                
+                let insert = it.count + iq.count
+                if insert > 0 {
+                    d += "\(indent)    Insert:\n"
+                    for t in it {
+                        d += "\(indent)      \(t)\n"
+                    }
+                    for q in iq {
+                        d += "\(indent)      \(q)\n"
+                    }
+                }
+                d += "\(indent)    Where:\n"
+                d += algebra.serialize(depth: depth+3)
             default:
                 fatalError("Unexpected UpdateForm: \(op)")
             }

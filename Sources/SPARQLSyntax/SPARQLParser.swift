@@ -253,28 +253,23 @@ public struct SPARQLParser {
             case "COPY":
                 update = try parseCopyUpdate()
             case "INSERT":
-                try expect(token: .keyword("INSERT"))
                 if try attempt(token: .keyword("DATA")) {
+                    try expect(token: .keyword("INSERT"))
                     let (triples, quads) = try self.parseQuads()
                     update = .insertData(triples, quads)
                 } else {
-                    // INSERT {} USING* WHERE
-                    fatalError()
+                    update = try self.parseModify()
                 }
             case "DELETE":
-                try expect(token: .keyword("DELETE"))
                 if try attempt(token: .keyword("DATA")) {
+                    try expect(token: .keyword("DELETE"))
                     let (triples, quads) = try self.parseQuads()
                     update = .deleteData(triples, quads)
                 } else {
-                    // DELETE {} INSERT? USING* WHERE
-                    fatalError()
+                    update = try self.parseModify()
                 }
             case "WITH":
-                let graph = try parseIRI()
-                // INSERT {} USING* WHERE
-                // DELETE {} INSERT? USING* WHERE
-                fatalError()
+                update = try self.parseModify()
             default:
                 throw parseError("Expected update method not found: \(kw)")
             }
@@ -292,9 +287,15 @@ public struct SPARQLParser {
         return try Update(operations: updates)
     }
     
-    mutating func parseQuads() throws -> ([Triple], [Quad]) {
+    mutating func parseQuads(graph: Term? = nil) throws -> ([Triple], [Quad]) {
         let algebra = try parseGroupGraphPattern()
-        let (triples, quads) = try self.extractStatements(algebra, activeGraph: nil)
+        let (triples, quads) = try self.extractStatements(from: algebra, activeGraph: graph)
+        return (triples, quads)
+    }
+    
+    mutating func parseQuadPatterns(graph: Term? = nil) throws -> ([TriplePattern], [QuadPattern]) {
+        let algebra = try parseGroupGraphPattern()
+        let (triples, quads) = try self.extractPatterns(from: algebra, activeGraph: graph)
         return (triples, quads)
     }
     
@@ -303,8 +304,7 @@ public struct SPARQLParser {
         return query.algebra
     }
     
-    mutating func extractStatements(_ algebra: Algebra, activeGraph: Term?) throws -> ([Triple], [Quad]) {
-        print(algebra.serialize())
+    mutating func extractStatements(from algebra: Algebra, activeGraph: Term?) throws -> ([Triple], [Quad]) {
         var triples = [Triple]()
         var quads = [Quad]()
         switch algebra {
@@ -324,12 +324,43 @@ public struct SPARQLParser {
                 triples.append(contentsOf: ground)
             }
         case let .namedGraph(a, .bound(graph)):
-            return try self.extractStatements(a, activeGraph: graph)
+            return try self.extractStatements(from: a, activeGraph: graph)
         case let .namedGraph(a, _):
-            return try self.extractStatements(a, activeGraph: activeGraph)
+            return try self.extractStatements(from: a, activeGraph: activeGraph)
         case let .innerJoin(l, r):
-            let (a, b) = try self.extractStatements(l, activeGraph: activeGraph)
-            let (c, d) = try self.extractStatements(r, activeGraph: activeGraph)
+            let (a, b) = try self.extractStatements(from: l, activeGraph: activeGraph)
+            let (c, d) = try self.extractStatements(from: r, activeGraph: activeGraph)
+            return (a+c, b+d)
+        default:
+            throw parseError("Unexpected algebra in Quads block: \(algebra.serialize())")
+        }
+        
+        return (triples, quads)
+    }
+    
+    mutating func extractPatterns(from algebra: Algebra, activeGraph: Term?) throws -> ([TriplePattern], [QuadPattern]) {
+        var triples = [TriplePattern]()
+        var quads = [QuadPattern]()
+        switch algebra {
+        case .triple(let t):
+            if let graph = activeGraph {
+                quads.append(QuadPattern(triplePattern: t, graph: .bound(graph)))
+            } else {
+                triples.append(t)
+            }
+        case .bgp(let t):
+            if let graph = activeGraph {
+                quads.append(contentsOf: t.map { QuadPattern(triplePattern: $0, graph: .bound(graph)) })
+            } else {
+                triples.append(contentsOf: t)
+            }
+        case let .namedGraph(a, .bound(graph)):
+            return try self.extractPatterns(from: a, activeGraph: graph)
+        case let .namedGraph(a, _):
+            return try self.extractPatterns(from: a, activeGraph: activeGraph)
+        case let .innerJoin(l, r):
+            let (a, b) = try self.extractPatterns(from: l, activeGraph: activeGraph)
+            let (c, d) = try self.extractPatterns(from: r, activeGraph: activeGraph)
             return (a+c, b+d)
         default:
             throw parseError("Unexpected algebra in Quads block: \(algebra.serialize())")
@@ -360,6 +391,68 @@ public struct SPARQLParser {
         case full
         case reduced
         case distinct
+    }
+    
+    private mutating func parseModify() throws -> UpdateOperation {
+        var graph: Term? = nil
+        if try attempt(token: .keyword("WITH")) {
+            graph = try self.parseIRI()
+        }
+
+        if case .keyword("INSERT") = try peekExpectedToken() {
+            return try self.parseInsertUpdate(graph: graph)
+        } else {
+            return try self.parseDeleteInsertUpdate(graph: graph)
+        }
+    }
+    
+    private mutating func parseInsertUpdate(graph: Term?) throws -> UpdateOperation {
+        try expect(token: .keyword("INSERT"))
+        let (triples, quads) = try self.parseQuadPatterns(graph: graph)
+        
+        var ds = Dataset()
+        while try attempt(token: .keyword("USING")) {
+            let named = try attempt(token: .keyword("NAMED"))
+            let graph = try parseIRI()
+            if named {
+                ds.namedGraphs.append(graph)
+            } else {
+                ds.defaultGraphs.append(graph)
+            }
+        }
+        
+        try expect(token: .keyword("WHERE"))
+        let algebra = try parseGroupGraphPattern()
+        return UpdateOperation.modify([], [], triples, quads, ds, algebra)
+    }
+    
+    private mutating func parseDeleteInsertUpdate(graph: Term?) throws -> UpdateOperation {
+        try expect(token: .keyword("DELETE"))
+        let (deleteTriples, deleteQuads) = try self.parseQuadPatterns(graph: graph)
+        
+        let insertTriples: [TriplePattern]
+        let insertQuads: [QuadPattern]
+        if try attempt(token: .keyword("INSERT")) {
+            (insertTriples, insertQuads) = try self.parseQuadPatterns(graph: graph)
+        } else {
+            insertTriples = []
+            insertQuads = []
+        }
+        
+        var ds = Dataset()
+        while try attempt(token: .keyword("USING")) {
+            let named = try attempt(token: .keyword("NAMED"))
+            let graph = try parseIRI()
+            if named {
+                ds.namedGraphs.append(graph)
+            } else {
+                ds.defaultGraphs.append(graph)
+            }
+        }
+        
+        try expect(token: .keyword("WHERE"))
+        let algebra = try parseGroupGraphPattern()
+        return UpdateOperation.modify(deleteTriples, deleteQuads, insertTriples, insertQuads, ds, algebra)
     }
     
     private mutating func parseClearUpdate() throws -> UpdateOperation {

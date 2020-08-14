@@ -56,6 +56,7 @@ extension SPARQLParserTests {
             ("testAdd", testAdd),
             ("testMove", testMove),
             ("testCopy", testCopy),
+            ("testModify1", testModify1),
         ]
     }
 }
@@ -1239,6 +1240,87 @@ class SPARQLParserTests: XCTestCase {
             XCTAssertEqual(triples.count, 2)
             XCTAssertEqual(quads.count, 1)
             XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testModify1() {
+        guard var p = SPARQLParser(string: """
+            PREFIX ex: <http://example.org/>
+            WITH <http://xyz/>
+            DELETE { ?s <p> ?o }
+            INSERT { GRAPH ex:new-graph { ?s <q> 9 } }
+            USING <http://default-graph/>
+            WHERE {
+                ?s a ex:Type ;
+                    ex:p ?o .
+            }
+            """) else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            print(a.serialize())
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops[0]
+            guard case let .modify(dt, dq, it, iq, ds, algebra) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+
+            guard case .bgp(_) = algebra else {
+                XCTFail("Unexpected modify algebra: \(a.serialize())")
+                return
+            }
+
+            XCTAssertEqual(ds.defaultGraphs.count, 1)
+            XCTAssertEqual(ds.namedGraphs.count, 0)
+
+            XCTAssertEqual(dt.count, 0)
+            XCTAssertEqual(dq.count, 1)
+
+            XCTAssertEqual(it.count, 0)
+            XCTAssertEqual(iq.count, 1)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testModify2() {
+        guard var p = SPARQLParser(string: """
+            PREFIX ex: <http://example.org/>
+            DELETE { ?s <p> ?o }
+            INSERT { GRAPH ex:new-graph { ?s <q> 9 } }
+            USING NAMED <http://default-graph/>
+            WHERE {
+                ?s a ex:Type ;
+                    ex:p ?o .
+            }
+            """) else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            print(a.serialize())
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops[0]
+            guard case let .modify(dt, dq, it, iq, ds, algebra) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+
+            guard case .bgp(_) = algebra else {
+                XCTFail("Unexpected modify algebra: \(a.serialize())")
+                return
+            }
+
+            XCTAssertEqual(ds.defaultGraphs.count, 0)
+            XCTAssertEqual(ds.namedGraphs.count, 1)
+
+            XCTAssertEqual(dt.count, 1)
+            XCTAssertEqual(dq.count, 0)
+
+            XCTAssertEqual(it.count, 0)
+            XCTAssertEqual(iq.count, 1)
         } catch let e {
             XCTFail("\(e)")
         }
