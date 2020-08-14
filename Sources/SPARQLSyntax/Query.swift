@@ -223,6 +223,14 @@ public extension Update {
                 for q in quads {
                     d += "\(indent)    \(q) .\n"
                 }
+            case let .deleteData(triples, quads):
+                d += "\(indent)  Delete Data:\n"
+                for t in triples {
+                    d += "\(indent)    \(t)\n"
+                }
+                for q in quads {
+                    d += "\(indent)    \(q)\n"
+                }
             case let .modify(dt, dq, it, iq, ds, algebra):
                 d += "\(indent)  Modify:\n"
                 if let ds = ds {
