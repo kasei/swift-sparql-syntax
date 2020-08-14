@@ -331,8 +331,13 @@ public struct SPARQLParser {
         return (triples, quads)
     }
     
-    mutating func parseQuadPatterns(graph: Term? = nil) throws -> ([TriplePattern], [QuadPattern]) {
+    mutating func parseQuadPatterns(graph: Term? = nil, allowBlanks: Bool = true) throws -> ([TriplePattern], [QuadPattern]) {
         let algebra = try parseGroupGraphPattern()
+        let b = algebra.blankNodeLabels
+        if !b.isEmpty && !allowBlanks {
+            throw parseError("Disallowed blank node(s) found in QuadPatterns data: \(b)")
+        }
+
         let (triples, quads) = try self.extractPatterns(from: algebra, activeGraph: graph)
         return (triples, quads)
     }
@@ -470,7 +475,7 @@ public struct SPARQLParser {
     }
     
     private mutating func parseDeleteInsertUpdate(graph: Term?) throws -> UpdateOperation {
-        let (deleteTriples, deleteQuads) = try self.parseQuadPatterns(graph: graph)
+        let (deleteTriples, deleteQuads) = try self.parseQuadPatterns(graph: graph, allowBlanks: false)
         
         let insertTriples: [TriplePattern]
         let insertQuads: [QuadPattern]
