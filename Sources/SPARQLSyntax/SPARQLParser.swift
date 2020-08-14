@@ -233,7 +233,6 @@ public struct SPARQLParser {
         var updates = [UpdateOperation]()
         var seenSemicolon = true
         while true {
-            self.seenBlankNodeLabels = Set() // allow blank node re-use across different update operations
             try parsePrologue()
             guard let t = peekToken() else {
                 break
