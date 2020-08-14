@@ -467,12 +467,16 @@ public struct SPARQLParser {
         let t = try peekExpectedToken()
         switch t {
         case .keyword("ALL"):
+            _ = try nextExpectedToken()
             return .allGraphs
         case .keyword("NAMED"):
+            _ = try nextExpectedToken()
             return .namedGraphs
         case .keyword("DEFAULT"):
+            _ = try nextExpectedToken()
             return .defaultGraph
         default:
+            try expect(token: .keyword("GRAPH"))
             return try .namedGraph(parseIRI())
         }
     }

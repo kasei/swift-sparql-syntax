@@ -50,7 +50,8 @@ extension SPARQLParserTests {
             ("testi18nNormalization", testi18nNormalization),
             ("testLoad", testLoad),
             ("testClear", testClear),
-            ("testDrop", testDrop()),
+            ("testDrop1", testDrop1()),
+            ("testDrop2", testDrop2()),
             ("testCreate", testCreate),
             ("testDropLoad", testDropLoad),
             ("testAdd", testAdd),
@@ -1077,7 +1078,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testClear() {
-        guard var p = SPARQLParser(string: "CLEAR SILENT <http://example.org/graph>\n") else { XCTFail(); return }
+        guard var p = SPARQLParser(string: "CLEAR SILENT GRAPH <http://example.org/graph>\n") else { XCTFail(); return }
         do {
             let a = try p.parseUpdate()
             let ops = a.operations
@@ -1095,8 +1096,8 @@ class SPARQLParserTests: XCTestCase {
         }
     }
     
-    func testDrop() {
-        guard var p = SPARQLParser(string: "DROP SILENT <http://example.org/graph> ;\n") else { XCTFail(); return }
+    func testDrop1() {
+        guard var p = SPARQLParser(string: "DROP SILENT GRAPH <http://example.org/graph> ;\n") else { XCTFail(); return }
         do {
             let a = try p.parseUpdate()
             let ops = a.operations
@@ -1104,6 +1105,24 @@ class SPARQLParserTests: XCTestCase {
             let form = ops.first!
             let url = Term(iri: "http://example.org/graph")
             guard case .drop(.namedGraph(url), true) = form else {
+                XCTFail("Unexpected update: \(a.serialize())")
+                return
+            }
+            
+            XCTAssert(true)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testDrop2() {
+        guard var p = SPARQLParser(string: "DROP SILENT NAMED ;\n") else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            let ops = a.operations
+            XCTAssertEqual(ops.count, 1)
+            let form = ops.first!
+            guard case .drop(.namedGraphs, true) = form else {
                 XCTFail("Unexpected update: \(a.serialize())")
                 return
             }
@@ -1134,7 +1153,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testDropLoad() {
-        guard var p = SPARQLParser(string: "DROP SILENT <http://example.org/graph> ; LOAD <http://example.org/data.ttl> INTO GRAPH <http://example.org/graph>\n") else { XCTFail(); return }
+        guard var p = SPARQLParser(string: "DROP SILENT GRAPH <http://example.org/graph> ; LOAD <http://example.org/data.ttl> INTO GRAPH <http://example.org/graph>\n") else { XCTFail(); return }
         do {
             let a = try p.parseUpdate()
             let ops = a.operations
