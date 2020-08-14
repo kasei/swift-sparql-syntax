@@ -488,6 +488,7 @@ public struct SPARQLParser {
     private mutating func parseCreateUpdate() throws -> UpdateOperation {
         try expect(token: .keyword("CREATE"))
         let silent = try attempt(token: .keyword("SILENT"))
+        try expect(token: .keyword("GRAPH"))
         let graph = try parseIRI()
         return .create(graph, silent)
     }
