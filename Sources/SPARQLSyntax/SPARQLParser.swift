@@ -233,16 +233,22 @@ public struct SPARQLParser {
     
     public mutating func parseUpdate() throws -> Update {
         var updates = [UpdateOperation]()
+        var seenSemicolon = true
         while true {
             self.seenBlankNodeLabels = Set() // allow blank node re-use across different update operations
             try parsePrologue()
             guard let t = peekToken() else {
                 break
             }
+            if !seenSemicolon {
+                throw parseError("Expecting SEMICOLON in multi-operation update")
+            }
             if case .semicolon = t {
-                try expect(token: .semicolon)
+                while try attempt(token: .semicolon) {}
+                seenSemicolon = true
                 continue
             }
+            seenSemicolon = false
             guard case .keyword(let kw) = t else { throw parseError("Expected update method not found") }
             var update: UpdateOperation
             switch kw {
@@ -292,7 +298,10 @@ public struct SPARQLParser {
             default:
                 throw parseError("Expected update method not found: \(kw)")
             }
-            try attempt(token: .semicolon)
+            if try attempt(token: .semicolon) {
+                while try attempt(token: .semicolon) {}
+                seenSemicolon = true
+            }
             updates.append(update)
         }
         if let extra = peekToken() {
