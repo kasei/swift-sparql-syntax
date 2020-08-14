@@ -72,6 +72,7 @@ public struct SPARQLParser {
     var bnodes: [String:Term]
     var base: String?
     var tokenLookahead: SPARQLToken?
+    var allowReusedBlankNodes: Bool
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     var seenBlankNodeLabels: Set<String>
     
@@ -88,6 +89,7 @@ public struct SPARQLParser {
     
     public init(lexer: SPARQLLexer, prefixes: [String:String] = [:], base: String? = nil) {
         self.lexer = lexer
+        self.allowReusedBlankNodes = false
         self.prefixes = prefixes
         self.base = base
         self.bnodes = [:]
@@ -259,6 +261,7 @@ public struct SPARQLParser {
             case "COPY":
                 update = try parseCopyUpdate()
             case "INSERT":
+                self.allowReusedBlankNodes = true
                 try expect(token: .keyword("INSERT"))
                 if try attempt(token: .keyword("DATA")) {
                     let (triples, quads) = try self.parseQuads()
@@ -266,7 +269,9 @@ public struct SPARQLParser {
                 } else {
                     update = try self.parseModify(token: t)
                 }
+                self.allowReusedBlankNodes = false
             case "DELETE":
+                self.allowReusedBlankNodes = true
                 try expect(token: .keyword("DELETE"))
                 if try attempt(token: .keyword("DATA")) {
                     let (triples, quads) = try self.parseQuads()
@@ -278,9 +283,12 @@ public struct SPARQLParser {
                 } else {
                     update = try self.parseModify(token: t)
                 }
+                self.allowReusedBlankNodes = false
             case "WITH":
+                self.allowReusedBlankNodes = true
                 try expect(token: .keyword("WITH"))
                 update = try self.parseModify(token: t)
+                self.allowReusedBlankNodes = false
             default:
                 throw parseError("Expected update method not found: \(kw)")
             }
@@ -1188,7 +1196,9 @@ public struct SPARQLParser {
 //        print("Ended adjacent BGP block with blank node labels: \(currentBlockSeenLabels)")
         let sharedLabels = currentBlockSeenLabels.intersection(seenBlankNodeLabels)
         if sharedLabels.count > 0 {
-            throw SPARQLSyntaxError.parsingError("Blank node labels cannot be used in multiple BGPs: \(sharedLabels.joined(separator: ", "))\n\(self)")
+            if !self.allowReusedBlankNodes {
+                throw SPARQLSyntaxError.parsingError("Blank node labels cannot be used in multiple BGPs: \(sharedLabels.joined(separator: ", "))\n\(self)")
+            }
         }
         self.seenBlankNodeLabels.formUnion(currentBlockSeenLabels)
     }
