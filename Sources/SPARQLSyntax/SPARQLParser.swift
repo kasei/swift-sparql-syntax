@@ -480,8 +480,11 @@ public struct SPARQLParser {
     }
     
     private mutating func parseDeleteInsertUpdate(graph: Term?) throws -> UpdateOperation {
+        let old = self.parseBlankNodesAsVariables
+        self.parseBlankNodesAsVariables = false
+
         let (deleteTriples, deleteQuads) = try self.parseQuadPatterns(graph: graph, allowBlanks: false)
-        
+
         let insertTriples: [TriplePattern]
         let insertQuads: [QuadPattern]
         if try attempt(token: .keyword("INSERT")) {
@@ -490,7 +493,8 @@ public struct SPARQLParser {
             insertTriples = []
             insertQuads = []
         }
-        
+        self.parseBlankNodesAsVariables = old
+
         var ds = Dataset()
         while try attempt(token: .keyword("USING")) {
             let named = try attempt(token: .keyword("NAMED"))
