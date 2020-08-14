@@ -282,9 +282,6 @@ public struct SPARQLParser {
         } else if lexer.hasRemainingContent {
             throw parseError("Expected EOF, but found extra content: <<\(lexer.buffer)>>")
         }
-        guard !updates.isEmpty else {
-            throw parseError("Expected Update operation, but found none")
-        }
         return try Update(operations: updates)
     }
     
