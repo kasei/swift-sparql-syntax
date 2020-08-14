@@ -58,6 +58,8 @@ extension SPARQLParserTests {
             ("testMove", testMove),
             ("testCopy", testCopy),
             ("testModify1", testModify1),
+            ("testInsertDataBlankNodeReuse1", testInsertDataBlankNodeReuse1),
+            ("testInsertDataBlankNodeReuse2", testInsertDataBlankNodeReuse2),
         ]
     }
 }
@@ -1351,5 +1353,40 @@ class SPARQLParserTests: XCTestCase {
         } catch let e {
             XCTFail("\(e)")
         }
+    }
+    
+    func testInsertDataBlankNodeReuse1() {
+        guard var p = SPARQLParser(string: """
+            # Allow blank nodes to be re-used within a single INSERT DATA operation
+            PREFIX : <http://www.example.org/>
+
+            INSERT DATA {
+                          GRAPH<g1> { _:b1 :p :o }
+                          GRAPH<g2> { _:b1 :p :o }
+                        }
+            """) else { XCTFail(); return }
+        do {
+            let a = try p.parseUpdate()
+            print(a.serialize())
+            let ops = a.operations
+            XCTAssertGreaterThan(ops.count, 0)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testInsertDataBlankNodeReuse2() {
+        guard var p = SPARQLParser(string: """
+            # Allow blank nodes to be re-used within a single INSERT DATA operation
+            PREFIX : <http://www.example.org/>
+
+            INSERT DATA {
+                          GRAPH<g1> { _:b1 :p :o }
+            } ;
+            INSERT DATA {
+                          GRAPH<g2> { _:b1 :p :o }
+            }
+            """) else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseUpdate())
     }
 }

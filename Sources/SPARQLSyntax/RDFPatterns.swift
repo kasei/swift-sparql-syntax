@@ -71,6 +71,12 @@ public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomSt
         self.object = object
     }
     
+    public init(triple: Triple) {
+        self.subject = .bound(triple.subject)
+        self.predicate = .bound(triple.predicate)
+        self.object = .bound(triple.object)
+    }
+    
     public var description: String {
         return "\(subject) \(predicate) \(object) ."
     }
@@ -178,6 +184,13 @@ public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStri
         self.predicate = tp.predicate
         self.object = tp.object
         self.graph = graph
+    }
+    
+    public init(quad: Quad) {
+        self.subject = .bound(quad.subject)
+        self.predicate = .bound(quad.predicate)
+        self.object = .bound(quad.object)
+        self.graph = .bound(quad.graph)
     }
     
     public init(subject: Node, predicate: Node, object: Node, graph: Node) {

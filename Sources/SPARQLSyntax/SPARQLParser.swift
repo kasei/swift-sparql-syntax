@@ -74,6 +74,7 @@ public struct SPARQLParser {
     var tokenLookahead: SPARQLToken?
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     var seenBlankNodeLabels: Set<String>
+    var allowBlankNodeReuse: Bool
     
     private mutating func parseError(_ message: String) -> SPARQLSyntaxError {
         let rest = lexer.buffer
@@ -93,6 +94,7 @@ public struct SPARQLParser {
         self.bnodes = [:]
         self.seenBlankNodeLabels = Set()
         self.parseBlankNodesAsVariables = true
+        self.allowBlankNodeReuse = false
     }
     
     public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
@@ -240,11 +242,6 @@ public struct SPARQLParser {
             if !seenSemicolon {
                 throw parseError("Expecting SEMICOLON in multi-operation update")
             }
-//            if case .semicolon = t {
-//                try expect(token: .semicolon)
-//                seenSemicolon = true
-//                continue
-//            }
             seenSemicolon = false
             guard case .keyword(let kw) = t else { throw parseError("Expected update method not found") }
             var update: UpdateOperation
@@ -266,6 +263,9 @@ public struct SPARQLParser {
             case "INSERT":
                 try expect(token: .keyword("INSERT"))
                 if try attempt(token: .keyword("DATA")) {
+                    let old = self.allowBlankNodeReuse
+                    defer { self.allowBlankNodeReuse = old }
+                    self.allowBlankNodeReuse = true
                     let (triples, quads) = try self.parseQuads()
                     update = .insertData(triples, quads)
                 } else {
@@ -309,7 +309,9 @@ public struct SPARQLParser {
         } else if lexer.hasRemainingContent {
             throw parseError("Expected EOF, but found extra content: <<\(lexer.buffer)>>")
         }
-        return try Update(operations: updates)
+        let update = try Update(operations: updates)
+        try update.guardBlankNodeReuse()
+        return update
     }
     
     mutating func parseQuads(graph: Term? = nil, allowBlanks: Bool = true) throws -> ([Triple], [Quad]) {
@@ -1164,7 +1166,7 @@ public struct SPARQLParser {
         for pattern in patterns {
             switch pattern {
             case .finished(let algebra):
-                if algebra.adjacentBlankNodeUseOK {
+                if algebra.adjacentBlankNodeUseOK || self.allowBlankNodeReuse {
                     currentBlockSeenLabels.formUnion(algebra.blankNodeLabels)
                 } else {
                     try guardBlankNodeResuse(with: currentBlockSeenLabels)
@@ -1230,7 +1232,7 @@ public struct SPARQLParser {
     private mutating func guardBlankNodeResuse(with currentBlockSeenLabels: Set<String>) throws {
 //        print("Ended adjacent BGP block with blank node labels: \(currentBlockSeenLabels)")
         let sharedLabels = currentBlockSeenLabels.intersection(seenBlankNodeLabels)
-        if sharedLabels.count > 0 {
+        if !self.allowBlankNodeReuse && sharedLabels.count > 0 {
             throw SPARQLSyntaxError.parsingError("Blank node labels cannot be used in multiple BGPs: \(sharedLabels.joined(separator: ", "))\n\(self)")
         }
         self.seenBlankNodeLabels.formUnion(currentBlockSeenLabels)
@@ -2634,7 +2636,7 @@ extension Algebra {
      It is not entirely accurate, as we exempt property paths from returning blank node labels so that they
      do not conflict with adjacent BGPs <https://www.w3.org/2013/sparql-errata#errata-query-17>
      */
-    internal var blankNodeLabels: Set<String> {
+    var blankNodeLabels: Set<String> {
         switch self {
             
         case .joinIdentity, .unionIdentity, .table(_, _):

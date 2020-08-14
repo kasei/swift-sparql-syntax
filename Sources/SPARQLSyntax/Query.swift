@@ -175,6 +175,37 @@ public enum UpdateOperation : Hashable {
     case insertData([Triple], [Quad])
     case deleteData([Triple], [Quad])
     case modify([TriplePattern], [QuadPattern], [TriplePattern], [QuadPattern], Dataset?, Algebra)
+
+    var blankNodeLabels: Set<String> {
+        switch self {
+        case .load, .clear, .drop, .create, .add, .move, .copy:
+            return []
+        case let .insertData(triples, quads), let .deleteData(triples, quads):
+            let t : [Algebra] = triples.map { .triple(TriplePattern(triple: $0)) }
+            let q : [Algebra] = quads.map { .quad(QuadPattern(quad: $0)) }
+            var labels = Set<String>()
+            for a in t {
+                labels.formUnion(a.blankNodeLabels)
+            }
+            for a in q {
+                labels.formUnion(a.blankNodeLabels)
+            }
+            return labels
+        case let .modify(dt, dq, it, iq, _, _):
+            var labels = Set<String>()
+            for (triples, quads) in [(dt, dq), (it, iq)] {
+                let t : [Algebra] = triples.map { .triple($0) }
+                let q : [Algebra] = quads.map { .quad($0) }
+                for a in t {
+                    labels.formUnion(a.blankNodeLabels)
+                }
+                for a in q {
+                    labels.formUnion(a.blankNodeLabels)
+                }
+            }
+            return labels
+        }
+    }
 }
 
 public struct Update : Hashable, Equatable {
@@ -186,6 +217,17 @@ public struct Update : Hashable, Equatable {
         self.base = base
         self.operations = operations
         self.dataset = dataset
+    }
+
+    func guardBlankNodeReuse() throws {
+        var seenLabels = Set<String>()
+        for op in self.operations {
+            let i = seenLabels.intersection(op.blankNodeLabels)
+            if !i.isEmpty {
+                throw SPARQLSyntaxError.parsingError("Blank node labels cannot be used across update operations: \(i.joined(separator: ", "))")
+            }
+            seenLabels.formUnion(op.blankNodeLabels)
+        }
     }
 }
 
