@@ -280,7 +280,7 @@ public struct SPARQLParser {
                 self.allowReusedBlankNodes = true
                 try expect(token: .keyword("DELETE"))
                 if try attempt(token: .keyword("DATA")) {
-                    let (triples, quads) = try self.parseQuads()
+                    let (triples, quads) = try self.parseQuads(allowBlanks: false)
                     update = .deleteData(triples, quads)
                 } else if try attempt(token: .keyword("WHERE")) {
                     let algebra = try parseGroupGraphPattern()
@@ -311,8 +311,18 @@ public struct SPARQLParser {
         return try Update(operations: updates)
     }
     
-    mutating func parseQuads(graph: Term? = nil) throws -> ([Triple], [Quad]) {
+    mutating func parseQuads(graph: Term? = nil, allowBlanks: Bool = true) throws -> ([Triple], [Quad]) {
+        let old = self.parseBlankNodesAsVariables
+        self.parseBlankNodesAsVariables = false
+        defer {
+            self.parseBlankNodesAsVariables = old
+        }
         let algebra = try parseGroupGraphPattern()
+        let b = algebra.blankNodeLabels
+        if !b.isEmpty && !allowBlanks {
+            throw parseError("Disallowed blank node(s) found in Quads data: \(b)")
+        }
+        
         let (triples, quads) = try self.extractStatements(from: algebra, activeGraph: graph)
         return (triples, quads)
     }
