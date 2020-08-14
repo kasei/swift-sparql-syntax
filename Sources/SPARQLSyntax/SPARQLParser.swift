@@ -243,11 +243,11 @@ public struct SPARQLParser {
             if !seenSemicolon {
                 throw parseError("Expecting SEMICOLON in multi-operation update")
             }
-            if case .semicolon = t {
-                while try attempt(token: .semicolon) {}
-                seenSemicolon = true
-                continue
-            }
+//            if case .semicolon = t {
+//                try expect(token: .semicolon)
+//                seenSemicolon = true
+//                continue
+//            }
             seenSemicolon = false
             guard case .keyword(let kw) = t else { throw parseError("Expected update method not found") }
             var update: UpdateOperation
@@ -299,7 +299,6 @@ public struct SPARQLParser {
                 throw parseError("Expected update method not found: \(kw)")
             }
             if try attempt(token: .semicolon) {
-                while try attempt(token: .semicolon) {}
                 seenSemicolon = true
             }
             updates.append(update)
