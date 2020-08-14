@@ -1084,7 +1084,7 @@ class SPARQLParserTests: XCTestCase {
             XCTAssertEqual(ops.count, 1)
             let form = ops.first!
             let url = Term(iri: "http://example.org/graph")
-            guard case .clear(url, true) = form else {
+            guard case .clear(.namedGraph(url), true) = form else {
                 XCTFail("Unexpected update: \(a.serialize())")
                 return
             }
@@ -1103,7 +1103,7 @@ class SPARQLParserTests: XCTestCase {
             XCTAssertEqual(ops.count, 1)
             let form = ops.first!
             let url = Term(iri: "http://example.org/graph")
-            guard case .drop(url, true) = form else {
+            guard case .drop(.namedGraph(url), true) = form else {
                 XCTFail("Unexpected update: \(a.serialize())")
                 return
             }
@@ -1142,7 +1142,7 @@ class SPARQLParserTests: XCTestCase {
             let drop = ops[0]
             let load = ops[1]
             let graph = Term(iri: "http://example.org/graph")
-            guard case .drop(graph, true) = drop else {
+            guard case .drop(.namedGraph(graph), true) = drop else {
                 XCTFail("Unexpected update: \(a.serialize())")
                 return
             }

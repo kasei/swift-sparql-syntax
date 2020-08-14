@@ -459,14 +459,28 @@ public struct SPARQLParser {
     private mutating func parseClearUpdate() throws -> UpdateOperation {
         try expect(token: .keyword("CLEAR"))
         let silent = try attempt(token: .keyword("SILENT"))
-        let graph = try parseIRI()
+        let graph = try parseGraphRefAll()
         return .clear(graph, silent)
+    }
+    
+    private mutating func parseGraphRefAll() throws -> UpdateOperation.GraphReference {
+        let t = try peekExpectedToken()
+        switch t {
+        case .keyword("ALL"):
+            return .allGraphs
+        case .keyword("NAMED"):
+            return .namedGraphs
+        case .keyword("DEFAULT"):
+            return .defaultGraph
+        default:
+            return try .namedGraph(parseIRI())
+        }
     }
     
     private mutating func parseDropUpdate() throws -> UpdateOperation {
         try expect(token: .keyword("DROP"))
         let silent = try attempt(token: .keyword("SILENT"))
-        let graph = try parseIRI()
+        let graph = try parseGraphRefAll()
         return .drop(graph, silent)
     }
     
