@@ -278,6 +278,12 @@ public struct SPARQLParser {
                     let (triples, quads) = try self.parseQuads(allowBlanks: false)
                     update = .deleteData(triples, quads)
                 } else if try attempt(token: .keyword("WHERE")) {
+                    let old = self.parseBlankNodesAsVariables
+                    self.parseBlankNodesAsVariables = false
+                    defer {
+                        self.parseBlankNodesAsVariables = old
+                    }
+
                     let algebra = try parseGroupGraphPattern()
                     let b = algebra.blankNodeLabels
                     if !b.isEmpty {
