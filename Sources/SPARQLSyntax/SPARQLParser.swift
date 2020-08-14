@@ -284,6 +284,10 @@ public struct SPARQLParser {
                     update = .deleteData(triples, quads)
                 } else if try attempt(token: .keyword("WHERE")) {
                     let algebra = try parseGroupGraphPattern()
+                    let b = algebra.blankNodeLabels
+                    if !b.isEmpty {
+                        throw parseError("Disallowed blank node(s) found in DELETE WHERE pattern: \(b)")
+                    }
                     let (triples, quads) = try self.extractPatterns(from: algebra, activeGraph: nil)
                     update = UpdateOperation.modify(triples, quads, [], [], nil, algebra)
                 } else {
