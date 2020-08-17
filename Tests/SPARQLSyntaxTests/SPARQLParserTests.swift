@@ -1389,4 +1389,16 @@ class SPARQLParserTests: XCTestCase {
             """) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseUpdate())
     }
+    
+    func testParseQueryOrUpdate1() throws {
+        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org/> INSERT DATA { GRAPH <g1> { _:b1 :p :o } }") else { XCTFail(); return }
+        let op = try p.parse()
+        guard case .update(_) = op else { XCTFail(); return }
+    }
+    
+    func testParseQueryOrUpdate2() throws {
+        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org/> SELECT * { GRAPH <g1> { _:b1 :p :o } }") else { XCTFail(); return }
+        let op = try p.parse()
+        guard case .query(_) = op else { XCTFail(); return }
+    }
 }

@@ -1,67 +1,12 @@
 import Foundation
 
-private func joinReduction(coalesceBGPs: Bool = false) -> (Algebra, Algebra) -> Algebra {
-    return { (lhs, rhs) in
-        switch (lhs, rhs) {
-        case (.joinIdentity, _):
-            return rhs
-        case let (.bgp(triples), .triple(t)) where coalesceBGPs:
-            return .bgp(triples + [t])
-        case let (.triple(t), .bgp(triples)) where coalesceBGPs:
-            return .bgp([t] + triples)
-        case let (.triple(lt), .triple(rt)) where coalesceBGPs:
-            return .bgp([lt, rt])
-        default:
-            return .innerJoin(lhs, rhs)
-        }
-    }
-}
-
-private enum UnfinishedAlgebra {
-    case filter(Expression)
-    case optional(Algebra)
-    case minus(Algebra)
-    case bind(Expression, String)
-    case finished(Algebra)
-    
-    func finish(_ args: inout [Algebra]) throws -> Algebra {
-        switch self {
-        case .bind(let e, let name):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
-            args = []
-            if algebra.inscope.contains(name) {
-                throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name))") // TODO: can the line:col be included in this exception?
-            }
-            return .extend(algebra, e, name)
-        case .filter(let expr):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
-            args = []
-            if case let .filter(a, e) = algebra {
-                return .filter(a, .and(e, expr))
-            } else {
-                return .filter(algebra, expr)
-            }
-        case .minus(let a):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
-            args = []
-            return .minus(algebra, a)
-        case .optional(.filter(let a, let e)):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
-            args = []
-            return .leftOuterJoin(algebra, a, e)
-        case .optional(let a):
-            let e: Expression = .node(.bound(Term.trueValue))
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
-            args = []
-            return .leftOuterJoin(algebra, a, e)
-        case .finished(let a):
-            return a
-        }
-    }
-}
-
 public enum SPARQLParserError: Error {
     case initializationError
+}
+
+public enum SPARQLOperation {
+    case query(Query)
+    case update(Update)
 }
 
 // swiftlint:disable:next type_body_length
@@ -87,6 +32,18 @@ public struct SPARQLParser {
         return q
     }
     
+    public static func parse(update: String) throws -> Update {
+        guard var p = SPARQLParser(string: update) else { throw SPARQLParserError.initializationError }
+        let q = try p.parseUpdate()
+        return q
+    }
+    
+    public static func parse(string: String) throws -> SPARQLOperation {
+        guard var p = SPARQLParser(string: string) else { throw SPARQLParserError.initializationError }
+        let q = try p.parse()
+        return q
+    }
+
     public init(lexer: SPARQLLexer, prefixes: [String:String] = [:], base: String? = nil) {
         self.lexer = lexer
         self.prefixes = prefixes
@@ -202,6 +159,16 @@ public struct SPARQLParser {
             throw parseError("Expected \(token) but got \(t)")
         }
         return
+    }
+    
+    public mutating func parse() throws -> SPARQLOperation {
+        try parsePrologue()
+        if let q = try? parseQuery() {
+            return .query(q)
+        } else {
+            let u = try parseUpdate()
+            return .update(u)
+        }
     }
     
     public mutating func parseQuery() throws -> Query {
@@ -2715,3 +2682,64 @@ extension Algebra {
         
     }
 }
+
+private func joinReduction(coalesceBGPs: Bool = false) -> (Algebra, Algebra) -> Algebra {
+    return { (lhs, rhs) in
+        switch (lhs, rhs) {
+        case (.joinIdentity, _):
+            return rhs
+        case let (.bgp(triples), .triple(t)) where coalesceBGPs:
+            return .bgp(triples + [t])
+        case let (.triple(t), .bgp(triples)) where coalesceBGPs:
+            return .bgp([t] + triples)
+        case let (.triple(lt), .triple(rt)) where coalesceBGPs:
+            return .bgp([lt, rt])
+        default:
+            return .innerJoin(lhs, rhs)
+        }
+    }
+}
+
+private enum UnfinishedAlgebra {
+    case filter(Expression)
+    case optional(Algebra)
+    case minus(Algebra)
+    case bind(Expression, String)
+    case finished(Algebra)
+    
+    func finish(_ args: inout [Algebra]) throws -> Algebra {
+        switch self {
+        case .bind(let e, let name):
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            args = []
+            if algebra.inscope.contains(name) {
+                throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name))") // TODO: can the line:col be included in this exception?
+            }
+            return .extend(algebra, e, name)
+        case .filter(let expr):
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            args = []
+            if case let .filter(a, e) = algebra {
+                return .filter(a, .and(e, expr))
+            } else {
+                return .filter(algebra, expr)
+            }
+        case .minus(let a):
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            args = []
+            return .minus(algebra, a)
+        case .optional(.filter(let a, let e)):
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            args = []
+            return .leftOuterJoin(algebra, a, e)
+        case .optional(let a):
+            let e: Expression = .node(.bound(Term.trueValue))
+            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            args = []
+            return .leftOuterJoin(algebra, a, e)
+        case .finished(let a):
+            return a
+        }
+    }
+}
+
