@@ -443,7 +443,10 @@ public struct SPARQLParser {
         }
         
         try expect(token: .keyword("WHERE"))
-        let algebra = try parseGroupGraphPattern()
+        var algebra = try parseGroupGraphPattern()
+        if let g = graph {
+            algebra = .namedGraph(algebra, .bound(g))
+        }
         return UpdateOperation.modify([], [], triples, quads, ds, algebra)
     }
     
@@ -475,7 +478,10 @@ public struct SPARQLParser {
         }
         
         try expect(token: .keyword("WHERE"))
-        let algebra = try parseGroupGraphPattern()
+        var algebra = try parseGroupGraphPattern()
+        if let g = graph {
+            algebra = .namedGraph(algebra, .bound(g))
+        }
         return UpdateOperation.modify(deleteTriples, deleteQuads, insertTriples, insertQuads, ds, algebra)
     }
     

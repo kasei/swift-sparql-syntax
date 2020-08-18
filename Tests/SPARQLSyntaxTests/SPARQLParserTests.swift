@@ -1289,7 +1289,7 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
 
-            guard case .bgp(_) = algebra else {
+            guard case .namedGraph(.bgp(_), .bound(Term(iri: "http://xyz/"))) = algebra else {
                 XCTFail("Unexpected modify algebra: \(a.serialize())")
                 return
             }
