@@ -21,11 +21,11 @@ public struct Update : Hashable, Equatable {
     func guardBlankNodeReuse() throws {
         var seenLabels = Set<String>()
         for op in self.operations {
-            let i = seenLabels.intersection(op.blankNodeLabels)
+            let i = seenLabels.intersection(op.patternMatchingBlankNodeLabels)
             if !i.isEmpty {
                 throw SPARQLSyntaxError.parsingError("Blank node labels cannot be used across update operations: \(i.joined(separator: ", "))")
             }
-            seenLabels.formUnion(op.blankNodeLabels)
+            seenLabels.formUnion(op.patternMatchingBlankNodeLabels)
         }
     }
 }
@@ -83,7 +83,9 @@ public extension Update {
             case let .modify(dt, dq, it, iq, ds, algebra):
                 d += "\(indent)  Modify:\n"
                 if let ds = ds {
-                    d += ds.serialize(depth: depth+2)
+                    if !ds.isEmpty {
+                        d += ds.serialize(depth: depth+2)
+                    }
                 }
                 let delete = dt.count + dq.count
                 if delete > 0 {
@@ -150,8 +152,9 @@ public enum UpdateOperation : Hashable {
     case insertData([Triple], [Quad])
     case deleteData([Triple], [Quad])
     case modify([TriplePattern], [QuadPattern], [TriplePattern], [QuadPattern], Dataset?, Algebra)
-
-    var blankNodeLabels: Set<String> {
+    
+    /// Blank node labels used in the pattern matching parts of an Update
+    var patternMatchingBlankNodeLabels: Set<String> {
         switch self {
         case .load, .clear, .drop, .create, .add, .move, .copy:
             return []
@@ -166,19 +169,8 @@ public enum UpdateOperation : Hashable {
                 labels.formUnion(a.blankNodeLabels)
             }
             return labels
-        case let .modify(dt, dq, it, iq, _, _):
-            var labels = Set<String>()
-            for (triples, quads) in [(dt, dq), (it, iq)] {
-                let t : [Algebra] = triples.map { .triple($0) }
-                let q : [Algebra] = quads.map { .quad($0) }
-                for a in t {
-                    labels.formUnion(a.blankNodeLabels)
-                }
-                for a in q {
-                    labels.formUnion(a.blankNodeLabels)
-                }
-            }
-            return labels
+        case let .modify(_, _, _, _, _, algebra):
+            return algebra.blankNodeLabels
         }
     }
 }

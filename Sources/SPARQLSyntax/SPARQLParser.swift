@@ -301,8 +301,20 @@ public struct SPARQLParser {
         return (triples, quads)
     }
     
-    mutating func parseQuadPatterns(graph: Term? = nil, allowBlanks: Bool = true) throws -> ([TriplePattern], [QuadPattern]) {
+    mutating func parseQuadPatterns(graph: Term? = nil, allowBlanks: Bool = true, allowBlankReuse: Bool = false) throws -> ([TriplePattern], [QuadPattern]) {
+        let old1 = self.parseBlankNodesAsVariables
+        if allowBlanks {
+            self.parseBlankNodesAsVariables = false
+        }
+        
+        let old = self.allowBlankNodeReuse
+        if allowBlankReuse {
+            self.allowBlankNodeReuse = true
+        }
         let algebra = try parseGroupGraphPattern()
+        self.allowBlankNodeReuse = old
+        self.parseBlankNodesAsVariables = old1
+
         let b = algebra.blankNodeLabels
         if !b.isEmpty && !allowBlanks {
             throw parseError("Disallowed blank node(s) found in QuadPatterns data: \(b)")
@@ -429,7 +441,7 @@ public struct SPARQLParser {
     }
     
     private mutating func parseInsertUpdate(graph: Term?) throws -> UpdateOperation {
-        let (triples, quads) = try self.parseQuadPatterns(graph: graph)
+        let (triples, quads) = try self.parseQuadPatterns(graph: graph, allowBlanks: true, allowBlankReuse: true)
         
         var ds = Dataset()
         while try attempt(token: .keyword("USING")) {
@@ -459,7 +471,7 @@ public struct SPARQLParser {
         let insertTriples: [TriplePattern]
         let insertQuads: [QuadPattern]
         if try attempt(token: .keyword("INSERT")) {
-            (insertTriples, insertQuads) = try self.parseQuadPatterns(graph: graph)
+            (insertTriples, insertQuads) = try self.parseQuadPatterns(graph: graph, allowBlanks: true, allowBlankReuse: true)
         } else {
             insertTriples = []
             insertQuads = []

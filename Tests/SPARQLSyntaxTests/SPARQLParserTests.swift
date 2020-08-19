@@ -1280,7 +1280,6 @@ class SPARQLParserTests: XCTestCase {
             """) else { XCTFail(); return }
         do {
             let a = try p.parseUpdate()
-            print(a.serialize())
             let ops = a.operations
             XCTAssertEqual(ops.count, 1)
             let form = ops[0]
@@ -1324,7 +1323,6 @@ class SPARQLParserTests: XCTestCase {
             """) else { XCTFail(); return }
         do {
             let a = try p.parseUpdate()
-            print(a.serialize())
             let ops = a.operations
             XCTAssertEqual(ops.count, 1)
             let form = ops[0]
@@ -1367,7 +1365,6 @@ class SPARQLParserTests: XCTestCase {
             """) else { XCTFail(); return }
         do {
             let a = try p.parseUpdate()
-            print(a.serialize())
             let ops = a.operations
             XCTAssertGreaterThan(ops.count, 0)
         } catch let e {
@@ -1400,5 +1397,21 @@ class SPARQLParserTests: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org/> SELECT * { GRAPH <g1> { _:b1 :p :o } }") else { XCTFail(); return }
         let op = try p.parse()
         guard case .query(_) = op else { XCTFail(); return }
+    }
+    
+    func testParseUpdateBlankNodeTemplate() throws {
+        guard var p = SPARQLParser(string: """
+            PREFIX : <http://example.org/>
+
+            # starting with an empty graph store,
+            # insert the same bnode in two different graphs...
+
+            INSERT  { GRAPH :g1  { _:b :p :o } } WHERE { ?X :p :o };
+            INSERT  { GRAPH :g2  { _:b :p :o } } WHERE { ?X :q :r };
+        """) else { XCTFail(); return }
+        let a = try p.parseUpdate()
+        let ops = a.operations
+        print(a.serialize())
+        XCTAssertEqual(ops.count, 2)
     }
 }
