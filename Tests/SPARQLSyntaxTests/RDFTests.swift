@@ -222,4 +222,75 @@ class RDFTest: XCTestCase {
             "class": Term(iri: "http://xmlns.com/foaf/0.1/Person")
         ]))
     }
+    
+    func testLexicalForms() throws {
+        // xsd:boolean
+        XCTAssertTrue(Term.isValidLexicalForm("0", for: .boolean))
+        XCTAssertTrue(Term.isValidLexicalForm("1", for: .boolean))
+        XCTAssertTrue(Term.isValidLexicalForm("true", for: .boolean))
+        XCTAssertTrue(Term.isValidLexicalForm("false", for: .boolean))
+
+        // xsd:integer
+        XCTAssertTrue(Term.isValidLexicalForm("-0", for: .integer))
+        XCTAssertTrue(Term.isValidLexicalForm("1", for: .integer))
+        XCTAssertTrue(Term.isValidLexicalForm("+1", for: .integer))
+        XCTAssertTrue(Term.isValidLexicalForm("-1", for: .integer))
+        XCTAssertTrue(Term.isValidLexicalForm("123", for: .integer))
+        XCTAssertTrue(Term.isValidLexicalForm("000", for: .integer))
+
+        // xsd:decimal
+        XCTAssertTrue(Term.isValidLexicalForm("1", for: .decimal))
+        XCTAssertTrue(Term.isValidLexicalForm("+1.", for: .decimal))
+        XCTAssertTrue(Term.isValidLexicalForm("-1.0", for: .decimal))
+        XCTAssertTrue(Term.isValidLexicalForm("123.123", for: .decimal))
+        XCTAssertTrue(Term.isValidLexicalForm("000.000", for: .decimal))
+        XCTAssertTrue(Term.isValidLexicalForm(".123", for: .decimal))
+        XCTAssertTrue(Term.isValidLexicalForm(".0", for: .decimal))
+        XCTAssertTrue(Term.isValidLexicalForm(".00001", for: .decimal))
+
+        // xsd:double
+        XCTAssertTrue(Term.isValidLexicalForm("1", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("+1.", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("-1.0", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("123.123", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("000.000", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm(".123", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm(".0", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm(".00001", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("0.1E2", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("0e-2", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("123e+50", for: .double))
+        XCTAssertTrue(Term.isValidLexicalForm("-1.2e+5", for: .double))
+    }
+    
+    func testBadLexicalForms() throws {
+        // xsd:boolean
+        XCTAssertFalse(Term.isValidLexicalForm("00", for: .boolean))
+        XCTAssertFalse(Term.isValidLexicalForm("1000", for: .boolean))
+        XCTAssertFalse(Term.isValidLexicalForm("TRUE", for: .boolean))
+        XCTAssertFalse(Term.isValidLexicalForm("False", for: .boolean))
+
+        // xsd:integer
+        XCTAssertFalse(Term.isValidLexicalForm("1.0", for: .integer))
+        XCTAssertFalse(Term.isValidLexicalForm(" -1", for: .integer))
+        XCTAssertFalse(Term.isValidLexicalForm("-+1", for: .integer))
+        XCTAssertFalse(Term.isValidLexicalForm("123.", for: .integer))
+        XCTAssertFalse(Term.isValidLexicalForm("000 ", for: .integer))
+        XCTAssertFalse(Term.isValidLexicalForm("", for: .integer))
+
+        // xsd:decimal
+        XCTAssertFalse(Term.isValidLexicalForm("1e0", for: .decimal))
+        XCTAssertFalse(Term.isValidLexicalForm("1+", for: .decimal))
+        XCTAssertFalse(Term.isValidLexicalForm("-+1.0", for: .decimal))
+        XCTAssertFalse(Term.isValidLexicalForm(".", for: .decimal))
+        XCTAssertFalse(Term.isValidLexicalForm("", for: .decimal))
+
+        // xsd:double
+        XCTAssertFalse(Term.isValidLexicalForm("1 ", for: .double))
+        XCTAssertFalse(Term.isValidLexicalForm("+1-", for: .double))
+        XCTAssertFalse(Term.isValidLexicalForm("-1E", for: .double))
+        XCTAssertFalse(Term.isValidLexicalForm("e0", for: .double))
+        XCTAssertFalse(Term.isValidLexicalForm(" ", for: .double))
+        XCTAssertFalse(Term.isValidLexicalForm("", for: .double))
+    }
 }
