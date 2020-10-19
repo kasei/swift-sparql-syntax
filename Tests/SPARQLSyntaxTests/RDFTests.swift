@@ -222,6 +222,24 @@ class RDFTest: XCTestCase {
             "class": Term(iri: "http://xmlns.com/foaf/0.1/Person")
         ]))
     }
+
+    func testNumericCanonicalization() throws {
+        // these values should canonicalize and have the same lexical form
+
+        let double1 = Term(value: "1E3", type: .datatype(.double))
+        let double2 = Term(value: "100e1", type: .datatype(.double))
+        XCTAssertEqual(double1.value, double2.value)
+
+        let double3 = Term(value: "123e-1", type: .datatype(.double))
+        XCTAssertEqual(double3.value, "1.23E1")
+
+        let double4 = Term(value: "0e1", type: .datatype(.double))
+        XCTAssertEqual(double4.value, "0E0")
+
+        let decimal1 = Term(value: "1.0", type: .datatype(.decimal))
+        let decimal2 = Term(value: "+1", type: .datatype(.decimal))
+        XCTAssertEqual(decimal1.value, decimal2.value)
+    }
     
     func testLexicalForms() throws {
         // xsd:boolean

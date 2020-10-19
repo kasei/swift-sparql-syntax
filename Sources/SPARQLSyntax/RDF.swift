@@ -194,6 +194,9 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
                 exponent -= 1
             }
         }
+        if mantissa == 0.0 {
+            exponent = 0
+        }
         return (mantissa, exponent)
     }
     
@@ -237,7 +240,11 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
             if canonicalize {
                 self.value = self.value.uppercased()
                 let (mantissa, exponent) = canonicalFloatingPointComponents()
-                self.value = "\(mantissa)E\(exponent)"
+                if mantissa.truncatingRemainder(dividingBy: 1) == 0 {
+                    self.value = "\(Int(mantissa))E\(exponent)"
+                } else {
+                    self.value = "\(mantissa)E\(exponent)"
+                }
             }
             _doubleValue = Double(value) ?? 0.0
         default:
