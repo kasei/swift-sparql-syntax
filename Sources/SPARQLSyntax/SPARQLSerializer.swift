@@ -322,6 +322,10 @@ public struct SPARQLSerializer {
             }
         }
         
+        guard !outputArray.isEmpty else {
+            return
+        }
+        
         var tempArray: [SerializerOutput] = []
         FILTER: for i in 0..<(outputArray.count-1) {
             let (_, s1) = outputArray[i]
