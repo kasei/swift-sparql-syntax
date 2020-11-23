@@ -86,12 +86,12 @@ class SPARQLParserTests: XCTestCase {
         }
     }
     
-    func testLexer() {
+    func testLexer() throws {
         guard let data = "HR:resumé ?resume\n\n[ [] { - @en-US 'foo' \"bar\" PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n".data(using: .utf8) else { XCTFail(); return }
         //        guard let data = "[ [] { - @en-US".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = try SPARQLLexer(source: stream)
         XCTAssertEqual(lexer.next()!, .prefixname("HR", "resumé"), "expected token")
         XCTAssertEqual(lexer.next()!, ._var("resume"), "expected token")
         XCTAssertEqual(lexer.next()!, .lbracket, "expected token")
@@ -124,11 +124,11 @@ class SPARQLParserTests: XCTestCase {
         XCTAssertNil(lexer.next())
     }
     
-    func testLexerPositionedTokens() {
+    func testLexerPositionedTokens() throws {
         guard let sparql = "SELECT * WHERE { ?s <p> 'o' }".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: sparql)
         stream.open()
-        let lexer = SPARQLLexer(source: stream, includeComments: false)
+        let lexer = try SPARQLLexer(source: stream, includeComments: false)
         let pt = lexer.nextPositionedToken()!
         let loc = pt.startCharacter
         let len = pt.endCharacter - pt.startCharacter
@@ -155,11 +155,18 @@ class SPARQLParserTests: XCTestCase {
         }
     }
     
-    func testLexerSingleQuotedStrings() {
+    func testLexerInvalidLoneSurrogate() throws {
+        guard let data = "'\\uD83D'".data(using: .utf8) else { XCTFail(); return }
+        let stream = InputStream(data: data)
+        stream.open()
+        XCTAssertThrowsError(try SPARQLLexer(source: stream))
+    }
+    
+    func testLexerSingleQuotedStrings() throws {
         guard let data = "'foo' 'foo\\nbar' '\\u706B' '\\U0000661F' '''baz''' '''' ''' ''''''''".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = try SPARQLLexer(source: stream)
         
         XCTAssertEqual(lexer.next()!, .string1s("foo"), "expected token")
         XCTAssertEqual(lexer.next()!, .string1s("foo\nbar"), "expected token")
@@ -170,11 +177,11 @@ class SPARQLParserTests: XCTestCase {
         XCTAssertEqual(lexer.next()!, .string3s("''"), "expected token")
     }
     
-    func testLexerDoubleQuotedStrings() {
+    func testLexerDoubleQuotedStrings() throws {
         guard let data = "\"foo\" \"foo\\nbar\" \"\\u706B\" \"\\U0000661F\" \"\"\"baz\"\"\" \"\"\"\" \"\"\" \"\"\"\"\"\"\"\"".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = try SPARQLLexer(source: stream)
         
         XCTAssertEqual(lexer.next()!, .string1d("foo"), "expected token")
         XCTAssertEqual(lexer.next()!, .string1d("foo\nbar"), "expected token")
@@ -185,11 +192,11 @@ class SPARQLParserTests: XCTestCase {
         XCTAssertEqual(lexer.next()!, .string3d("\"\""), "expected token")
     }
     
-    func testLexerPropertyPath() {
+    func testLexerPropertyPath() throws {
         guard let data = "prefix : <http://example/> select * where { :a (:p/:p)? ?t }".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = try SPARQLLexer(source: stream)
         var tokens = [SPARQLToken]()
         while let t = lexer.next() {
             tokens.append(t)

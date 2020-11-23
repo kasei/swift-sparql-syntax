@@ -513,7 +513,7 @@ public class SPARQLLexer: IteratorProtocol {
     }()
 
     
-    public init(source: InputStream, includeComments: Bool = false) {
+    public init(source: InputStream, includeComments: Bool = false) throws {
         self.blockSize = 256
         guard self.blockSize >= 8 else {
             fatalError("SPARQL Lexer read block size must be at least 8 bytes")
@@ -535,7 +535,7 @@ public class SPARQLLexer: IteratorProtocol {
         self.comments = true
         self.lookahead = nil
         
-        try? fillEntireBuffer()
+        try fillEntireBuffer()
     }
     
     public func nextPositionedToken() -> PositionedToken? {
@@ -1454,7 +1454,7 @@ public class SPARQLLexer: IteratorProtocol {
 
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = try SPARQLLexer(source: stream)
         
         var stack = [PositionedToken]()
         let endBound = string.distance(from: string.startIndex, to: origRange.upperBound)
@@ -1494,7 +1494,7 @@ public class SPARQLLexer: IteratorProtocol {
         guard let data = string.data(using: .utf8) else { throw SPARQLSyntaxError.lexicalError("Cannot encode string as utf-8") }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream)
+        let lexer = try SPARQLLexer(source: stream)
         
         
         var stack = [PositionedToken]()

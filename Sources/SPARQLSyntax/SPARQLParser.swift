@@ -99,14 +99,18 @@ public struct SPARQLParser {
         guard let data = string.data(using: .utf8) else { return nil }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+        guard let lexer = try? SPARQLLexer(source: stream, includeComments: includeComments) else {
+            return nil
+        }
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
     public init?(data: Data, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+        guard let lexer = try? SPARQLLexer(source: stream, includeComments: includeComments) else {
+            return nil
+        }
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
