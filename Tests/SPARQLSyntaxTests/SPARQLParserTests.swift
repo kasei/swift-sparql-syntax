@@ -1054,4 +1054,47 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testSPARQLParser_aggregateInSort() throws {
+        let sparql = """
+        PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        SELECT
+            ?obj
+            (SAMPLE(?label) AS ?label)
+            (COUNT(DISTINCT ?acq) AS ?acquisitions)
+        WHERE {
+            ?acq a crm:E8_Acquisition ;
+                crm:P24_transferred_title_of ?obj .
+            ?obj a crm:E22_Human-Made_Object ;
+                rdfs:label ?label .
+        }
+        GROUP BY ?obj
+        HAVING(COUNT(DISTINCT ?acq) > 1)
+        ORDER BY DESC(COUNT(DISTINCT ?acq)) ?label
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        
+        do {
+            let a = try p.parseAlgebra()
+            print(a.serialize(depth: 0))
+            guard case let .project(.order(_, cmps), _) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            guard case let .aggregate(_, _, aggs) = a.aggregation else { XCTFail(); return }
+            let aggMap = Dictionary(uniqueKeysWithValues: aggs.map { ($0.variableName, $0.aggregation) })
+            XCTAssert(!cmps.isEmpty)
+            let cmp = cmps.first!
+            let expr = cmp.expression
+            guard case .node(.variable(let sortVar, _)) = expr else { XCTFail(); return }
+            print(sortVar)
+            print(aggMap)
+            let aggDefn = aggMap[sortVar]
+            XCTAssertNotNil(aggDefn, "No aggregate definition for `ORDER BY ?\(sortVar)` aggregate query")
+        } catch let e {
+            XCTFail("\(e)")
+        }
+
+    }
 }

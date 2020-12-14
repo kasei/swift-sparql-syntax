@@ -655,12 +655,27 @@ public struct SPARQLParser {
             havingExpression = e
         }
         
+        var sortConditions: [Algebra.SortComparator] = []
+        if try attempt(token: .keyword("ORDER")) {
+            try expect(token: .keyword("BY"))
+            while true {
+                guard var c = try parseOrderCondition() else { break }
+                if c.expression.hasAggregation {
+                    c.expression = c.expression.removeAggregations(freshCounter, mapping: &aggregation)
+                }
+                sortConditions.append(c)
+            }
+        }
+
+        // TODO: check if there are any duplicate aggregate definitions, and rewrite the query to only use one
+        // (e.g. if the same agg expr is used in a SELECT and ORDER BY clause)
         let aggregations = aggregation.map {
             Algebra.AggregationMapping(aggregation: $0.1, variableName: $0.0)
             }.sorted { $0.variableName <= $1.variableName }
         let windows = window.map {
             Algebra.WindowFunctionMapping(windowApplication: $0.1, variableName: $0.0)
             }.sorted { $0.variableName <= $1.variableName }
+
         if aggregations.count > 0 { // if algebra contains aggregation
             applyAggregation = true
         }
@@ -683,6 +698,7 @@ public struct SPARQLParser {
             }
         }
         
+
         algebra = projectExpressions.reduce(algebra) {
             addAggregationAndWindowExtension(to: $0, expression: $1.0, variableName: $1.1)
         }
@@ -695,18 +711,10 @@ public struct SPARQLParser {
             algebra = .innerJoin(algebra, values)
         }
         
-        var sortConditions: [Algebra.SortComparator] = []
-        if try attempt(token: .keyword("ORDER")) {
-            try expect(token: .keyword("BY"))
-            while true {
-                guard let c = try parseOrderCondition() else { break }
-                sortConditions.append(c)
-            }
-            if sortConditions.count > 0 {
-                algebra = .order(algebra, sortConditions)
-            }
+        if sortConditions.count > 0 {
+            algebra = .order(algebra, sortConditions)
         }
-        
+
         if case .variables(let projection) = projection {
             algebra = .project(algebra, Set(projection))
         }
