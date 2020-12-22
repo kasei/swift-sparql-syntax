@@ -907,6 +907,8 @@ extension Algebra {
             return self
         case .reduced:
             return self
+        case .matchStatement:
+            return self
         }
     }
     
@@ -1074,17 +1076,21 @@ extension Algebra {
         case .window(let lhs, _):
             // window serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             return try lhs.sparqlTokens(depth: depth)
+        case .matchStatement:
+            // we suppress serializing matchStatements, because they're handled by the combination of Query.sparqlTokens and Algebra.embeddedTriples
+            return AnySequence([])
         }
     }
 }
 
 extension Query {
     public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
-        
         var algebra = self.algebra
         var projectedExpressions = [String:[SPARQLToken]]()
         var groupTokens = [SPARQLToken]()
         let aggMods = algebra.aggregationModifiers()
+        let embeddedTriples = algebra.embeddedTriples
+        print(">>> EMBEDDED TRIPLES: \(embeddedTriples)")
         let aggExtensions = algebra.variableExtensions
         if let a = algebra.aggregation, case let .aggregate(_, groups, aggs) = a {
             for aggMap in aggs {
@@ -1287,7 +1293,31 @@ extension Query {
         default:
             break
         }
-        return AnySequence(tokens)
+        
+        
+        /*
+         * Here we replace any occurance of the variable token for a variable that's used
+         * as a stand-in for an embedded triple pattern with the tokens for that embedded
+         * triple pattern. This should be safe because the parser generates internal
+         * variables for each top-level embedded triple pattern, and that variable is only
+         * used in two places: the site of the embedding, and the associated matchStatement
+         * algebra (which were collected in embeddedTriples abvoe, and from which we will
+         * access the embedded triple pattern tokens).
+         */
+        let tokensWithEmbeddedTriples = tokens.flatMap { (t) -> [SPARQLToken] in
+            switch t {
+            case ._var(let v):
+                if let e = embeddedTriples[v] {
+                    return Array(e.sparqlTokens)
+                }
+                fallthrough
+            default:
+                return [t]
+            }
+            
+        }
+        
+        return AnySequence(tokensWithEmbeddedTriples)
     }
 }
 
@@ -1366,12 +1396,35 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _), .subquery:
+             .aggregate(_, _, _), .window(_, _), .subquery, .matchStatement:
             return nil
         case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child), .reduced(let child):
             return child.sortComparators
         case .order(_, let cmps):
             return cmps
+        }
+    }
+    
+    var embeddedTriples: [String:EmbeddedPattern] {
+        switch self {
+        case .unionIdentity, .joinIdentity:
+            return [:]
+        case .table, .quad, .triple, .bgp, .service, .path:
+            return [:]
+        case .aggregate(let child, _, _), .window(let child, _):
+            return child.embeddedTriples
+        case .subquery(let q):
+            return q.algebra.embeddedTriples
+        case .innerJoin(let lhs, let rhs), .leftOuterJoin(let lhs, let rhs, _), .union(let lhs, let rhs), .minus(let lhs, let rhs):
+            let l = lhs.embeddedTriples
+            let r = rhs.embeddedTriples
+            var map = l
+            map.merge(r) { $1 }
+            return map
+        case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child), .reduced(let child), .order(let child, _):
+            return child.embeddedTriples
+        case .matchStatement(let p, let v):
+            return [v:p]
         }
     }
     
@@ -1383,7 +1436,7 @@ public extension Algebra {
             return false
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _), .namedGraph(_, _),
-             .aggregate(_, _, _), .window(_, _), .subquery, .project(_, _):
+             .aggregate(_, _, _), .window(_, _), .subquery, .project(_, _), .matchStatement:
             return false
         case .extend(let child, _, _), .order(let child, _), .slice(let child, _, _), .reduced(let child):
             return child.distinct
@@ -1396,7 +1449,7 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .distinct, .reduced, .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _), .subquery:
+             .aggregate(_, _, _), .window(_, _), .subquery, .matchStatement:
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
             return child.limit
@@ -1411,12 +1464,29 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .distinct, .reduced, .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _), .subquery:
+             .aggregate(_, _, _), .window(_, _), .subquery, .matchStatement:
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
             return child.offset
         case .slice(_, let o, _):
             return o
+        }
+    }
+}
+
+extension Algebra.EmbeddedPattern {
+    public var sparqlTokens: AnySequence<SPARQLToken> {
+        switch self {
+        case .node(let n):
+            return n.sparqlTokens
+        case let .embeddedTriple(s, p, o):
+            var tokens = [SPARQLToken]()
+            tokens.append(.dlt)
+            tokens.append(contentsOf: s.sparqlTokens)
+            tokens.append(contentsOf: p.sparqlTokens)
+            tokens.append(contentsOf: o.sparqlTokens)
+            tokens.append(.dgt)
+            return AnySequence(tokens)
         }
     }
 }

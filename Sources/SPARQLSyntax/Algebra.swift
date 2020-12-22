@@ -7,6 +7,11 @@ public enum RewriteStatus<A> {
 }
 
 public indirect enum Algebra : Hashable {
+    public indirect enum EmbeddedPattern: Hashable {
+        case node(Node)
+        case embeddedTriple(EmbeddedPattern, Node, EmbeddedPattern)
+    }
+    
     public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
         public var ascending: Bool
         public var expression: Expression
@@ -101,6 +106,7 @@ public indirect enum Algebra : Hashable {
     case aggregate(Algebra, [Expression], Set<AggregationMapping>)
     case window(Algebra, [WindowFunctionMapping])
     case subquery(Query)
+    case matchStatement(EmbeddedPattern, String) // bind a Term.embeddedTriple to the named variable
 }
 
 extension Algebra : Codable {
@@ -129,6 +135,7 @@ extension Algebra : Codable {
         case windowFunctions
         case comparators
         case query
+        case embeddedTriple
         case url
     }
     
@@ -224,6 +231,10 @@ extension Algebra : Codable {
         case "query":
             let q = try container.decode(Query.self, forKey: .query)
             self = .subquery(q)
+        case "matchStatement":
+            let s = try container.decode(EmbeddedPattern.self, forKey: .embeddedTriple)
+            let name = try container.decode(String.self, forKey: .name)
+            self = .matchStatement(s, name)
         default:
             throw SPARQLSyntaxError.serializationError("Unexpected algebra type '\(type)' found")
         }
@@ -320,8 +331,77 @@ extension Algebra : Codable {
         case .subquery(let q):
             try container.encode("query", forKey: .type)
             try container.encode(q, forKey: .query)
+        case let .matchStatement(s, v):
+            try container.encode("matchStatement", forKey: .type)
+            try container.encode(s, forKey: .embeddedTriple)
+            try container.encode(v, forKey: .name)
         }
     }
+}
+
+extension Algebra.EmbeddedPattern: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case node
+        case subject
+        case predicate
+        case object
+        case type
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "node":
+            let n = try container.decode(Node.self, forKey: .node)
+            self = .node(n)
+        case "embed":
+            let s = try container.decode(Algebra.EmbeddedPattern.self, forKey: .subject)
+            let p = try container.decode(Node.self, forKey: .predicate)
+            let o = try container.decode(Algebra.EmbeddedPattern.self, forKey: .object)
+            self = .embeddedTriple(s, p, o)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected EmbeddedPattern type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .node(n):
+            try container.encode("node", forKey: .type)
+            try container.encode(n, forKey: .node)
+        case let .embeddedTriple(s, p, o):
+            try container.encode("embed", forKey: .type)
+            try container.encode(s, forKey: .subject)
+            try container.encode(p, forKey: .predicate)
+            try container.encode(o, forKey: .object)
+        }
+    }
+}
+
+public extension Algebra.EmbeddedPattern {
+    func replace(_ map: (Node) throws -> Node?) throws -> Algebra.EmbeddedPattern {
+        switch self {
+        case .node(let node):
+            if let n = try map(node) {
+                return .node(n)
+            } else {
+                return self
+            }
+        case let .embeddedTriple(s, p, o):
+            let subject = try s.replace(map)
+            let predicate: Node
+            if let n = try map(p) {
+                predicate = n
+            } else {
+                predicate = p
+            }
+            let object = try o.replace(map)
+            return .embeddedTriple(subject, predicate, object)
+        }
+    }
+    
 }
 
 public extension Algebra {
@@ -434,10 +514,29 @@ public extension Algebra {
             var d = "\(indent)Sub-select\n"
             d += a.serialize(depth: depth+1)
             return d
+        case let .matchStatement(s, v):
+            var d = "\(indent)Embedded ?\(v)\n"
+            d += s.serialize(depth: depth+1)
+            return d
         }
     }
 }
 
+public extension Algebra.EmbeddedPattern {
+    func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        switch self {
+        case .node(let n):
+            return "\(indent)" + n.description + "\n"
+        case let .embeddedTriple(s, p, o):
+            var d = "\(indent)Embedded Triple:\n"
+            d += s.serialize(depth: depth+1)
+            d += "\(indent)  " + p.description + "\n"
+            d += o.serialize(depth: depth+1)
+            return d
+        }
+    }
+}
 public extension Algebra {
     private func inscopeUnion(children: [Algebra]) -> Set<String> {
         if children.count == 0 {
@@ -535,6 +634,23 @@ public extension Algebra {
                 }
             }
             return variables
+        case let .matchStatement(s, _):
+            switch s {
+            case .node(let node):
+                if case .variable(let v, _) = node {
+                    variables.insert(v)
+                }
+            case let .embeddedTriple(s, p, o):
+                if case .variable(let v, _) = p {
+                    variables.insert(v)
+                }
+                for e in [s, o] {
+                    let a = Algebra.matchStatement(e, "dummy")
+                    let vars = a.inscope
+                    variables.formUnion(vars)
+                }
+            }
+            return variables
         }
     }
     
@@ -548,7 +664,7 @@ public extension Algebra {
             return lhs.necessarilyBound.union(rhs.necessarilyBound)
         case .union(let lhs, let rhs):
             return lhs.necessarilyBound.intersection(rhs.necessarilyBound)
-        case .triple(_), .quad(_), .bgp(_), .path(_, _, _):
+        case .triple(_), .quad(_), .bgp(_), .path(_, _, _), .matchStatement:
             return self.inscope
         case .extend(let child, _, let v):
             return child.necessarilyBound.union([v])
@@ -593,7 +709,7 @@ public extension Algebra {
     
     internal var variableExtensions: [String:Expression] {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .minus(_, _), .union(_, _), .aggregate, .leftOuterJoin, .service, .filter(_, _), .namedGraph(_, _):
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .minus(_, _), .union(_, _), .aggregate, .leftOuterJoin, .service, .filter(_, _), .namedGraph(_, _), .matchStatement:
             return [:]
             
         case .project(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .order(let child, _):
@@ -613,7 +729,7 @@ public extension Algebra {
     
     var aggregation: Algebra? {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery:
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .matchStatement:
             return nil
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
@@ -639,7 +755,7 @@ public extension Algebra {
 
     var window: Algebra? {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .aggregate, .table, .subquery:
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .aggregate, .table, .subquery, .matchStatement:
             return nil
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
@@ -717,6 +833,20 @@ public extension Algebra {
         
         return try a.replace({ (a) -> Algebra? in
             switch a {
+            case let .matchStatement(s, v):
+                let r = try s.replace({ (n) -> Node? in
+                    switch n {
+                    case .variable(let name, _):
+                        if let t = map[name] {
+                            return t
+                        } else {
+                            return n
+                        }
+                    default:
+                        return n
+                    }
+                })
+                return .matchStatement(r, v)
             case .triple(let tp):
                 let r = try tp.replace({ (n) -> Node? in
                     switch n {
@@ -874,7 +1004,7 @@ public extension Algebra {
         switch self {
         case .subquery(let q):
             return try .subquery(q.replace(map))
-        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table:
+        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .matchStatement:
             return self
         case .distinct(let a):
             return try .distinct(a.replace(map))
@@ -950,7 +1080,7 @@ public extension Algebra {
     func walk(_ handler: (Algebra) throws -> ()) throws {
         try handler(self)
         switch self {
-        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .subquery:
+        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .subquery, .matchStatement:
             return
         case .distinct(let a):
             try a.walk(handler)
@@ -1006,7 +1136,7 @@ public extension Algebra {
             case .subquery(let q):
                 let qq = try q.rewrite(map)
                 return (.subquery(qq), false)
-            case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table:
+            case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .matchStatement:
                 let rewritten : Algebra = a
                 return (rewritten, true)
             case .distinct(let a):

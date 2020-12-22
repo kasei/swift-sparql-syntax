@@ -76,9 +76,9 @@ public enum SPARQLParserError: Error {
 }
 
 // swiftlint:disable:next type_body_length
-public struct SPARQLParser {
+public class SPARQLParser {
     public var parseBlankNodesAsVariables: Bool
-    public var parseSPARQLStarAsRDFReification: Bool // EXTENSION-002
+    public var parseSPARQLStarAsRDFReification: Bool = true // EXTENSION-002
     var lexer: SPARQLLexer
     var prefixes: [String:String]
     var bnodes: [String:Term]
@@ -87,13 +87,13 @@ public struct SPARQLParser {
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     var seenBlankNodeLabels: Set<String>
     
-    private mutating func parseError(_ message: String) -> SPARQLSyntaxError {
+    private func parseError(_ message: String) -> SPARQLSyntaxError {
         let rest = lexer.buffer
         return SPARQLSyntaxError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
     }
     
     public static func parse(query: String) throws -> Query {
-        guard var p = SPARQLParser(string: query) else { throw SPARQLParserError.initializationError }
+        guard let p = SPARQLParser(string: query) else { throw SPARQLParserError.initializationError }
         let q = try p.parseQuery()
         return q
     }
@@ -105,10 +105,9 @@ public struct SPARQLParser {
         self.bnodes = [:]
         self.seenBlankNodeLabels = Set()
         self.parseBlankNodesAsVariables = true
-        self.parseSPARQLStarAsRDFReification = true
     }
     
-    public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
+    public convenience init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
         guard let data = string.data(using: .utf8) else { return nil }
         let stream = InputStream(data: data)
         stream.open()
@@ -118,7 +117,7 @@ public struct SPARQLParser {
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
-    public init?(data: Data, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
+    public convenience init?(data: Data, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
         let stream = InputStream(data: data)
         stream.open()
         guard let lexer = try? SPARQLLexer(source: stream, includeComments: includeComments) else {
@@ -127,7 +126,7 @@ public struct SPARQLParser {
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
-    private mutating func bnode(named name: String? = nil) -> Term {
+    private func bnode(named name: String? = nil) -> Term {
         if let name = name, let term = self.bnodes[name] {
             return term
         } else {
@@ -140,21 +139,21 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func peekToken() -> SPARQLToken? {
+    private func peekToken() -> SPARQLToken? {
         if tokenLookahead == nil {
             tokenLookahead = self.lexer.next()
         }
         return tokenLookahead
     }
     
-    private mutating func peekExpectedToken() throws -> SPARQLToken {
+    private func peekExpectedToken() throws -> SPARQLToken {
         guard let t = peekToken() else {
             throw parseError("Unexpected EOF")
         }
         return t
     }
     
-    private mutating func nextExpectedToken() throws -> SPARQLToken {
+    private func nextExpectedToken() throws -> SPARQLToken {
         guard let t = nextToken() else {
             throw parseError("Unexpected EOF")
         }
@@ -162,7 +161,7 @@ public struct SPARQLParser {
     }
     
     @discardableResult
-    private mutating func nextToken() -> SPARQLToken? {
+    private func nextToken() -> SPARQLToken? {
         if let t = tokenLookahead {
             tokenLookahead = nil
             return t
@@ -171,7 +170,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func peek(token: SPARQLToken) throws -> Bool {
+    private func peek(token: SPARQLToken) throws -> Bool {
         guard let t = peekToken() else { return false }
         if t == token {
             return true
@@ -180,7 +179,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func peek<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
+    private func peek<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
         guard let t = peekToken() else { return nil }
         for u in tokens {
             if t == u {
@@ -191,7 +190,7 @@ public struct SPARQLParser {
     }
     
     @discardableResult
-    private mutating func attempt(token: SPARQLToken) throws -> Bool {
+    private func attempt(token: SPARQLToken) throws -> Bool {
         if try peek(token: token) {
             nextToken()
             return true
@@ -200,7 +199,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func attempt<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
+    private func attempt<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
         if let t = try peek(any: tokens) {
             nextToken()
             return t
@@ -209,7 +208,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func expect(token expected: SPARQLToken) throws {
+    private func expect(token expected: SPARQLToken) throws {
         guard let got = nextToken() else {
             throw parseError("Expected \(expected) but got EOF")
         }
@@ -219,7 +218,7 @@ public struct SPARQLParser {
         return
     }
     
-    public mutating func parseQuery() throws -> Query {
+    public func parseQuery() throws -> Query {
         try parsePrologue()
         
         let t = try peekExpectedToken()
@@ -246,12 +245,12 @@ public struct SPARQLParser {
         return query
     }
     
-    public mutating func parseAlgebra() throws -> Algebra {
+    public func parseAlgebra() throws -> Algebra {
         let query : Query = try self.parseQuery()
         return query.algebra
     }
     
-    private mutating func parsePrologue() throws {
+    private func parsePrologue() throws {
         while true {
             if try attempt(token: .keyword("PREFIX")) {
                 let pn = try nextExpectedToken()
@@ -275,7 +274,7 @@ public struct SPARQLParser {
         case distinct
     }
     
-    private mutating func parseSelectQuery() throws -> Query {
+    private func parseSelectQuery() throws -> Query {
         try expect(token: .keyword("SELECT"))
         var distinct : QueryCardinality = .full
         var aggregationExpressions = [String:Aggregation]()
@@ -342,7 +341,7 @@ public struct SPARQLParser {
         return query
     }
     
-    private mutating func parseConstructQuery() throws -> Query {
+    private func parseConstructQuery() throws -> Query {
         try expect(token: .keyword("CONSTRUCT"))
         var pattern = [TriplePattern]()
         var hasTemplate = false
@@ -377,7 +376,7 @@ public struct SPARQLParser {
         return try Query(form: .construct(pattern), algebra: algebra, dataset: dataset)
     }
     
-    private mutating func parseDescribeQuery() throws -> Query {
+    private func parseDescribeQuery() throws -> Query {
         try expect(token: .keyword("DESCRIBE"))
         var star = false
         var describe = [Node]()
@@ -423,7 +422,7 @@ public struct SPARQLParser {
         return try Query(form: .describe(describe), algebra: algebra, dataset: dataset)
     }
     
-    private mutating func parseConstructTemplate() throws -> [TriplePattern] {
+    private func parseConstructTemplate() throws -> [TriplePattern] {
         try expect(token: .lbrace)
         if try attempt(token: .rbrace) {
             return []
@@ -434,7 +433,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseTriplesBlock() throws -> [TriplePattern] {
+    private func parseTriplesBlock() throws -> [TriplePattern] {
         let sameSubj = try parseTriplesSameSubject()
         var t = try peekExpectedToken()
         if t == .none || t != .dot {
@@ -451,7 +450,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseAskQuery() throws -> Query {
+    private func parseAskQuery() throws -> Query {
         try expect(token: .keyword("ASK"))
         let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
@@ -459,7 +458,7 @@ public struct SPARQLParser {
         return try Query(form: .ask, algebra: ggp, dataset: dataset)
     }
     
-    private mutating func parseDatasetClauses() throws -> Dataset? {
+    private func parseDatasetClauses() throws -> Dataset? {
         var named = [Term]()
         var unnamed = [Term]()
         while try attempt(token: .keyword("FROM")) {
@@ -475,7 +474,7 @@ public struct SPARQLParser {
         return Dataset(defaultGraphs: unnamed, namedGraphs: named)
     }
     
-    private mutating func parseGroupGraphPattern() throws -> Algebra {
+    private func parseGroupGraphPattern() throws -> Algebra {
         try expect(token: .lbrace)
         var algebra: Algebra
         
@@ -489,7 +488,7 @@ public struct SPARQLParser {
         return algebra
     }
     
-    private mutating func parseSubSelect() throws -> Algebra {
+    private func parseSubSelect() throws -> Algebra {
         try expect(token: .keyword("SELECT"))
         
         var distinct : QueryCardinality = .full
@@ -564,7 +563,7 @@ public struct SPARQLParser {
         return try .subquery(Query(form: .select(projection), algebra: algebra, dataset: nil))
     }
     
-    private mutating func parseGroupCondition(_ algebra: inout Algebra) throws -> Expression? {
+    private func parseGroupCondition(_ algebra: inout Algebra) throws -> Expression? {
         var node: Node
         if try attempt(token: .lparen) {
             let expr = try parseExpression()
@@ -595,7 +594,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseOrderCondition() throws -> Algebra.SortComparator? {
+    private func parseOrderCondition() throws -> Algebra.SortComparator? {
         var ascending = true
         var forceBrackettedExpression = false
         if try attempt(token: .keyword("ASC")) {
@@ -619,7 +618,7 @@ public struct SPARQLParser {
         return Algebra.SortComparator(ascending: ascending, expression: expr)
     }
     
-    private mutating func parseConstraint() throws -> Expression {
+    private func parseConstraint() throws -> Expression {
         if try peek(token: .lparen) {
             return try parseBrackettedExpression()
         } else {
@@ -634,13 +633,13 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseFunctionCall() throws -> Expression {
+    private func parseFunctionCall() throws -> Expression {
         let expr = try parseIRIOrFunction()
         return expr
     }
     
     // swiftlint:disable:next function_parameter_count
-    private mutating func parseSolutionModifier(algebra: Algebra, cardinality: QueryCardinality, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], window: [String:WindowApplication], valuesBlock: Algebra?) throws -> Algebra {
+    private func parseSolutionModifier(algebra: Algebra, cardinality: QueryCardinality, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], window: [String:WindowApplication], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
         
         var groups = [Expression]()
@@ -790,17 +789,17 @@ public struct SPARQLParser {
         return .extend(algebra, expression, variableName)
     }
     
-    private mutating func parseValuesClause() throws -> Algebra? {
+    private func parseValuesClause() throws -> Algebra? {
         if try attempt(token: .keyword("VALUES")) {
             return try parseDataBlock()
         }
         return nil
     }
     
-    //    private mutating func parseQuads() throws -> [QuadPattern] { fatalError }
-    //    private mutating func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError }
+    //    private func parseQuads() throws -> [QuadPattern] { fatalError }
+    //    private func triplesByParsingTriplesTemplate() throws -> [TriplePattern] { fatalError }
     
-    private mutating func parseGroupGraphPatternSub() throws -> Algebra {
+    private func parseGroupGraphPatternSub() throws -> Algebra {
         var ok = true
         var allowTriplesBlock = true
         var patterns = [UnfinishedAlgebra]()
@@ -878,7 +877,7 @@ public struct SPARQLParser {
         return algebra
     }
     
-    private mutating func replaceBlankNodesWithVariables(_ algebra: Algebra) throws -> Algebra {
+    private func replaceBlankNodesWithVariables(_ algebra: Algebra) throws -> Algebra {
         return try algebra.replace { (a) -> Algebra? in
             switch a {
             case .bgp(let triples):
@@ -905,7 +904,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func guardBlankNodeResuse(with currentBlockSeenLabels: Set<String>) throws {
+    private func guardBlankNodeResuse(with currentBlockSeenLabels: Set<String>) throws {
 //        print("Ended adjacent BGP block with blank node labels: \(currentBlockSeenLabels)")
         let sharedLabels = currentBlockSeenLabels.intersection(seenBlankNodeLabels)
         if sharedLabels.count > 0 {
@@ -914,7 +913,7 @@ public struct SPARQLParser {
         self.seenBlankNodeLabels.formUnion(currentBlockSeenLabels)
     }
     
-    private mutating func parseBind() throws -> UnfinishedAlgebra {
+    private func parseBind() throws -> UnfinishedAlgebra {
         try expect(token: .keyword("BIND"))
         try expect(token: .lparen)
 //        let expr = try parseNonAggregatingExpression()
@@ -938,7 +937,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseInlineData() throws -> Algebra {
+    private func parseInlineData() throws -> Algebra {
         try expect(token: .keyword("VALUES"))
         return try parseDataBlock()
     }
@@ -946,7 +945,7 @@ public struct SPARQLParser {
     //[62]      DataBlock      ::=      InlineDataOneVar | InlineDataFull
     //[63]      InlineDataOneVar      ::=      Var '{' DataBlockValue* '}'
     //[64]      InlineDataFull      ::=      ( NIL | '(' Var* ')' ) '{' ( '(' DataBlockValue* ')' | NIL )* '}'
-    private mutating func parseDataBlock() throws -> Algebra {
+    private func parseDataBlock() throws -> Algebra {
         var t = try peekExpectedToken()
         if case ._var = t {
             let node = try parseVar()
@@ -997,7 +996,7 @@ public struct SPARQLParser {
     }
     
     //[65]      DataBlockValue      ::=      iri |    RDFLiteral |    NumericLiteral |    BooleanLiteral |    'UNDEF'
-    private mutating func parseDataBlockValues() throws -> [Term?] {
+    private func parseDataBlockValues() throws -> [Term?] {
         var t = try peekExpectedToken()
         var values = [Term?]()
         let undef = SPARQLToken.keyword("UNDEF")
@@ -1017,7 +1016,7 @@ public struct SPARQLParser {
         return values
     }
     
-    private mutating func parseTriplesSameSubject() throws -> [TriplePattern] {
+    private func parseTriplesSameSubject() throws -> [TriplePattern] {
         let t = try peekExpectedToken()
         if t.isTermOrVarOrEmbTP {
             let subj = try parseVarOrTerm()
@@ -1031,13 +1030,13 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parsePropertyList(subject: Node) throws -> [TriplePattern] {
+    private func parsePropertyList(subject: Node) throws -> [TriplePattern] {
         let t = try peekExpectedToken()
         guard t.isVerb else { return [] }
         return try parsePropertyListNotEmpty(for: subject)
     }
     
-    private mutating func parsePropertyListNotEmpty(for subject: Node) throws -> [TriplePattern] {
+    private func parsePropertyListNotEmpty(for subject: Node) throws -> [TriplePattern] {
         let algebras = try parsePropertyListPathNotEmpty(for: .node(subject))
         var triples = [TriplePattern]()
         for algebra in algebras {
@@ -1053,7 +1052,7 @@ public struct SPARQLParser {
         return triples
     }
     
-    private mutating func triplesArrayByParsingTriplesSameSubjectPath() throws -> [Algebra] {
+    private func triplesArrayByParsingTriplesSameSubjectPath() throws -> [Algebra] {
         let t = try peekExpectedToken()
         if t.isTermOrVarOrEmbTP { // EXTENSION-002
             let subject = try parseVarOrTermOrEmbTP()
@@ -1070,7 +1069,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseExpressionList() throws -> [Expression] {
+    private func parseExpressionList() throws -> [Expression] {
         let t = try peekExpectedToken()
         if case ._nil = t {
             try expect(token: t)
@@ -1088,7 +1087,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parsePropertyListPath(for subject: Node) throws -> [Algebra] {
+    private func parsePropertyListPath(for subject: Node) throws -> [Algebra] {
         let t = try peekExpectedToken()
         guard t.isVerb else { return [] }
         return try parsePropertyListPathNotEmpty(for: .node(subject))
@@ -1099,64 +1098,101 @@ public struct SPARQLParser {
         case node(Node)
     }
     
-    private mutating func triplePatterns(subject: NodeOrEmbededTriplePattern, predicate: Node, object: NodeOrEmbededTriplePattern) throws -> [TriplePattern] {
-        if self.parseSPARQLStarAsRDFReification {
-            switch (subject, object) {
-            case let (.node(subject), .node(object)):
-                return [TriplePattern(subject: subject, predicate: predicate, object: object)]
-            default:
-                let (s, salgebras) = triplesFromEmbedding(subject)
-                let (o, oalgebras) = triplesFromEmbedding(object)
-                let tp = TriplePattern(subject: s, predicate: predicate, object: o)
-                let cb = { (a: Algebra) -> TriplePattern? in
-                    switch (a) {
-                    case .triple(let tp):
-                        return tp
-                    default:
-                        return nil
-                    }
+    private func triplePatterns(subject: NodeOrEmbededTriplePattern, predicate: Node, object: NodeOrEmbededTriplePattern) throws -> [TriplePattern] {
+        switch (subject, object) {
+        case let (.node(subject), .node(object)):
+            return [TriplePattern(subject: subject, predicate: predicate, object: object)]
+        default:
+            let (s, salgebras) = triplesFromEmbedding(subject)
+            let (o, oalgebras) = triplesFromEmbedding(object)
+            let tp = TriplePattern(subject: s, predicate: predicate, object: o)
+            let cb = { (a: Algebra) -> TriplePattern? in
+                switch (a) {
+                case .triple(let tp):
+                    return tp
+                default:
+                    return nil
                 }
-                let striples = salgebras.compactMap(cb)
-                let otriples = oalgebras.compactMap(cb)
-                return [tp] + striples + otriples
             }
+            let striples = salgebras.compactMap(cb)
+            let otriples = oalgebras.compactMap(cb)
+            return [tp] + striples + otriples
+        }
+    }
+
+    private func reifiedStatement(subject: Node, predicate: Node, object: Node) -> (Node, [Algebra]) {
+        if self.parseSPARQLStarAsRDFReification {
+            let s = bnode()
+            let type = Term(iri: Namespace.rdf.type)
+            let statement = Term(iri: Namespace.rdf.Statement)
+            let subj = Term(iri: Namespace.rdf.subject)
+            let pred = Term(iri: Namespace.rdf.predicate)
+            let obj = Term(iri: Namespace.rdf.object)
+            
+    //        let t_reif = TriplePattern(subject: subject, predicate: predicate, object: object)
+            let t_type = TriplePattern(subject: .bound(s), predicate: .bound(type), object: .bound(statement))
+            let t_subj = TriplePattern(subject: .bound(s), predicate: .bound(subj), object: subject)
+            let t_pred = TriplePattern(subject: .bound(s), predicate: .bound(pred), object: predicate)
+            let t_obj = TriplePattern(subject: .bound(s), predicate: .bound(obj), object: object)
+            return (.bound(s), [
+    //                    .triple(t_reif), // Including this would be the "PG" mode where the embedded triple is asserted as well as reified
+                        .triple(t_type),
+                        .triple(t_subj),
+                        .triple(t_pred),
+                        .triple(t_obj)
+            ])
         } else {
-            throw SPARQLSyntaxError.unimplemented("SPARQL* support using non-RDF reification")
+            guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
+            let vname = ".v\(id)"
+            let s = Node.init(variable: vname)
+            return (s, [.matchStatement(.embeddedTriple(.node(subject), predicate, .node(object)), vname)])
         }
     }
     
-    private mutating func reifiedStatement(subject: Node, predicate: Node, object: Node) -> (Node, [Algebra]) {
-        let s = bnode()
-        let type = Term(iri: Namespace.rdf.type)
-        let statement = Term(iri: Namespace.rdf.Statement)
-        let subj = Term(iri: Namespace.rdf.subject)
-        let pred = Term(iri: Namespace.rdf.predicate)
-        let obj = Term(iri: Namespace.rdf.object)
+    private func nestedStatement(_ pattern: EmbeddedTriplePattern) -> Algebra.EmbeddedPattern {
+        var subject: Algebra.EmbeddedPattern
+        switch pattern.subject {
+        case .node(let n):
+            subject = .node(n)
+        case .triplePattern(let tp):
+            subject = self.nestedStatement(tp)
+        }
         
-        let t_reif = TriplePattern(subject: subject, predicate: predicate, object: object)
-        let t_type = TriplePattern(subject: .bound(s), predicate: .bound(type), object: .bound(statement))
-        let t_subj = TriplePattern(subject: .bound(s), predicate: .bound(subj), object: subject)
-        let t_pred = TriplePattern(subject: .bound(s), predicate: .bound(pred), object: predicate)
-        let t_obj = TriplePattern(subject: .bound(s), predicate: .bound(obj), object: object)
-        return (.bound(s), [.triple(t_reif), .triple(t_type), .triple(t_subj), .triple(t_pred), .triple(t_obj)])
+        var object: Algebra.EmbeddedPattern
+        switch pattern.object {
+        case .node(let n):
+            object = .node(n)
+        case .triplePattern(let tp):
+            object = self.nestedStatement(tp)
+        }
+
+        return .embeddedTriple(subject, pattern.predicate, object)
     }
     
-    private mutating func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
+    private func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
         switch e {
         case .node(let n):
             return (n, [])
         case .triplePattern(let embedding):
-            let (subject, striples) = triplesFromEmbedding(embedding.subject)
-            let (object, otriples) = triplesFromEmbedding(embedding.object)
-            let (s, reification) = reifiedStatement(subject: subject, predicate: embedding.predicate, object: object)
+            if self.parseSPARQLStarAsRDFReification {
+                let (subject, striples) = triplesFromEmbedding(embedding.subject)
+                let (object, otriples) = triplesFromEmbedding(embedding.object)
+                let (s, reification) = reifiedStatement(subject: subject, predicate: embedding.predicate, object: object)
 
-            let triples = reification + striples + otriples
-            return (s, triples)
+                let triples = reification + striples + otriples
+                return (s, triples)
+            } else {
+                let pattern = self.nestedStatement(embedding)
+                guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
+                let vname = ".v\(id)"
+                let s = Node.init(variable: vname)
+                return (s, [.matchStatement(pattern, vname)])
+            }
         }
     }
     
-    private mutating func triplesOrPaths(subject: NodeOrEmbededTriplePattern, predicate: Verb, object: NodeOrEmbededTriplePattern) throws -> [Algebra] {
-        if self.parseSPARQLStarAsRDFReification {
+    private func triplesOrPaths(subject: NodeOrEmbededTriplePattern, predicate: Verb, object: NodeOrEmbededTriplePattern) throws -> [Algebra] {
+//        if self.parseSPARQLStarAsRDFReification {
             switch (subject, object) {
             case let (.node(subject), .node(object)):
                 switch predicate {
@@ -1191,12 +1227,12 @@ public struct SPARQLParser {
                     return [.triple(TriplePattern(subject: subject, predicate: pred, object: object))] + striples + otriples
                 }
             }
-        } else {
-            throw SPARQLSyntaxError.unimplemented("SPARQL* support using non-RDF reification")
-        }
+//        } else {
+//            throw SPARQLSyntaxError.unimplemented("SPARQL* support using non-RDF reification")
+//        }
     }
     
-    private mutating func parsePropertyListPathNotEmpty(for subject: NodeOrEmbededTriplePattern) throws -> [Algebra] {
+    private func parsePropertyListPathNotEmpty(for subject: NodeOrEmbededTriplePattern) throws -> [Algebra] {
         var t = try peekExpectedToken()
         var verb: Verb
         if case ._var(_) = t {
@@ -1238,15 +1274,15 @@ public struct SPARQLParser {
         return propertyObjects
     }
     
-    private mutating func parseVerbPath() throws -> PropertyPath {
+    private func parseVerbPath() throws -> PropertyPath {
         return try parsePath()
     }
     
-    private mutating func parseVerbSimple() throws -> Node {
+    private func parseVerbSimple() throws -> Node {
         return try parseVar()
     }
     
-    private mutating func parseObjectListPathAsNodes() throws -> ([NodeOrEmbededTriplePattern], [Algebra]) {
+    private func parseObjectListPathAsNodes() throws -> ([NodeOrEmbededTriplePattern], [Algebra]) {
         var (node, triples) = try parseObjectPathAsNode()
         var objects = [node]
         
@@ -1259,11 +1295,11 @@ public struct SPARQLParser {
         return (objects, triples)
     }
     
-    private mutating func parsePath() throws -> PropertyPath {
+    private func parsePath() throws -> PropertyPath {
         return try parsePathAlternative()
     }
     
-    private mutating func parsePathAlternative() throws -> PropertyPath {
+    private func parsePathAlternative() throws -> PropertyPath {
         var path = try parsePathSequence()
         while try attempt(token: .or) {
             let alt = try parsePathSequence()
@@ -1272,7 +1308,7 @@ public struct SPARQLParser {
         return path
     }
     
-    private mutating func parsePathSequence() throws -> PropertyPath {
+    private func parsePathSequence() throws -> PropertyPath {
         var path = try parsePathEltOrInverse()
         while try attempt(token: .slash) {
             let seq = try parsePathEltOrInverse()
@@ -1281,7 +1317,7 @@ public struct SPARQLParser {
         return path
     }
     
-    private mutating func parsePathElt() throws -> PropertyPath {
+    private func parsePathElt() throws -> PropertyPath {
         let elt = try parsePathPrimary()
         if try attempt(token: .question) {
             return .zeroOrOne(elt)
@@ -1294,7 +1330,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parsePathEltOrInverse() throws -> PropertyPath {
+    private func parsePathEltOrInverse() throws -> PropertyPath {
         if try attempt(token: .hat) {
             let path = try parsePathElt()
             return .inv(path)
@@ -1303,7 +1339,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parsePathPrimary() throws -> PropertyPath {
+    private func parsePathPrimary() throws -> PropertyPath {
         if try attempt(token: .lparen) {
             let path = try parsePath()
             try expect(token: .rparen)
@@ -1318,7 +1354,7 @@ public struct SPARQLParser {
             return .link(term)
         }
     }
-    private mutating func parsePathNegatedPropertySet() throws -> PropertyPath {
+    private func parsePathNegatedPropertySet() throws -> PropertyPath {
         if try attempt(token: .lparen) {
             let path = try parsePathOneInPropertySet()
             guard case .link(let iri) = path else {
@@ -1343,7 +1379,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parsePathOneInPropertySet() throws -> PropertyPath {
+    private func parsePathOneInPropertySet() throws -> PropertyPath {
         let t = try peekExpectedToken()
         if t == .hat {
             switch t {
@@ -1361,11 +1397,11 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseObjectPathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
+    private func parseObjectPathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
         return try parseGraphNodePathAsNode()
     }
     
-    private mutating func parseTriplesNodeAsNode() throws -> (Node, [TriplePattern]) {
+    private func parseTriplesNodeAsNode() throws -> (Node, [TriplePattern]) {
         if try peek(token: .lparen) {
             return try triplesByParsingCollectionAsNode()
         } else {
@@ -1373,7 +1409,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseBlankNodePropertyListAsNode() throws -> (Node, [TriplePattern]) {
+    private func parseBlankNodePropertyListAsNode() throws -> (Node, [TriplePattern]) {
         let (node, patterns) = try parseBlankNodePropertyListPathAsNode()
         var triples = [TriplePattern]()
         for p in patterns {
@@ -1389,7 +1425,7 @@ public struct SPARQLParser {
         return (node, triples)
     }
     
-    private mutating func parseTriplesNodePathAsNode() throws -> (Node, [Algebra]) {
+    private func parseTriplesNodePathAsNode() throws -> (Node, [Algebra]) {
         if try peek(token: .lparen) {
             return try triplesByParsingCollectionPathAsNode()
         } else {
@@ -1397,7 +1433,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseBlankNodePropertyListPathAsNode() throws -> (Node, [Algebra]) {
+    private func parseBlankNodePropertyListPathAsNode() throws -> (Node, [Algebra]) {
         try expect(token: .lbracket)
         let term = bnode()
         let node = Node.bound(term)
@@ -1406,7 +1442,7 @@ public struct SPARQLParser {
         return (node, path)
     }
     
-    private mutating func triplesByParsingCollectionAsNode() throws -> (Node, [TriplePattern]) {
+    private func triplesByParsingCollectionAsNode() throws -> (Node, [TriplePattern]) {
         let (node, patterns) = try triplesByParsingCollectionPathAsNode()
         var triples = [TriplePattern]()
         for p in patterns {
@@ -1422,7 +1458,7 @@ public struct SPARQLParser {
         return (node, triples)
     }
     
-    private mutating func triplesByParsingCollectionPathAsNode() throws -> (Node, [Algebra]) {
+    private func triplesByParsingCollectionPathAsNode() throws -> (Node, [Algebra]) {
         try expect(token: .lparen)
         let (node, graphNodePath) = try parseGraphNodePathAsNode()
         var triples = graphNodePath
@@ -1464,9 +1500,9 @@ public struct SPARQLParser {
         return (bnode, triples)
     }
     
-    //    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError }
+    //    private func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError }
     
-    private mutating func parseGraphNodePathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
+    private func parseGraphNodePathAsNode() throws -> (NodeOrEmbededTriplePattern, [Algebra]) {
         let t = try peekExpectedToken()
         if t.isTermOrVarOrEmbTP {
             let node = try parseVarOrTermOrEmbTP()
@@ -1488,12 +1524,12 @@ public struct SPARQLParser {
         case triplePattern(EmbeddedTriplePattern)
     }
 
-    private mutating func parseVarOrTermOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
+    private func parseVarOrTermOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
         // TODO: Not sure how this differs from parseNodeOrEmbTP ("VarOrBlankNodeOrIriOrLitOrEmbTP" in the SPARQL* literature)
         return try parseNodeOrEmbTP()
     }
     
-    private mutating func parseEmbTP() throws -> EmbeddedTriplePattern { // EXTENSION-002
+    private func parseEmbTP() throws -> EmbeddedTriplePattern { // EXTENSION-002
         try expect(token: .dlt)
         let s = try parseNodeOrEmbTP()
         let t = try peekExpectedToken()
@@ -1508,7 +1544,7 @@ public struct SPARQLParser {
         return EmbeddedTriplePattern(subject: s, predicate: p, object: o)
     }
 
-    private mutating func parseNodeOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
+    private func parseNodeOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
         let t = try peekExpectedToken()
         if case .dlt = t {
             let emb = try parseEmbTP()
@@ -1519,12 +1555,12 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseVarOrTerm() throws -> Node {
+    private func parseVarOrTerm() throws -> Node {
         let t = try nextExpectedToken()
         return try tokenAsNode(t)
     }
     
-    private mutating func parseVarOrIRI() throws -> Node {
+    private func parseVarOrIRI() throws -> Node {
         let node = try parseVarOrTerm()
         if case .variable = node {
         } else if case .bound(let term) = node, term.type == .iri {
@@ -1534,7 +1570,7 @@ public struct SPARQLParser {
         return node
     }
     
-    private mutating func parseVar() throws -> Node {
+    private func parseVar() throws -> Node {
         let t = try nextExpectedToken()
         let node = try tokenAsNode(t)
         guard case .variable = node else {
@@ -1543,7 +1579,7 @@ public struct SPARQLParser {
         return node
     }
     
-    private mutating func parseNonAggregatingExpression() throws -> Expression {
+    private func parseNonAggregatingExpression() throws -> Expression {
         let expr = try parseExpression()
         guard !expr.hasAggregation else {
             throw parseError("Unexpected aggregation in BIND expression")
@@ -1557,7 +1593,7 @@ public struct SPARQLParser {
         case triplePattern(EmbeddedTriplePattern)
     }
     
-    private mutating func parseExpressionOrEmbTP() throws -> ExpressionOrEmbTP { // EXTENSION-002
+    private func parseExpressionOrEmbTP() throws -> ExpressionOrEmbTP { // EXTENSION-002
         let t = try peekExpectedToken()
         if case .dlt = t {
             return try .triplePattern(parseEmbTP())
@@ -1570,11 +1606,11 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseExpression() throws -> Expression {
+    private func parseExpression() throws -> Expression {
         return try parseConditionalOrExpression()
     }
     
-    private mutating func parseConditionalOrExpression() throws -> Expression {
+    private func parseConditionalOrExpression() throws -> Expression {
         var expr = try parseConditionalAndExpression()
         while try attempt(token: .oror) {
             let rhs = try parseConditionalAndExpression()
@@ -1583,7 +1619,7 @@ public struct SPARQLParser {
         return expr
     }
     
-    private mutating func parseConditionalAndExpression() throws -> Expression {
+    private func parseConditionalAndExpression() throws -> Expression {
         var expr = try parseValueLogical()
         while try attempt(token: .andand) {
             let rhs = try parseValueLogical()
@@ -1592,11 +1628,11 @@ public struct SPARQLParser {
         return expr
     }
     
-    private mutating func parseValueLogical() throws -> Expression {
+    private func parseValueLogical() throws -> Expression {
         return try parseRelationalExpression()
     }
     
-    private mutating func parseRelationalExpression() throws -> Expression {
+    private func parseRelationalExpression() throws -> Expression {
         let expr = try parseNumericExpression()
         let t = try peekExpectedToken()
         switch t {
@@ -1630,11 +1666,11 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseNumericExpression() throws -> Expression {
+    private func parseNumericExpression() throws -> Expression {
         return try parseAdditiveExpression()
     }
     
-    private mutating func parseAdditiveExpression() throws -> Expression {
+    private func parseAdditiveExpression() throws -> Expression {
         var expr = try parseMultiplicativeExpression()
         var t = try peekExpectedToken()
         while t == .plus || t == .minus {
@@ -1650,7 +1686,7 @@ public struct SPARQLParser {
         return expr
     }
     
-    private mutating func parseMultiplicativeExpression() throws -> Expression {
+    private func parseMultiplicativeExpression() throws -> Expression {
         var expr = try parseUnaryExpression()
         var t = try peekExpectedToken()
         while t == .star || t == .slash {
@@ -1666,7 +1702,7 @@ public struct SPARQLParser {
         return expr
     }
     
-    private mutating func parseUnaryExpression() throws -> Expression {
+    private func parseUnaryExpression() throws -> Expression {
         if try attempt(token: .bang) {
             let expr = try parsePrimaryExpression()
             return .not(expr)
@@ -1686,7 +1722,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parsePrimaryExpression() throws -> Expression {
+    private func parsePrimaryExpression() throws -> Expression {
         if try peek(token: .lparen) {
             return try parseBrackettedExpression()
         } else {
@@ -1715,7 +1751,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseIRIOrFunction() throws -> Expression {
+    private func parseIRIOrFunction() throws -> Expression {
         let iri = try parseIRI()
         if try attempt(token: ._nil) {
             return convertCallToExpression(e: .call(iri.value, []))
@@ -1738,7 +1774,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseBrackettedExpression() throws -> Expression {
+    private func parseBrackettedExpression() throws -> Expression {
         try expect(token: .lparen)
         let expr = try parseExpression()
         try expect(token: .rparen)
@@ -1831,7 +1867,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseBuiltInCall() throws -> Expression {
+    private func parseBuiltInCall() throws -> Expression {
         let t = try peekExpectedToken()
         switch t {
         case .keyword(let kw) where SPARQLLexer.validAggregations.contains(kw):
@@ -1875,7 +1911,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func parseWindow() throws -> WindowApplication { // EXTENSION-001
+    private func parseWindow() throws -> WindowApplication { // EXTENSION-001
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
             throw parseError("Expected window function name but found \(t)")
@@ -1904,7 +1940,7 @@ public struct SPARQLParser {
         return try parseWindow(with: function)
     }
     
-    private mutating func parseWindow(with function: WindowFunction) throws -> WindowApplication { // EXTENSION-001
+    private func parseWindow(with function: WindowFunction) throws -> WindowApplication { // EXTENSION-001
         try expect(token: .keyword("OVER"))
         try expect(token: .lparen)
 
@@ -1964,7 +2000,7 @@ public struct SPARQLParser {
         )
     }
 
-    private mutating func parseFrameBound() throws -> WindowFrame.FrameBound { // EXTENSION-001
+    private func parseFrameBound() throws -> WindowFrame.FrameBound { // EXTENSION-001
         var from: WindowFrame.FrameBound
         if try attempt(token: .keyword("UNBOUNDED")) {
             from = .unbound
@@ -1983,7 +2019,7 @@ public struct SPARQLParser {
         return from
     }
     
-    private mutating func parseAggregate() throws -> Aggregation {
+    private func parseAggregate() throws -> Aggregation {
         let t = try nextExpectedToken()
         guard case .keyword(let name) = t else {
             throw parseError("Expected aggregate name but found \(t)")
@@ -2060,7 +2096,7 @@ public struct SPARQLParser {
         }
     }
 
-    private mutating func parseIRI() throws -> Term {
+    private func parseIRI() throws -> Term {
         let t = try nextExpectedToken()
         let term = try tokenAsTerm(t)
         guard case .iri = term.type else {
@@ -2069,7 +2105,7 @@ public struct SPARQLParser {
         return term
     }
     
-    private mutating func triplesByParsingTriplesBlock() throws -> [Algebra] {
+    private func triplesByParsingTriplesBlock() throws -> [Algebra] {
         var sameSubj = try triplesArrayByParsingTriplesSameSubjectPath()
         let t = peekToken()
         if t == .none || t != .some(.dot) {
@@ -2096,7 +2132,7 @@ public struct SPARQLParser {
         return .triple(triple)
     }
     
-    private mutating func treeByParsingGraphPatternNotTriples() throws -> UnfinishedAlgebra? {
+    private func treeByParsingGraphPatternNotTriples() throws -> UnfinishedAlgebra? {
         let t = try peekExpectedToken()
         if case .keyword("OPTIONAL") = t {
             try expect(token: t)
@@ -2148,7 +2184,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func literalAsTerm(_ value: String) throws -> Term {
+    private func literalAsTerm(_ value: String) throws -> Term {
         if try attempt(token: .hathat) {
             let t = try nextExpectedToken()
             let dtterm = try tokenAsTerm(t)
@@ -2166,7 +2202,7 @@ public struct SPARQLParser {
         return Term(string: value)
     }
     
-    private mutating func resolveIRI(value: String) throws -> Term {
+    private func resolveIRI(value: String) throws -> Term {
         var iri = value
         if let base = base {
 //            print("Attempting to resolve IRI string '\(value)' against \(base)")
@@ -2178,7 +2214,7 @@ public struct SPARQLParser {
         return Term(value: iri, type: .iri)
     }
 
-    private mutating func tokenAsTerm(_ token: SPARQLToken) throws -> Term {
+    private func tokenAsTerm(_ token: SPARQLToken) throws -> Term {
         switch token {
         case ._nil:
             return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri)
@@ -2222,7 +2258,7 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func tokenAsNode(_ token: SPARQLToken) throws -> Node {
+    private func tokenAsNode(_ token: SPARQLToken) throws -> Node {
         switch token {
         case ._nil:
             return .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil", type: .iri))
@@ -2271,7 +2307,7 @@ public struct SPARQLParser {
         }
     }
     
-    mutating private func parseInteger() throws -> Int {
+    private func parseInteger() throws -> Int {
         let l = try nextExpectedToken()
         let term = try tokenAsTerm(l)
         guard case .datatype(.integer) = term.type else {
@@ -2554,7 +2590,41 @@ extension Algebra {
                 break
             }
             return l.union(r)
+        case let .matchStatement(s, _):
+            var b = Set<String>()
+            switch s {
+            case .node(let node):
+                if case .bound(let term) = node {
+                    if case .blank = term.type {
+                        b.insert(term.value)
+                    }
+                }
+            case let .embeddedTriple(s, p, o):
+                if case .bound(let term) = p {
+                    if case .blank = term.type {
+                        b.insert(term.value)
+                    }
+                }
+                for e in [s, o] {
+                    let a = Algebra.matchStatement(e, "dummy")
+                    let labels = a.blankNodeLabels
+                    b.formUnion(labels)
+                }
+            }
+            return b
         }
         
+    }
+}
+
+public class SPARQLStarParser: SPARQLParser {
+    public override func parseQuery() throws -> Query {
+        self.parseSPARQLStarAsRDFReification = false
+        return try super.parseQuery()
+    }
+    
+    public override func parseAlgebra() throws -> Algebra {
+        self.parseSPARQLStarAsRDFReification = false
+        return try super.parseAlgebra()
     }
 }

@@ -31,6 +31,9 @@ extension SPARQLSerializationTests {
             ("testSequencePathParenthesizing_leftDeep", testSequencePathParenthesizing_leftDeep),
             ("testServiceExtend", testServiceExtend),
             ("testValuesSerialization", testValuesSerialization),
+            ("testSPARQLStarEmbeddedTriple", testSPARQLStarEmbeddedTriple),
+            ("testSPARQLStarEmbeddedTriple2", testSPARQLStarEmbeddedTriple2),
+            ("testSPARQLStarEmbeddedTriple_Recursive", testSPARQLStarEmbeddedTriple_Recursive),
         ]
     }
 }
@@ -222,7 +225,7 @@ class SPARQLSerializationTests: XCTestCase {
     }
     
     func testQuerySerializedTokens_1() throws {
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let tokens = Array(try q.sparqlTokens())
@@ -255,7 +258,7 @@ class SPARQLSerializationTests: XCTestCase {
     }
     
     func testQuerySerializedTokens_2() throws {
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT ?o WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT ?o WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let tokens = Array(try q.sparqlTokens())
@@ -289,7 +292,7 @@ class SPARQLSerializationTests: XCTestCase {
     }
     
     func testQuerySerializedTokens_3() throws {
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT ?o WHERE {\n_:s ex:value ?o, 7\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT ?o WHERE {\n_:s ex:value ?o, 7\n}\n") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let tokens = Array(try q.sparqlTokens())
@@ -328,7 +331,7 @@ class SPARQLSerializationTests: XCTestCase {
             FILTER(ISNUMERIC(?o))
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -356,7 +359,7 @@ class SPARQLSerializationTests: XCTestCase {
             ?s ex:value ?o
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -386,7 +389,7 @@ class SPARQLSerializationTests: XCTestCase {
             ?s ex:value ?o
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -418,7 +421,7 @@ class SPARQLSerializationTests: XCTestCase {
             BIND(?o AS ?q)
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -455,7 +458,7 @@ class SPARQLSerializationTests: XCTestCase {
             }
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -488,7 +491,7 @@ class SPARQLSerializationTests: XCTestCase {
         }
         ORDER BY ("xyz")
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -551,7 +554,7 @@ class SPARQLSerializationTests: XCTestCase {
         }
         HAVING (?sum > 10)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -584,7 +587,7 @@ class SPARQLSerializationTests: XCTestCase {
         }
         HAVING (?sum > 10)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -617,7 +620,7 @@ class SPARQLSerializationTests: XCTestCase {
         } GROUP BY ?s
         HAVING (avg(?o) > 10)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -650,7 +653,7 @@ class SPARQLSerializationTests: XCTestCase {
             ?s ex:value ?o
         } GROUP BY isLiteral(?o)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -684,7 +687,7 @@ class SPARQLSerializationTests: XCTestCase {
             FILTER SAMETERM(?o, <http://example.org/foo>)
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -715,7 +718,7 @@ class SPARQLSerializationTests: XCTestCase {
             ?s ex:value ?o
         } ORDER BY DATATYPE(?o)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -900,7 +903,7 @@ class SPARQLSerializationTests: XCTestCase {
             }
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -941,7 +944,7 @@ class SPARQLSerializationTests: XCTestCase {
             ?s ?p ?o
         } GROUP BY("xyz")
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -973,7 +976,7 @@ class SPARQLSerializationTests: XCTestCase {
         }
         GROUP BY MD5(?g)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let s = SPARQLSerializer()
         do {
             let q = try p.parseQuery()
@@ -988,6 +991,94 @@ class SPARQLSerializationTests: XCTestCase {
                 }
             }
             GROUP BY MD5(?g)
+
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testSPARQLStarEmbeddedTriple() throws {
+        let sparql = """
+        SELECT * WHERE {
+            << ?s ?p ?o >> ?q ?z
+        }
+        """
+        guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT * WHERE {
+                << ?s ?p ?o >> ?q ?z .
+            }
+
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testSPARQLStarEmbeddedTriple_Recursive() throws {
+        let sparql = """
+        PREFIX : <http://example.org/>
+        SELECT * WHERE {
+            << ?s <p> << :x :y ?o >>>> <q> ?z
+        }
+        """
+        guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT * WHERE {
+                << ?s <p> << <http://example.org/x> <http://example.org/y> ?o >> >> <q> ?z .
+            }
+
+            """
+            //            print("got: \(query)")
+            //            print("expected: \(expected)")
+            XCTAssertEqual(query, expected)
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+
+    func testSPARQLStarEmbeddedTriple2() throws {
+        let sparql = """
+        SELECT * WHERE {
+            << ?s ?p ?o >> ?q << ?x ?y ?z >>
+        }
+        """
+        guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
+        let s = SPARQLSerializer()
+        do {
+            let q = try p.parseQuery()
+            //            print("===============")
+            //            print("\(q.serialize())")
+            //            print("===============")
+            let tokens = try q.sparqlTokens()
+            let query = s.serializePretty(tokens)
+            let expected = """
+            SELECT * WHERE {
+                << ?s ?p ?o >> ?q << ?x ?y ?z >> .
+            }
 
             """
             //            print("got: \(query)")

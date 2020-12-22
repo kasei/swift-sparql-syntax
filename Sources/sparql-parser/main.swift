@@ -132,7 +132,7 @@ if let op = args.next() {
         guard let qfile = args.next() else { fatalError("No query file given") }
         do {
             let (sparql, base) = try data(fromFileOrString: qfile)
-            guard var p = SPARQLParser(data: sparql, base: base) else { fatalError("Failed to construct SPARQL parser") }
+            guard let p = SPARQLParser(data: sparql, base: base) else { fatalError("Failed to construct SPARQL parser") }
             let query = try p.parseQuery()
             count = 1
             if printAlgebra {

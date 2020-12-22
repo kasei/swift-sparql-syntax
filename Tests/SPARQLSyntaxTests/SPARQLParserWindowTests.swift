@@ -29,7 +29,7 @@ class SPARQLParserWindowTests: XCTestCase {
     }
     
     func testSerialization() {
-        guard var p = SPARQLParser(string: "SELECT (RANK() OVER (PARTITION BY ?s ?o ORDER BY ?o RANGE BETWEEN 3 following AND current row) AS ?rank) WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT (RANK() OVER (PARTITION BY ?s ?o ORDER BY ?o RANGE BETWEEN 3 following AND current row) AS ?rank) WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let s = SPARQLSerializer()
@@ -55,7 +55,7 @@ class SPARQLParserWindowTests: XCTestCase {
             }
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let a = try p.parseAlgebra()
         XCTAssertEqual(a.inscope, ["movingAverage"])
         guard case let .project(
@@ -78,7 +78,7 @@ class SPARQLParserWindowTests: XCTestCase {
         }
         HAVING (RANK() OVER (PARTITION BY ?s) < 2)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         let a = try p.parseAlgebra()
         XCTAssertEqual(a.inscope, ["name", "o"])
         guard case let .project(
@@ -95,7 +95,7 @@ class SPARQLParserWindowTests: XCTestCase {
     }
 
     func testRank() {
-        guard var p = SPARQLParser(string: "SELECT ?s ?p ?o (RANK() OVER (PARTITION BY ?s ?p ORDER BY ?o) AS ?rank) WHERE { ?s ?p ?o } ORDER BY ?rank") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?s ?p ?o (RANK() OVER (PARTITION BY ?s ?p ORDER BY ?o) AS ?rank) WHERE { ?s ?p ?o } ORDER BY ?rank") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             let expectedMapping = Algebra.WindowFunctionMapping(

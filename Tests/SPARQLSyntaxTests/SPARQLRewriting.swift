@@ -28,7 +28,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
     }
     
     func testTermReplacement() {
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             let replaced = try a.replace(["o": Term(integer: 8)])
@@ -59,7 +59,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
     }
     
     func testNodeReplacement() {
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             let replaced = try a.replace(["o": .variable("xyz", binding: true)])
@@ -93,7 +93,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
         // the use of rewrite() here first replaces the variable name in .extend(_, _, name) with "XXX",
         // and then rewrites the extend's child algebra (a .triple) with a .bgp containing a triple
         // with a different object value
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value 7 . BIND(1 AS ?s)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value 7 . BIND(1 AS ?s)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             let replaced = try a.rewrite({ (a) -> RewriteStatus<Algebra> in
@@ -126,7 +126,7 @@ class SPARQLNodeReplacementTests: XCTestCase {
     func testUpwardsRewrite() {
         // rewrite .triple(_) to .unionIdentity, and then see that it gets propogated upwards
         // to collapse the entire algebra into a single .unionIdentity
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT DISTINCT * WHERE {\n_:s ex:value 7 . BIND(1 AS ?s)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT DISTINCT * WHERE {\n_:s ex:value 7 . BIND(1 AS ?s)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             print(a.serialize())

@@ -67,7 +67,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testParser() {
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s ex:value ?o . FILTER(?o != 7.0)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .filter(let pattern, .ne(.node(.variable("o", binding: true)), .node(.bound(Term(value: "7.0", type: .datatype(.decimal)))))) = a else {
@@ -223,7 +223,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testProjectExpression() {
-        guard var p = SPARQLParser(string: "SELECT (?x+1 AS ?y) ?x WHERE {\n_:s <p> ?x .\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT (?x+1 AS ?y) ?x WHERE {\n_:s <p> ?x .\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .project(let algebra, let variables) = a else {
@@ -241,7 +241,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testSubSelect() {
-        guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n{ SELECT ?x ?y { ?x ?y ?z } }}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?x WHERE {\n{ SELECT ?x ?y { ?x ?y ?z } }}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .project(let algebra, let variables) = a else {
@@ -269,7 +269,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testBuiltinFunctionCallExpression() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE {\n_:s <p> ?x . FILTER ISNUMERIC(?x)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE {\n_:s <p> ?x . FILTER ISNUMERIC(?x)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .filter(_, let expr) = a else {
@@ -285,7 +285,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testFunctionCallExpression() {
-        guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s <p> ?x . FILTER ex:function(?x)\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT * WHERE {\n_:s <p> ?x . FILTER ex:function(?x)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .filter(_, let expr) = a else {
@@ -301,7 +301,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testAggregation1() {
-        guard var p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?z) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?z) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .project(let agg, let projection) = a else {
@@ -324,7 +324,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testAggregation2() {
-        guard var p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?sum) (AVG(?y) AS ?avg) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?x (SUM(?y) AS ?sum) (AVG(?y) AS ?avg) WHERE {\n?x <p> ?y\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .project(let agg, let projection) = a else {
@@ -349,7 +349,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testAggregationGroupBy() {
-        guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n_:s <p> ?x\n}\nGROUP BY ?x") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?x WHERE {\n_:s <p> ?x\n}\nGROUP BY ?x") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .project(.aggregate(_, let groups, let aggs), let projection) = a else {
@@ -367,7 +367,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testAggregationHaving() {
-        guard var p = SPARQLParser(string: "SELECT ?x WHERE {\n_:s <p> ?x\n}\nGROUP BY ?x HAVING (?x > 2)") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?x WHERE {\n_:s <p> ?x\n}\nGROUP BY ?x HAVING (?x > 2)") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .project(.filter(.aggregate(_, let groups, let aggs), .gt(.node(.variable("x", binding: true)), .node(.bound(Term(value: "2", type: .datatype(.integer)))))), let projection) = a else {
@@ -385,7 +385,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testInlineData1() {
-        guard var p = SPARQLParser(string: "SELECT ?x WHERE {\nVALUES ?x {7 2 3}\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?x WHERE {\nVALUES ?x {7 2 3}\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .project(let table, _) = a else {
@@ -412,7 +412,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testInlineData2() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE {\n\n}\nVALUES (?x ?y) { (UNDEF 7) (2 UNDEF) }\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE {\n\n}\nVALUES (?x ?y) { (UNDEF 7) (2 UNDEF) }\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .innerJoin(.joinIdentity, let table) = a else {
@@ -439,7 +439,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testFilterNotIn() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE {\n?x ?y ?z . FILTER(?z NOT IN (1,2,3))\n}\n") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE {\n?x ?y ?z . FILTER(?z NOT IN (1,2,3))\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .filter(_, let expr) = a else {
@@ -459,7 +459,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testList() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE { ( () ) }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE { ( () ) }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .bgp(let triples) = a else {
@@ -474,7 +474,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testPropertyPath_zeroOrOne() {
-        guard var p = SPARQLParser(string: "prefix : <http://example/> select * where { :a (:p/:p)? ?t }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "prefix : <http://example/> select * where { :a (:p/:p)? ?t }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .path(_, .zeroOrOne(_), _) = a else {
@@ -487,7 +487,7 @@ class SPARQLParserTests: XCTestCase {
     }
 
     func testConstruct() {
-        guard var p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let a = q.algebra
@@ -507,7 +507,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testDescribe() {
-        guard var p = SPARQLParser(string: "DESCRIBE <u>") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "DESCRIBE <u>") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let a = q.algebra
@@ -527,7 +527,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testNumericLiteral() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE { <a><b>-1 }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE { <a><b>-1 }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .triple(_) = a else {
@@ -542,7 +542,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testBind() {
-        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> SELECT * WHERE { :s :p ?o . BIND((1+?o) AS ?o1) :s :q ?o1 }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX : <http://www.example.org> SELECT * WHERE { :s :p ?o . BIND((1+?o) AS ?o1) :s :q ?o1 }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .innerJoin(.extend(_, _, _), _) = a else {
@@ -557,7 +557,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testConstructCollection1() {
-        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { ?s :p (1 2) } WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { ?s :p (1 2) } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let a = q.algebra
@@ -577,7 +577,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testConstructCollection2() {
-        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { (1 2) :p ?o } WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { (1 2) :p ?o } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let a = q.algebra
@@ -597,7 +597,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testConstructBlank() {
-        guard var p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { [ :p ?o ] } WHERE { ?s ?p ?o }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX : <http://www.example.org> CONSTRUCT { [ :p ?o ] } WHERE { ?s ?p ?o }") else { XCTFail(); return }
         do {
             let q = try p.parseQuery()
             let a = q.algebra
@@ -617,7 +617,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testI18N() {
-        guard var p = SPARQLParser(string: "PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX 食: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#> SELECT ?name ?food WHERE { [ foaf:name ?name ; 食:食べる ?food ] . }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "PREFIX foaf: <http://xmlns.com/foaf/0.1/> PREFIX 食: <http://www.w3.org/2001/sw/DataAccess/tests/data/i18n/kanji.ttl#> SELECT ?name ?food WHERE { [ foaf:name ?name ; 食:食べる ?food ] . }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case let .project(.bgp(triples), variables) = a else {
@@ -642,7 +642,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testIRIResolution() {
-        guard var p = SPARQLParser(string: "BASE <http://example.org/foo/> SELECT * WHERE { ?s <p> <../bar> }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "BASE <http://example.org/foo/> SELECT * WHERE { ?s <p> <../bar> }") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case .triple(let triple) = a else {
@@ -659,7 +659,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testAggregationProjection1() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Aggregation queries cannot use a `SELECT *`"))
@@ -670,7 +670,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testAggregationProjection2() {
-        guard var p = SPARQLParser(string: "SELECT ?s (MIN(?p) AS ?minpred) ?o WHERE { ?s ?p ?o } GROUP BY ?s") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?s (MIN(?p) AS ?minpred) ?o WHERE { ?s ?p ?o } GROUP BY ?s") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Cannot project non-grouped variable(s)"))
@@ -681,7 +681,7 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testSubSelectAggregationProjection() {
-        guard var p = SPARQLParser(string: "SELECT ?s WHERE { { SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s } }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT ?s WHERE { { SELECT * WHERE { ?s <p> 'o' } GROUP BY ?s } }") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Aggregation subqueries cannot use a `SELECT *`"))
@@ -692,12 +692,12 @@ class SPARQLParserTests: XCTestCase {
     }
     
     func testSubSelectAggregationAcceptableProjection() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE { { SELECT ?s (MAX(?o) AS ?mx) WHERE { ?s <p> ?o } GROUP BY ?s } }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE { { SELECT ?s (MAX(?o) AS ?mx) WHERE { ?s <p> ?o } GROUP BY ?s } }") else { XCTFail(); return }
         XCTAssertNoThrow(try p.parseAlgebra(), "Can project * when subquery properly projects aggregated variables")
     }
     
     func testBadReuseOfBlankNodeIdentifier1() {
-        guard var p = SPARQLParser(string: "SELECT * WHERE { { _:a ?p ?o . FILTER(ISIRI(?p)) _:a ?p 2 } OPTIONAL { _:a ?y ?z ; <q> 'qq' } }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE { { _:a ?p ?o . FILTER(ISIRI(?p)) _:a ?p 2 } OPTIONAL { _:a ?y ?z ; <q> 'qq' } }") else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Blank node label"))
@@ -717,7 +717,7 @@ class SPARQLParserTests: XCTestCase {
               GRAPH ?g { ?someone :made ?homepage }
               _:who :schoolHomepage ?schoolPage }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Blank node label"))
@@ -739,7 +739,7 @@ class SPARQLParserTests: XCTestCase {
               OPTIONAL { ?someone foaf:made ?homepage }
               _:who foaf:schoolHomepage ?schoolPage }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra()) { (e) -> Void in
             if case .some(.parsingError(let m)) = e as? SPARQLSyntaxError {
                 XCTAssertTrue(m.contains("Blank node label"))
@@ -752,7 +752,7 @@ class SPARQLParserTests: XCTestCase {
     func testAcceptableReuseOfBlankNodeIdentifier() {
         // reuse of bnode labels should be acceptable when in adjacent BGPs and property paths
         // https://www.w3.org/2013/sparql-errata#errata-query-17
-        guard var p = SPARQLParser(string: "SELECT * WHERE { _:a ?p ?o ; <q>* 1 }") else { XCTFail(); return }
+        guard let p = SPARQLParser(string: "SELECT * WHERE { _:a ?p ?o ; <q>* 1 }") else { XCTFail(); return }
         XCTAssertNoThrow(try p.parseAlgebra(), "Can use blank node labels in adjacet BGPs and property paths")
     }
     
@@ -768,7 +768,7 @@ class SPARQLParserTests: XCTestCase {
         """
         
         let base = "https://raw.githubusercontent.com/w3c/rdf-tests/gh-pages/sparql11/data-r2/i18n/kanji-01.rq"
-        guard var p = SPARQLParser(string: sparql, base: base) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql, base: base) else { XCTFail(); return }
         
         do {
             let a = try p.parseAlgebra()
@@ -801,7 +801,7 @@ class SPARQLParserTests: XCTestCase {
          WHERE { [ foaf:name ?name;
                    HR:resumé ?resume ] . }
         """
-        guard var p = SPARQLParser(string: sparql, base: base) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql, base: base) else { XCTFail(); return }
         
         do {
             let a = try p.parseAlgebra()
@@ -829,7 +829,7 @@ class SPARQLParserTests: XCTestCase {
             }
         }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
             guard case let .service(endpoint, algebra, silent) = a else {
@@ -975,7 +975,7 @@ class SPARQLParserTests: XCTestCase {
             GROUP BY ?var1
             ORDER BY ASC(?var6) ASC(?var1)
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         
         do {
             let a = try p.parseAlgebra()
@@ -997,7 +997,7 @@ class SPARQLParserTests: XCTestCase {
             WHERE {
             }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         
         do {
             let a = try p.parseAlgebra()
@@ -1039,7 +1039,7 @@ class SPARQLParserTests: XCTestCase {
               }
             }
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         
         do {
             let a = try p.parseAlgebra()
@@ -1073,7 +1073,7 @@ class SPARQLParserTests: XCTestCase {
         HAVING(COUNT(DISTINCT ?acq) > 1)
         ORDER BY DESC(COUNT(DISTINCT ?acq)) ?label
         """
-        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         
         do {
             let a = try p.parseAlgebra()
