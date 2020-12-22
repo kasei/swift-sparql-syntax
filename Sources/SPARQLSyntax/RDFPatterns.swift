@@ -33,7 +33,7 @@ extension TermPattern {
 
     public var isGround: Bool {
         for n in makeIterator() {
-            if case .variable(_) = n {
+            if case .variable = n {
                 return false
             }
         }
@@ -103,6 +103,19 @@ public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomSt
             predicate: .variable("predicate", binding: true),
             object: .variable("object", binding: true)
         )
+    }
+}
+
+extension TriplePattern {
+    public subscript(_ position: Triple.Position) -> Node {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        }
     }
 }
 
@@ -221,6 +234,21 @@ public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStri
             object: .variable("object", binding: true),
             graph: .variable("graph", binding: true)
         )
+    }
+}
+
+extension QuadPattern {
+    public subscript(_ position: Quad.Position) -> Node {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        case .graph:
+            return self.graph
+        }
     }
 }
 

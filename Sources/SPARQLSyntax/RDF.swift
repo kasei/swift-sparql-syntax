@@ -164,7 +164,7 @@ extension TermType: Hashable {
     }
 }
 
-public struct Term: CustomStringConvertible, Hashable, Codable {
+public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hashable, Codable {
     public var value: String
     public var type: TermType
     public var _doubleValue: Double?
@@ -193,6 +193,9 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
                 mantissa *= 10.0
                 exponent -= 1
             }
+        }
+        if mantissa == 0.0 {
+            exponent = 0
         }
         return (mantissa, exponent)
     }
@@ -237,14 +240,59 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
             if canonicalize {
                 self.value = self.value.uppercased()
                 let (mantissa, exponent) = canonicalFloatingPointComponents()
-                self.value = "\(mantissa)E\(exponent)"
+                if mantissa.truncatingRemainder(dividingBy: 1) == 0 {
+                    self.value = "\(Int(mantissa))E\(exponent)"
+                } else {
+                    self.value = "\(mantissa)E\(exponent)"
+                }
             }
             _doubleValue = Double(value) ?? 0.0
         default:
             break
         }
     }
-    
+
+    private static let _integerPattern: NSRegularExpression = {
+        guard let r = try? NSRegularExpression(pattern: "^[-+]?\\d+$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
+        return r
+    }()
+
+    private static let _decimalPattern: NSRegularExpression = {
+        guard let r = try? NSRegularExpression(pattern: "^[-+]?(\\d+([.]\\d*)?|[.]\\d+)$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
+        return r
+    }()
+
+    private static let _doublePattern: NSRegularExpression = {
+        guard let r = try? NSRegularExpression(pattern: "^[-+]?(\\d+([.]\\d*)?|[.]\\d+)([eE]([-+])?\\d+)?$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
+        return r
+    }()
+
+    private static let _boolSet: Set<String> = {
+        return Set(["0", "1", "true", "false"])
+    }()
+
+    public static func isValidLexicalForm(_ value: String, for type: TermDataType) -> Bool {
+        let bufferLength = NSMakeRange(0, value.count)
+        switch type {
+        case .string:
+            return true
+        case .boolean:
+            return _boolSet.contains(value)
+        case .integer:
+            let range = _integerPattern.rangeOfFirstMatch(in: value, options: [.anchored], range: bufferLength)
+            return range.location == 0
+        case .decimal:
+            let range = _decimalPattern.rangeOfFirstMatch(in: value, options: [.anchored], range: bufferLength)
+            return range.location == 0
+        case .float, .double:
+            let range = _doublePattern.rangeOfFirstMatch(in: value, options: [.anchored], range: bufferLength)
+            return range.location == 0
+        default:
+            break
+        }
+        return false
+    }
+
     public static func rdf(_ local: String) -> Term {
         return Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#\(local)", type: .iri)
     }
@@ -388,6 +436,37 @@ public struct Term: CustomStringConvertible, Hashable, Codable {
         }
     }
 
+    public var debugDescription: String {
+           switch type {
+           case .iri:
+               return "<\(value)>"
+           case .blank:
+               return "_:\(value)"
+           case .language(let lang):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"@\(lang)"
+           case .datatype(.string):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"^^xsd:string"
+           case .datatype(.float):
+               let s = "\(value)"
+               if s.lowercased().contains("e") {
+                   return s
+               } else {
+                   return "\"\(s)e0\"^^xsd:float"
+               }
+           case .datatype(.integer):
+               return "\"\(value)\"^^xsd:integer"
+           case .datatype(.decimal):
+               return "\"\(value)\"^^xsd:decimal"
+           case .datatype(.boolean):
+               return "\"\(value)\"^^xsd:boolean"
+           case .datatype(let dt):
+               let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+               return "\"\(escaped)\"^^<\(dt.value)>"
+           }
+       }
+    
     public var description: String {
         switch type {
             //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
@@ -561,6 +640,12 @@ extension Term {
 }
 
 public struct Triple: Codable, Hashable, CustomStringConvertible {
+    public enum Position: String, CaseIterable {
+        case subject
+        case predicate
+        case object
+    }
+
     public var subject: Term
     public var predicate: Term
     public var object: Term
@@ -571,6 +656,19 @@ public struct Triple: Codable, Hashable, CustomStringConvertible {
     }
     public var description: String {
         return "\(subject) \(predicate) \(object) ."
+    }
+}
+
+extension Triple {
+    public subscript(_ position: Triple.Position) -> Term {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        }
     }
 }
 
@@ -598,6 +696,13 @@ extension Triple: Sequence {
 }
 
 public struct Quad: Codable, Hashable, CustomStringConvertible {
+    public enum Position: String, CaseIterable {
+        case subject
+        case predicate
+        case object
+        case graph
+    }
+
     public var subject: Term
     public var predicate: Term
     public var object: Term
@@ -620,6 +725,21 @@ public struct Quad: Codable, Hashable, CustomStringConvertible {
 
     public var triple: Triple {
         return Triple(subject: subject, predicate: predicate, object: object)
+    }
+}
+
+extension Quad {
+    public subscript(_ position: Quad.Position) -> Term {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return self.predicate
+        case .object:
+            return self.object
+        case .graph:
+            return self.graph
+        }
     }
 }
 

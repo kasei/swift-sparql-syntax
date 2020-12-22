@@ -46,9 +46,9 @@ public enum NumericValue: CustomStringConvertible, Equatable, Hashable {
             #else
             return .decimal(Decimal(v)) // might lose precision
             #endif
-        case .float(_):
+        case .float:
             return .float(mantissa: v, exponent: 0)
-        case .double(_):
+        case .double:
             return .double(mantissa: v, exponent: 0)
         default:
             return self
@@ -59,11 +59,11 @@ public enum NumericValue: CustomStringConvertible, Equatable, Hashable {
         var v = value
         v.round(.up)
         switch self {
-        case .decimal(_):
+        case .decimal:
             return .decimal(Decimal(v))
-        case .float(_):
+        case .float:
             return .float(mantissa: v, exponent: 0)
-        case .double(_):
+        case .double:
             return .float(mantissa: v, exponent: 0)
         default:
             return self
@@ -74,11 +74,11 @@ public enum NumericValue: CustomStringConvertible, Equatable, Hashable {
         var v = value
         v.round(.down)
         switch self {
-        case .decimal(_):
+        case .decimal:
             return .decimal(Decimal(v))
-        case .float(_):
+        case .float:
             return .float(mantissa: v, exponent: 0)
-        case .double(_):
+        case .double:
             return .double(mantissa: v, exponent: 0)
         default:
             return self
@@ -89,11 +89,11 @@ public enum NumericValue: CustomStringConvertible, Equatable, Hashable {
         switch self {
         case .integer(let value):
             return Term(integer: value)
-        case .float(_):
+        case .float:
             return Term(float: value)
-        case .decimal(_):
+        case .decimal:
             return Term(decimal: value)
-        case .double(_):
+        case .double:
             return Term(double: value)
         }
     }
@@ -160,9 +160,9 @@ public extension NumericValue {
             return true
         case (.decimal(let l), .decimal(let r)) where l == r:
             return true
-        case (.float(let l), .float(let r)) where l == r:
+        case let (.float(lm, le), .float(rm, re)) where lm == rm && le == re:
             return true
-        case (.double(let l), .double(let r)) where l == r:
+        case let (.double(lm, le), .double(rm, re)) where lm == rm && le == re:
             return true
         default:
             return false
@@ -172,17 +172,17 @@ public extension NumericValue {
 
 private func nonDivResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs: NumericValue) -> NumericValue {
     switch (lhs, rhs) {
-    case (.integer(_), .integer(_)):
+    case (.integer, .integer):
         return .integer(Int(value))
-    case (.decimal(_), .decimal(_)):
+    case (.decimal, .decimal):
         return .decimal(Decimal(value))
-    case (.float(_), .float(_)):
+    case (.float, .float):
         return .float(mantissa: value, exponent: 0)
-    case (.double(_), .double(_)):
+    case (.double, .double):
         return .double(mantissa: value, exponent: 0)
-    case (.integer(_), .decimal(_)), (.decimal(_), .integer(_)):
+    case (.integer, .decimal), (.decimal, .integer):
         return .decimal(Decimal(value))
-    case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
+    case (.integer, .float), (.float, .integer), (.decimal, .float), (.float, .decimal):
         return .float(mantissa: value, exponent: 0)
     default:
         return .double(mantissa: value, exponent: 0)
@@ -191,15 +191,15 @@ private func nonDivResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs:
 
 private func divResultingNumeric(_ value: Double, _ lhs: NumericValue, _ rhs: NumericValue) -> NumericValue {
     switch (lhs, rhs) {
-    case (.integer(_), .integer(_)), (.decimal(_), .decimal(_)):
+    case (.integer, .integer), (.decimal, .decimal):
         return .decimal(Decimal(value))
-    case (.float(_), .float(_)):
+    case (.float, .float):
         return .float(mantissa: value, exponent: 0)
-    case (.double(_), .double(_)):
+    case (.double, .double):
         return .double(mantissa: value, exponent: 0)
-    case (.integer(_), .decimal(_)), (.decimal(_), .integer(_)):
+    case (.integer, .decimal), (.decimal, .integer):
         return .decimal(Decimal(value))
-    case (.integer(_), .float(_)), (.float(_), .integer(_)), (.decimal(_), .float(_)), (.float(_), .decimal(_)):
+    case (.integer, .float), (.float, .integer), (.decimal, .float), (.float, .decimal):
         return .float(mantissa: value, exponent: 0)
     default:
         return .double(mantissa: value, exponent: 0)
