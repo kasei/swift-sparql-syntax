@@ -70,7 +70,7 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case let .innerJoin(.matchStatement(_, v), .triple(tp)) = a else {
+            guard case let .innerJoin(.embeddedTriple(_, v), .triple(tp)) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -100,7 +100,7 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case let .innerJoin(.matchStatement(_, v), .path(s, .plus, o)) = a else {
+            guard case let .innerJoin(.embeddedTriple(_, v), .path(s, .plus, o)) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -131,7 +131,7 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let algebra = try p.parseAlgebra()
-            guard case let .innerJoin(.matchStatement(et, v), .triple(tp)) = algebra else {
+            guard case let .innerJoin(.embeddedTriple(et, v), .triple(tp)) = algebra else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }
@@ -158,7 +158,7 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let algebra = try p.parseAlgebra()
-            guard case let .innerJoin(.matchStatement(et, v), .triple(tp)) = algebra else {
+            guard case let .innerJoin(.embeddedTriple(et, v), .triple(tp)) = algebra else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }

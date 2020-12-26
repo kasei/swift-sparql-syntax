@@ -907,7 +907,7 @@ extension Algebra {
             return self
         case .reduced:
             return self
-        case .matchStatement:
+        case .embeddedTriple:
             return self
         }
     }
@@ -1076,8 +1076,8 @@ extension Algebra {
         case .window(let lhs, _):
             // window serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             return try lhs.sparqlTokens(depth: depth)
-        case .matchStatement:
-            // we suppress serializing matchStatements, because they're handled by the combination of Query.sparqlTokens and Algebra.embeddedTriples
+        case .embeddedTriple:
+            // we suppress serializing embeddedTriples, because they're handled by the combination of Query.sparqlTokens and Algebra.embeddedTriples
             return AnySequence([])
         }
     }
@@ -1300,7 +1300,7 @@ extension Query {
          * as a stand-in for an embedded triple pattern with the tokens for that embedded
          * triple pattern. This should be safe because the parser generates internal
          * variables for each top-level embedded triple pattern, and that variable is only
-         * used in two places: the site of the embedding, and the associated matchStatement
+         * used in two places: the site of the embedding, and the associated embeddedTriple
          * algebra (which were collected in embeddedTriples abvoe, and from which we will
          * access the embedded triple pattern tokens).
          */
@@ -1396,7 +1396,7 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _), .subquery, .matchStatement:
+             .aggregate(_, _, _), .window(_, _), .subquery, .embeddedTriple:
             return nil
         case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child), .reduced(let child):
             return child.sortComparators
@@ -1423,7 +1423,7 @@ public extension Algebra {
             return map
         case .filter(let child, _), .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .slice(let child, _, _), .distinct(let child), .reduced(let child), .order(let child, _):
             return child.embeddedTriples
-        case .matchStatement(let p, let v):
+        case .embeddedTriple(let p, let v):
             return [v:p]
         }
     }
@@ -1436,7 +1436,7 @@ public extension Algebra {
             return false
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .service(_, _, _), .path(_, _, _), .namedGraph(_, _),
-             .aggregate(_, _, _), .window(_, _), .subquery, .project(_, _), .matchStatement:
+             .aggregate(_, _, _), .window(_, _), .subquery, .project(_, _), .embeddedTriple:
             return false
         case .extend(let child, _, _), .order(let child, _), .slice(let child, _, _), .reduced(let child):
             return child.distinct
@@ -1449,7 +1449,7 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .distinct, .reduced, .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _), .subquery, .matchStatement:
+             .aggregate(_, _, _), .window(_, _), .subquery, .embeddedTriple:
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
             return child.limit
@@ -1464,7 +1464,7 @@ public extension Algebra {
             return nil
         case .table(_, _), .quad, .triple, .bgp, .innerJoin(_, _), .leftOuterJoin(_, _, _),
              .filter(_, _), .union(_, _), .minus(_, _), .distinct, .reduced, .service(_, _, _), .path(_, _, _),
-             .aggregate(_, _, _), .window(_, _), .subquery, .matchStatement:
+             .aggregate(_, _, _), .window(_, _), .subquery, .embeddedTriple:
             return nil
         case .namedGraph(let child, _), .extend(let child, _, _), .project(let child, _), .order(let child, _):
             return child.offset

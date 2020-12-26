@@ -1146,7 +1146,7 @@ public class SPARQLParser {
             let vname = ".v\(id)"
             let s = Node.init(variable: vname)
             let et = Algebra.EmbeddedTriple(subject: .node(subject), predicate: predicate, object: .node(object))
-            return (s, [.matchStatement(et, vname)])
+            return (s, [.embeddedTriple(et, vname)])
         }
     }
     
@@ -1187,7 +1187,7 @@ public class SPARQLParser {
                 guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
                 let vname = ".v\(id)"
                 let s = Node.init(variable: vname)
-                return (s, [.matchStatement(et, vname)])
+                return (s, [.embeddedTriple(et, vname)])
             }
         }
     }
@@ -2591,7 +2591,7 @@ extension Algebra {
                 break
             }
             return l.union(r)
-        case let .matchStatement(t, _):
+        case let .embeddedTriple(t, _):
             var b = Set<String>()
             if case .bound(let term) = t.predicate {
                 if case .blank = term.type {
@@ -2600,7 +2600,7 @@ extension Algebra {
             }
             for e in [t.subject, t.object] {
                 let et = Algebra.EmbeddedTriple(subject: e, predicate: .bound(Term(iri: "tag:dummy")), object: .node(.bound(Term(iri: "tag:dummy"))))
-                let a = Algebra.matchStatement(et, "dummy")
+                let a = Algebra.embeddedTriple(et, "dummy")
                 let labels = a.blankNodeLabels
                 b.formUnion(labels)
             }

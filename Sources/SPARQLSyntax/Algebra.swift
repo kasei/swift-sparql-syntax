@@ -113,7 +113,7 @@ public indirect enum Algebra : Hashable {
     case aggregate(Algebra, [Expression], Set<AggregationMapping>)
     case window(Algebra, [WindowFunctionMapping])
     case subquery(Query)
-    case matchStatement(EmbeddedTriple, String) // bind a Term.embeddedTriple to the named variable
+    case embeddedTriple(EmbeddedTriple, String) // bind a Term.embeddedTriple to the named variable
 }
 
 extension Algebra : Codable {
@@ -238,10 +238,10 @@ extension Algebra : Codable {
         case "query":
             let q = try container.decode(Query.self, forKey: .query)
             self = .subquery(q)
-        case "matchStatement":
+        case "embeddedTriple":
             let s = try container.decode(EmbeddedTriple.self, forKey: .embeddedTriple)
             let name = try container.decode(String.self, forKey: .name)
-            self = .matchStatement(s, name)
+            self = .embeddedTriple(s, name)
         default:
             throw SPARQLSyntaxError.serializationError("Unexpected algebra type '\(type)' found")
         }
@@ -338,8 +338,8 @@ extension Algebra : Codable {
         case .subquery(let q):
             try container.encode("query", forKey: .type)
             try container.encode(q, forKey: .query)
-        case let .matchStatement(s, v):
-            try container.encode("matchStatement", forKey: .type)
+        case let .embeddedTriple(s, v):
+            try container.encode("embeddedTriple", forKey: .type)
             try container.encode(s, forKey: .embeddedTriple)
             try container.encode(v, forKey: .name)
         }
@@ -530,7 +530,7 @@ public extension Algebra {
             var d = "\(indent)Sub-select\n"
             d += a.serialize(depth: depth+1)
             return d
-        case let .matchStatement(s, v):
+        case let .embeddedTriple(s, v):
             var d = "\(indent)Embedded ?\(v)\n"
             d += s.serialize(depth: depth+1)
             return d
@@ -660,7 +660,7 @@ public extension Algebra {
                 }
             }
             return variables
-        case let .matchStatement(t, _):
+        case let .embeddedTriple(t, _):
             if case .variable(let v, _) = t.predicate {
                 variables.insert(v)
             }
@@ -669,7 +669,7 @@ public extension Algebra {
                 case .node(.variable(let v, _)):
                     variables.insert(v)
                 case .embeddedTriple(let et):
-                    let a = Algebra.matchStatement(et, "dummy")
+                    let a = Algebra.embeddedTriple(et, "dummy")
                     let vars = a.inscope
                     variables.formUnion(vars)
                 default:
@@ -690,7 +690,7 @@ public extension Algebra {
             return lhs.necessarilyBound.union(rhs.necessarilyBound)
         case .union(let lhs, let rhs):
             return lhs.necessarilyBound.intersection(rhs.necessarilyBound)
-        case .triple(_), .quad(_), .bgp(_), .path(_, _, _), .matchStatement:
+        case .triple(_), .quad(_), .bgp(_), .path(_, _, _), .embeddedTriple:
             return self.inscope
         case .extend(let child, _, let v):
             return child.necessarilyBound.union([v])
@@ -735,7 +735,7 @@ public extension Algebra {
     
     internal var variableExtensions: [String:Expression] {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .minus(_, _), .union(_, _), .aggregate, .leftOuterJoin, .service, .filter(_, _), .namedGraph(_, _), .matchStatement:
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .minus(_, _), .union(_, _), .aggregate, .leftOuterJoin, .service, .filter(_, _), .namedGraph(_, _), .embeddedTriple:
             return [:]
             
         case .project(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .order(let child, _):
@@ -755,7 +755,7 @@ public extension Algebra {
     
     var aggregation: Algebra? {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .matchStatement:
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .window, .table, .subquery, .embeddedTriple:
             return nil
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
@@ -781,7 +781,7 @@ public extension Algebra {
 
     var window: Algebra? {
         switch self {
-        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .aggregate, .table, .subquery, .matchStatement:
+        case .joinIdentity, .unionIdentity, .triple, .quad, .bgp, .path, .aggregate, .table, .subquery, .embeddedTriple:
             return nil
             
         case .project(let child, _), .minus(let child, _), .distinct(let child), .reduced(let child), .slice(let child, _, _), .namedGraph(let child, _), .order(let child, _), .service(_, let child, _):
@@ -859,7 +859,7 @@ public extension Algebra {
         
         return try a.replace({ (a) -> Algebra? in
             switch a {
-            case let .matchStatement(s, v):
+            case let .embeddedTriple(s, v):
                 let r = try s.replace({ (n) -> Node? in
                     switch n {
                     case .variable(let name, _):
@@ -872,7 +872,7 @@ public extension Algebra {
                         return n
                     }
                 })
-                return .matchStatement(r, v)
+                return .embeddedTriple(r, v)
             case .triple(let tp):
                 let r = try tp.replace({ (n) -> Node? in
                     switch n {
@@ -1030,7 +1030,7 @@ public extension Algebra {
         switch self {
         case .subquery(let q):
             return try .subquery(q.replace(map))
-        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .matchStatement:
+        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .embeddedTriple:
             return self
         case .distinct(let a):
             return try .distinct(a.replace(map))
@@ -1106,7 +1106,7 @@ public extension Algebra {
     func walk(_ handler: (Algebra) throws -> ()) throws {
         try handler(self)
         switch self {
-        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .subquery, .matchStatement:
+        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .subquery, .embeddedTriple:
             return
         case .distinct(let a):
             try a.walk(handler)
@@ -1162,7 +1162,7 @@ public extension Algebra {
             case .subquery(let q):
                 let qq = try q.rewrite(map)
                 return (.subquery(qq), false)
-            case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .matchStatement:
+            case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .embeddedTriple:
                 let rewritten : Algebra = a
                 return (rewritten, true)
             case .distinct(let a):
