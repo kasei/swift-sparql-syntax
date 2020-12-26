@@ -1405,7 +1405,7 @@ public extension Algebra {
         }
     }
     
-    var embeddedTriples: [String:EmbeddedPattern] {
+    var embeddedTriples: [String:EmbeddedTriple] {
         switch self {
         case .unionIdentity, .joinIdentity:
             return [:]
@@ -1474,17 +1474,29 @@ public extension Algebra {
     }
 }
 
+extension Algebra.EmbeddedTriple {
+    public var sparqlTokens: AnySequence<SPARQLToken> {
+        var tokens = [SPARQLToken]()
+        tokens.append(.dlt)
+        tokens.append(contentsOf: subject.sparqlTokens)
+        tokens.append(contentsOf: predicate.sparqlTokens)
+        tokens.append(contentsOf: object.sparqlTokens)
+        tokens.append(.dgt)
+        return AnySequence(tokens)
+    }
+}
+
 extension Algebra.EmbeddedPattern {
     public var sparqlTokens: AnySequence<SPARQLToken> {
         switch self {
         case .node(let n):
             return n.sparqlTokens
-        case let .embeddedTriple(s, p, o):
+        case .embeddedTriple(let t):
             var tokens = [SPARQLToken]()
             tokens.append(.dlt)
-            tokens.append(contentsOf: s.sparqlTokens)
-            tokens.append(contentsOf: p.sparqlTokens)
-            tokens.append(contentsOf: o.sparqlTokens)
+            tokens.append(contentsOf: t.subject.sparqlTokens)
+            tokens.append(contentsOf: t.predicate.sparqlTokens)
+            tokens.append(contentsOf: t.object.sparqlTokens)
             tokens.append(.dgt)
             return AnySequence(tokens)
         }

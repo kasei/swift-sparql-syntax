@@ -89,6 +89,37 @@ class SPARQLStarTests: XCTestCase {
         }
     }
     
+    func testEmbeddedTripleSubjectPath() {
+        let sparql = """
+        PREFIX : <http://example.com/ns#>
+
+        SELECT * {
+            << :a :b :c >> :p1+ :o1.
+        }
+        """
+        guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
+        do {
+            let a = try p.parseAlgebra()
+            guard case let .innerJoin(.matchStatement(_, v), .path(s, .plus, o)) = a else {
+                XCTFail("Unexpected algebra: \(a.serialize())")
+                return
+            }
+            
+            /**
+             [] a rdf:Statement ;
+                rdf:subject :a ;
+                rdf:predicate :b ;
+                rdf:object :c ;
+                :p1 :o1 .
+             */
+            
+            XCTAssertEqual(s, Node.variable(v, binding: true)) // The triple pattern's subject should be the variable representing the embedded statement
+            XCTAssertEqual(o, Node.bound(Term(iri: "http://example.com/ns#o1"))) // The triple pattern's subject should be the variable representing the embedded statement
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
     func testEmbeddedTripleSubjectRecursive() {
         let sparql = """
         PREFIX : <http://example.com/ns#>
@@ -100,13 +131,39 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let algebra = try p.parseAlgebra()
-            guard case let .innerJoin(.matchStatement(embeddedPattern, v), .triple(tp)) = algebra else {
+            guard case let .innerJoin(.matchStatement(et, v), .triple(tp)) = algebra else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }
 
-            let ep : Algebra.EmbeddedPattern = embeddedPattern
-            guard case .embeddedTriple(.embeddedTriple, .bound, .node(.bound)) = ep else {
+            guard case .embeddedTriple = et.subject, case .bound = et.predicate, case .node(.bound) = et.object else {
+                XCTFail("Unexpected algebra: \(algebra.serialize())")
+                return
+            }
+            
+            XCTAssertEqual(tp.subject, Node.variable(v, binding: true)) // The triple pattern's subject should be the variable representing the embedded statement
+        } catch let e {
+            XCTFail("\(e)")
+        }
+    }
+    
+    func testEmbeddedTripleRecursive() {
+        let sparql = """
+        PREFIX : <http://example.com/ns#>
+
+        SELECT * {
+            << :b :c << :a :p 1 >> >> :p1 :o1.
+        }
+        """
+        guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
+        do {
+            let algebra = try p.parseAlgebra()
+            guard case let .innerJoin(.matchStatement(et, v), .triple(tp)) = algebra else {
+                XCTFail("Unexpected algebra: \(algebra.serialize())")
+                return
+            }
+
+            guard case .node(.bound) = et.subject, case .bound = et.predicate, case .embeddedTriple = et.object else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }

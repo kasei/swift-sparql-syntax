@@ -1145,17 +1145,18 @@ public class SPARQLParser {
             guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
             let vname = ".v\(id)"
             let s = Node.init(variable: vname)
-            return (s, [.matchStatement(.embeddedTriple(.node(subject), predicate, .node(object)), vname)])
+            let et = Algebra.EmbeddedTriple(subject: .node(subject), predicate: predicate, object: .node(object))
+            return (s, [.matchStatement(et, vname)])
         }
     }
     
-    private func nestedStatement(_ pattern: EmbeddedTriplePattern) -> Algebra.EmbeddedPattern {
+    private func nestedStatement(_ pattern: EmbeddedTriplePattern) -> Algebra.EmbeddedTriple {
         var subject: Algebra.EmbeddedPattern
         switch pattern.subject {
         case .node(let n):
             subject = .node(n)
         case .triplePattern(let tp):
-            subject = self.nestedStatement(tp)
+            subject = .embeddedTriple(self.nestedStatement(tp))
         }
         
         var object: Algebra.EmbeddedPattern
@@ -1163,10 +1164,10 @@ public class SPARQLParser {
         case .node(let n):
             object = .node(n)
         case .triplePattern(let tp):
-            object = self.nestedStatement(tp)
+            object = .embeddedTriple(self.nestedStatement(tp))
         }
 
-        return .embeddedTriple(subject, pattern.predicate, object)
+        return Algebra.EmbeddedTriple(subject: subject, predicate: pattern.predicate, object: object)
     }
     
     private func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
@@ -1182,11 +1183,11 @@ public class SPARQLParser {
                 let triples = reification + striples + otriples
                 return (s, triples)
             } else {
-                let pattern = self.nestedStatement(embedding)
+                let et = self.nestedStatement(embedding)
                 guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
                 let vname = ".v\(id)"
                 let s = Node.init(variable: vname)
-                return (s, [.matchStatement(pattern, vname)])
+                return (s, [.matchStatement(et, vname)])
             }
         }
     }
@@ -2590,26 +2591,18 @@ extension Algebra {
                 break
             }
             return l.union(r)
-        case let .matchStatement(s, _):
+        case let .matchStatement(t, _):
             var b = Set<String>()
-            switch s {
-            case .node(let node):
-                if case .bound(let term) = node {
-                    if case .blank = term.type {
-                        b.insert(term.value)
-                    }
+            if case .bound(let term) = t.predicate {
+                if case .blank = term.type {
+                    b.insert(term.value)
                 }
-            case let .embeddedTriple(s, p, o):
-                if case .bound(let term) = p {
-                    if case .blank = term.type {
-                        b.insert(term.value)
-                    }
-                }
-                for e in [s, o] {
-                    let a = Algebra.matchStatement(e, "dummy")
-                    let labels = a.blankNodeLabels
-                    b.formUnion(labels)
-                }
+            }
+            for e in [t.subject, t.object] {
+                let et = Algebra.EmbeddedTriple(subject: e, predicate: .bound(Term(iri: "tag:dummy")), object: .node(.bound(Term(iri: "tag:dummy"))))
+                let a = Algebra.matchStatement(et, "dummy")
+                let labels = a.blankNodeLabels
+                b.formUnion(labels)
             }
             return b
         }

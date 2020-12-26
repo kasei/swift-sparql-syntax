@@ -7,9 +7,16 @@ public enum RewriteStatus<A> {
 }
 
 public indirect enum Algebra : Hashable {
+    
+    public struct EmbeddedTriple: Hashable, Codable {
+        public var subject: EmbeddedPattern
+        public var predicate: Node
+        public var object: EmbeddedPattern
+    }
+    
     public indirect enum EmbeddedPattern: Hashable {
         case node(Node)
-        case embeddedTriple(EmbeddedPattern, Node, EmbeddedPattern)
+        case embeddedTriple(EmbeddedTriple)
     }
     
     public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
@@ -106,7 +113,7 @@ public indirect enum Algebra : Hashable {
     case aggregate(Algebra, [Expression], Set<AggregationMapping>)
     case window(Algebra, [WindowFunctionMapping])
     case subquery(Query)
-    case matchStatement(EmbeddedPattern, String) // bind a Term.embeddedTriple to the named variable
+    case matchStatement(EmbeddedTriple, String) // bind a Term.embeddedTriple to the named variable
 }
 
 extension Algebra : Codable {
@@ -232,7 +239,7 @@ extension Algebra : Codable {
             let q = try container.decode(Query.self, forKey: .query)
             self = .subquery(q)
         case "matchStatement":
-            let s = try container.decode(EmbeddedPattern.self, forKey: .embeddedTriple)
+            let s = try container.decode(EmbeddedTriple.self, forKey: .embeddedTriple)
             let name = try container.decode(String.self, forKey: .name)
             self = .matchStatement(s, name)
         default:
@@ -342,9 +349,7 @@ extension Algebra : Codable {
 extension Algebra.EmbeddedPattern: Codable {
     private enum CodingKeys: String, CodingKey {
         case node
-        case subject
-        case predicate
-        case object
+        case triple
         case type
     }
     
@@ -356,10 +361,8 @@ extension Algebra.EmbeddedPattern: Codable {
             let n = try container.decode(Node.self, forKey: .node)
             self = .node(n)
         case "embed":
-            let s = try container.decode(Algebra.EmbeddedPattern.self, forKey: .subject)
-            let p = try container.decode(Node.self, forKey: .predicate)
-            let o = try container.decode(Algebra.EmbeddedPattern.self, forKey: .object)
-            self = .embeddedTriple(s, p, o)
+            let t = try container.decode(Algebra.EmbeddedTriple.self, forKey: .triple)
+            self = .embeddedTriple(t)
         default:
             throw SPARQLSyntaxError.serializationError("Unexpected EmbeddedPattern type '\(type)' found")
         }
@@ -371,11 +374,9 @@ extension Algebra.EmbeddedPattern: Codable {
         case let .node(n):
             try container.encode("node", forKey: .type)
             try container.encode(n, forKey: .node)
-        case let .embeddedTriple(s, p, o):
+        case .embeddedTriple(let t):
             try container.encode("embed", forKey: .type)
-            try container.encode(s, forKey: .subject)
-            try container.encode(p, forKey: .predicate)
-            try container.encode(o, forKey: .object)
+            try container.encode(t, forKey: .triple)
         }
     }
 }
@@ -389,19 +390,34 @@ public extension Algebra.EmbeddedPattern {
             } else {
                 return self
             }
-        case let .embeddedTriple(s, p, o):
-            let subject = try s.replace(map)
+        case .embeddedTriple(let t):
+            let subject = try t.subject.replace(map)
             let predicate: Node
-            if let n = try map(p) {
+            if let n = try map(t.predicate) {
                 predicate = n
             } else {
-                predicate = p
+                predicate = t.predicate
             }
-            let object = try o.replace(map)
-            return .embeddedTriple(subject, predicate, object)
+            let object = try t.object.replace(map)
+            let et = Algebra.EmbeddedTriple(subject: subject, predicate: predicate, object: object)
+            return .embeddedTriple(et)
         }
     }
     
+}
+
+public extension Algebra.EmbeddedTriple {
+    func replace(_ map: (Node) throws -> Node?) throws -> Algebra.EmbeddedTriple {
+        let subject = try self.subject.replace(map)
+        let predicate: Node
+        if let n = try map(self.predicate) {
+            predicate = n
+        } else {
+            predicate = self.predicate
+        }
+        let object = try self.object.replace(map)
+        return Algebra.EmbeddedTriple(subject: subject, predicate: predicate, object: object)
+    }
 }
 
 public extension Algebra {
@@ -522,21 +538,31 @@ public extension Algebra {
     }
 }
 
+public extension Algebra.EmbeddedTriple {
+    func serialize(depth: Int=0) -> String {
+        let indent = String(repeating: " ", count: (depth*2))
+        var d = "\(indent)Embedded Triple:\n"
+        d += subject.serialize(depth: depth+1)
+        d += "\(indent)  " + predicate.description + "\n"
+        d += object.serialize(depth: depth+1)
+        return d
+    }
+}
+
 public extension Algebra.EmbeddedPattern {
     func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         switch self {
         case .node(let n):
             return "\(indent)" + n.description + "\n"
-        case let .embeddedTriple(s, p, o):
+        case .embeddedTriple(let t):
             var d = "\(indent)Embedded Triple:\n"
-            d += s.serialize(depth: depth+1)
-            d += "\(indent)  " + p.description + "\n"
-            d += o.serialize(depth: depth+1)
+            d += t.serialize(depth: depth+1)
             return d
         }
     }
 }
+
 public extension Algebra {
     private func inscopeUnion(children: [Algebra]) -> Set<String> {
         if children.count == 0 {
@@ -634,20 +660,20 @@ public extension Algebra {
                 }
             }
             return variables
-        case let .matchStatement(s, _):
-            switch s {
-            case .node(let node):
-                if case .variable(let v, _) = node {
+        case let .matchStatement(t, _):
+            if case .variable(let v, _) = t.predicate {
+                variables.insert(v)
+            }
+            for e in [t.subject, t.object] {
+                switch e {
+                case .node(.variable(let v, _)):
                     variables.insert(v)
-                }
-            case let .embeddedTriple(s, p, o):
-                if case .variable(let v, _) = p {
-                    variables.insert(v)
-                }
-                for e in [s, o] {
-                    let a = Algebra.matchStatement(e, "dummy")
+                case .embeddedTriple(let et):
+                    let a = Algebra.matchStatement(et, "dummy")
                     let vars = a.inscope
                     variables.formUnion(vars)
+                default:
+                    break
                 }
             }
             return variables
