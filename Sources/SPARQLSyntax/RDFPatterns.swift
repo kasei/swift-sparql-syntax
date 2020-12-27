@@ -300,6 +300,12 @@ public struct EmbeddedTriple: Hashable, Codable {
     public var subject: EmbeddedPattern
     public var predicate: Node
     public var object: EmbeddedPattern
+    
+    public init(subject: EmbeddedPattern, predicate: Node, object: EmbeddedPattern) {
+        self.subject = subject
+        self.predicate = predicate
+        self.object = object
+    }
 }
 
 public indirect enum EmbeddedPattern: Hashable {
