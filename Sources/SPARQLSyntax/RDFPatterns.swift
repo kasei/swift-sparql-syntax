@@ -295,3 +295,103 @@ extension QuadPattern {
         return true
     }
 }
+
+public struct EmbeddedTriple: Hashable, Codable {
+    public var subject: EmbeddedPattern
+    public var predicate: Node
+    public var object: EmbeddedPattern
+}
+
+public indirect enum EmbeddedPattern: Hashable {
+    case node(Node)
+    case embeddedTriple(EmbeddedTriple)
+}
+
+extension EmbeddedPattern: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case node
+        case triple
+        case type
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "node":
+            let n = try container.decode(Node.self, forKey: .node)
+            self = .node(n)
+        case "embed":
+            let t = try container.decode(EmbeddedTriple.self, forKey: .triple)
+            self = .embeddedTriple(t)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected EmbeddedPattern type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .node(n):
+            try container.encode("node", forKey: .type)
+            try container.encode(n, forKey: .node)
+        case .embeddedTriple(let t):
+            try container.encode("embed", forKey: .type)
+            try container.encode(t, forKey: .triple)
+        }
+    }
+}
+
+public extension EmbeddedPattern {
+    func replace(_ map: (Node) throws -> Node?) throws -> EmbeddedPattern {
+        switch self {
+        case .node(let node):
+            if let n = try map(node) {
+                return .node(n)
+            } else {
+                return self
+            }
+        case .embeddedTriple(let t):
+            let subject = try t.subject.replace(map)
+            let predicate: Node
+            if let n = try map(t.predicate) {
+                predicate = n
+            } else {
+                predicate = t.predicate
+            }
+            let object = try t.object.replace(map)
+            let et = EmbeddedTriple(subject: subject, predicate: predicate, object: object)
+            return .embeddedTriple(et)
+        }
+    }
+
+    func bind(_ variable: String, to replacement: Node) -> EmbeddedPattern {
+        switch self {
+        case .node(let n):
+            return .node(n.bind(variable, to: replacement))
+        case .embeddedTriple(let t):
+            return .embeddedTriple(t.bind(variable, to: replacement))
+        }
+    }
+}
+
+public extension EmbeddedTriple {
+    func replace(_ map: (Node) throws -> Node?) throws -> EmbeddedTriple {
+        let subject = try self.subject.replace(map)
+        let predicate: Node
+        if let n = try map(self.predicate) {
+            predicate = n
+        } else {
+            predicate = self.predicate
+        }
+        let object = try self.object.replace(map)
+        return EmbeddedTriple(subject: subject, predicate: predicate, object: object)
+    }
+
+    func bind(_ variable: String, to replacement: Node) -> EmbeddedTriple {
+        let s = self.subject.bind(variable, to: replacement)
+        let p = self.predicate.bind(variable, to: replacement)
+        let o = self.object.bind(variable, to: replacement)
+        return EmbeddedTriple(subject: s, predicate: p, object: o)
+    }
+}

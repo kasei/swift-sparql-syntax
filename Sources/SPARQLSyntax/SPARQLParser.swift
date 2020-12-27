@@ -11,6 +11,10 @@ private func joinReduction(coalesceBGPs: Bool = false) -> (Algebra, Algebra) -> 
             return .bgp([t] + triples)
         case let (.triple(lt), .triple(rt)) where coalesceBGPs:
             return .bgp([lt, rt])
+        case (.embeddedTriple(_, let v), .triple):
+            let a = Algebra.innerJoin(lhs, rhs)
+            let vars = a.inscope.subtracting(Set([v]))
+            return .project(a, vars)
         default:
             return .innerJoin(lhs, rhs)
         }
@@ -1145,13 +1149,13 @@ public class SPARQLParser {
             guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
             let vname = ".v\(id)"
             let s = Node.init(variable: vname)
-            let et = Algebra.EmbeddedTriple(subject: .node(subject), predicate: predicate, object: .node(object))
+            let et = EmbeddedTriple(subject: .node(subject), predicate: predicate, object: .node(object))
             return (s, [.embeddedTriple(et, vname)])
         }
     }
     
-    private func nestedStatement(_ pattern: EmbeddedTriplePattern) -> Algebra.EmbeddedTriple {
-        var subject: Algebra.EmbeddedPattern
+    private func nestedStatement(_ pattern: EmbeddedTriplePattern) -> EmbeddedTriple {
+        var subject: EmbeddedPattern
         switch pattern.subject {
         case .node(let n):
             subject = .node(n)
@@ -1159,7 +1163,7 @@ public class SPARQLParser {
             subject = .embeddedTriple(self.nestedStatement(tp))
         }
         
-        var object: Algebra.EmbeddedPattern
+        var object: EmbeddedPattern
         switch pattern.object {
         case .node(let n):
             object = .node(n)
@@ -1167,7 +1171,7 @@ public class SPARQLParser {
             object = .embeddedTriple(self.nestedStatement(tp))
         }
 
-        return Algebra.EmbeddedTriple(subject: subject, predicate: pattern.predicate, object: object)
+        return EmbeddedTriple(subject: subject, predicate: pattern.predicate, object: object)
     }
     
     private func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
@@ -2599,7 +2603,7 @@ extension Algebra {
                 }
             }
             for e in [t.subject, t.object] {
-                let et = Algebra.EmbeddedTriple(subject: e, predicate: .bound(Term(iri: "tag:dummy")), object: .node(.bound(Term(iri: "tag:dummy"))))
+                let et = EmbeddedTriple(subject: e, predicate: .bound(Term(iri: "tag:dummy")), object: .node(.bound(Term(iri: "tag:dummy"))))
                 let a = Algebra.embeddedTriple(et, "dummy")
                 let labels = a.blankNodeLabels
                 b.formUnion(labels)

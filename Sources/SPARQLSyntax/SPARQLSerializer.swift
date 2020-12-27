@@ -1077,7 +1077,7 @@ extension Algebra {
             // window serialization happens in Query.sparqlTokens, so this just serializes the child algebra
             return try lhs.sparqlTokens(depth: depth)
         case .embeddedTriple:
-            // we suppress serializing embeddedTriples, because they're handled by the combination of Query.sparqlTokens and Algebra.embeddedTriples
+            // we suppress serializing embeddedTriples, because they're handled by the combination of Query.sparqlTokens and EmbeddedTriples
             return AnySequence([])
         }
     }
@@ -1474,7 +1474,7 @@ public extension Algebra {
     }
 }
 
-extension Algebra.EmbeddedTriple {
+extension EmbeddedTriple {
     public var sparqlTokens: AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         tokens.append(.dlt)
@@ -1486,7 +1486,7 @@ extension Algebra.EmbeddedTriple {
     }
 }
 
-extension Algebra.EmbeddedPattern {
+extension EmbeddedPattern {
     public var sparqlTokens: AnySequence<SPARQLToken> {
         switch self {
         case .node(let n):

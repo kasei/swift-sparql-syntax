@@ -7,18 +7,6 @@ public enum RewriteStatus<A> {
 }
 
 public indirect enum Algebra : Hashable {
-    
-    public struct EmbeddedTriple: Hashable, Codable {
-        public var subject: EmbeddedPattern
-        public var predicate: Node
-        public var object: EmbeddedPattern
-    }
-    
-    public indirect enum EmbeddedPattern: Hashable {
-        case node(Node)
-        case embeddedTriple(EmbeddedTriple)
-    }
-    
     public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
         public var ascending: Bool
         public var expression: Expression
@@ -346,80 +334,6 @@ extension Algebra : Codable {
     }
 }
 
-extension Algebra.EmbeddedPattern: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case node
-        case triple
-        case type
-    }
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(String.self, forKey: .type)
-        switch type {
-        case "node":
-            let n = try container.decode(Node.self, forKey: .node)
-            self = .node(n)
-        case "embed":
-            let t = try container.decode(Algebra.EmbeddedTriple.self, forKey: .triple)
-            self = .embeddedTriple(t)
-        default:
-            throw SPARQLSyntaxError.serializationError("Unexpected EmbeddedPattern type '\(type)' found")
-        }
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case let .node(n):
-            try container.encode("node", forKey: .type)
-            try container.encode(n, forKey: .node)
-        case .embeddedTriple(let t):
-            try container.encode("embed", forKey: .type)
-            try container.encode(t, forKey: .triple)
-        }
-    }
-}
-
-public extension Algebra.EmbeddedPattern {
-    func replace(_ map: (Node) throws -> Node?) throws -> Algebra.EmbeddedPattern {
-        switch self {
-        case .node(let node):
-            if let n = try map(node) {
-                return .node(n)
-            } else {
-                return self
-            }
-        case .embeddedTriple(let t):
-            let subject = try t.subject.replace(map)
-            let predicate: Node
-            if let n = try map(t.predicate) {
-                predicate = n
-            } else {
-                predicate = t.predicate
-            }
-            let object = try t.object.replace(map)
-            let et = Algebra.EmbeddedTriple(subject: subject, predicate: predicate, object: object)
-            return .embeddedTriple(et)
-        }
-    }
-    
-}
-
-public extension Algebra.EmbeddedTriple {
-    func replace(_ map: (Node) throws -> Node?) throws -> Algebra.EmbeddedTriple {
-        let subject = try self.subject.replace(map)
-        let predicate: Node
-        if let n = try map(self.predicate) {
-            predicate = n
-        } else {
-            predicate = self.predicate
-        }
-        let object = try self.object.replace(map)
-        return Algebra.EmbeddedTriple(subject: subject, predicate: predicate, object: object)
-    }
-}
-
 public extension Algebra {
     // swiftlint:disable:next cyclomatic_complexity
     func serialize(depth: Int=0) -> String {
@@ -538,7 +452,7 @@ public extension Algebra {
     }
 }
 
-public extension Algebra.EmbeddedTriple {
+public extension EmbeddedTriple {
     func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         var d = "\(indent)Embedded Triple:\n"
@@ -549,7 +463,7 @@ public extension Algebra.EmbeddedTriple {
     }
 }
 
-public extension Algebra.EmbeddedPattern {
+public extension EmbeddedPattern {
     func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         switch self {

@@ -70,7 +70,7 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            guard case let .innerJoin(.embeddedTriple(_, v), .triple(tp)) = a else {
+            guard case let .project(.innerJoin(.embeddedTriple(_, v), .triple(tp)), _) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
@@ -131,7 +131,7 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let algebra = try p.parseAlgebra()
-            guard case let .innerJoin(.embeddedTriple(et, v), .triple(tp)) = algebra else {
+            guard case let .project(.innerJoin(.embeddedTriple(et, v), .triple(tp)), _) = algebra else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }
@@ -158,7 +158,7 @@ class SPARQLStarTests: XCTestCase {
         guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
         do {
             let algebra = try p.parseAlgebra()
-            guard case let .innerJoin(.embeddedTriple(et, v), .triple(tp)) = algebra else {
+            guard case let .project(.innerJoin(.embeddedTriple(et, v), .triple(tp)), _) = algebra else {
                 XCTFail("Unexpected algebra: \(algebra.serialize())")
                 return
             }
@@ -184,5 +184,23 @@ class SPARQLStarTests: XCTestCase {
         """
         guard let p = SPARQLParser(string: sparql) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra())
+    }
+    
+    func testEmbeddedTripleVariables() {
+        let sparql = """
+        PREFIX : <http://example.com/ns#>
+
+        SELECT * {
+            << :a :b ?c >> :p1 ?o.
+        }
+        """
+        guard let p = SPARQLStarParser(string: sparql) else { XCTFail(); return }
+        do {
+            let algebra = try p.parseAlgebra()
+            let vars = algebra.inscope
+            XCTAssertEqual(vars, Set(["c", "o"]))
+        } catch let e {
+            XCTFail("\(e)")
+        }
     }
 }
