@@ -574,7 +574,8 @@ public extension Algebra {
                 }
             }
             return variables
-        case let .embeddedTriple(t, _):
+        case let .embeddedTriple(t, name):
+            variables.insert(name)
             if case .variable(let v, _) = t.predicate {
                 variables.insert(v)
             }
