@@ -834,3 +834,116 @@ extension Node {
         }
     }
 }
+
+public struct EmbeddedTriple: Codable, Hashable, CustomStringConvertible {
+    public indirect enum TermOrTriple: Hashable {
+        case term(Term)
+        case triple(EmbeddedTriple)
+    }
+    
+    public enum Position: String, CaseIterable {
+        case subject
+        case predicate
+        case object
+    }
+
+    public var subject: TermOrTriple
+    public var predicate: Term
+    public var object: TermOrTriple
+    public init(subject: Term, predicate: Term, object: Term) {
+        self.subject = .term(subject)
+        self.predicate = predicate
+        self.object = .term(object)
+    }
+    public init(subject: TermOrTriple, predicate: Term, object: TermOrTriple) {
+        self.subject = subject
+        self.predicate = predicate
+        self.object = object
+    }
+    public var description: String {
+        return "\(subject) \(predicate) \(object) ."
+    }
+}
+
+extension EmbeddedTriple {
+    public subscript(_ position: EmbeddedTriple.Position) -> TermOrTriple {
+        switch position {
+        case .subject:
+            return self.subject
+        case .predicate:
+            return .term(self.predicate)
+        case .object:
+            return self.object
+        }
+    }
+}
+
+extension EmbeddedTriple {
+    public func replace(_ map: (Term) throws -> Term?) throws -> EmbeddedTriple {
+        var s: TermOrTriple = self.subject
+        var p: Term = self.predicate
+        var o: TermOrTriple = self.object
+        
+        if let term = try map(predicate) {
+            p = term
+        }
+        
+        switch self.subject {
+        case .term(let t):
+            s = .term(t)
+        case .triple(let t):
+            s = try .triple(t.replace(map))
+        }
+        
+        switch self.object {
+        case .term(let t):
+            o = .term(t)
+        case .triple(let t):
+            o = try .triple(t.replace(map))
+        }
+        
+        return EmbeddedTriple(subject: s, predicate: p, object: o)
+    }
+}
+
+//extension EmbeddedTriple: Sequence {
+//    public func makeIterator() -> IndexingIterator<[Term]> {
+//        return [subject, predicate, object].makeIterator()
+//    }
+//}
+//
+
+extension EmbeddedTriple.TermOrTriple: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case term
+        case triple
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "term":
+            let term = try container.decode(Term.self, forKey: .term)
+            self = .term(term)
+        case "triple":
+            let triple = try container.decode(EmbeddedTriple.self, forKey: .triple)
+            self = .triple(triple)
+        default:
+            throw SPARQLSyntaxError.serializationError("Unexpected triple type '\(type)' found")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .triple(let t):
+            try container.encode("triple", forKey: .type)
+            try container.encode(t, forKey: .triple)
+        case .term(let term):
+            try container.encode("term", forKey: .type)
+            try container.encode(term, forKey: .term)
+        }
+    }
+}
