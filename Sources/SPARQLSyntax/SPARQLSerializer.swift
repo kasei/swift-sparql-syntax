@@ -1405,7 +1405,7 @@ public extension Algebra {
         }
     }
     
-    var embeddedTriples: [String:EmbeddedTriple] {
+    var embeddedTriples: [String: EmbeddedTriplePattern.Pattern] {
         switch self {
         case .unionIdentity, .joinIdentity:
             return [:]
@@ -1474,7 +1474,7 @@ public extension Algebra {
     }
 }
 
-extension EmbeddedTriple {
+extension EmbeddedTriplePattern.Pattern {
     public var sparqlTokens: AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         tokens.append(.dlt)
@@ -1486,7 +1486,7 @@ extension EmbeddedTriple {
     }
 }
 
-extension EmbeddedPattern {
+extension EmbeddedTriplePattern {
     public var sparqlTokens: AnySequence<SPARQLToken> {
         switch self {
         case .node(let n):

@@ -101,7 +101,7 @@ public indirect enum Algebra : Hashable {
     case aggregate(Algebra, [Expression], Set<AggregationMapping>)
     case window(Algebra, [WindowFunctionMapping])
     case subquery(Query)
-    case embeddedTriple(EmbeddedTriple, String) // bind a Term.embeddedTriple to the named variable
+    case embeddedTriple(EmbeddedTriplePattern.Pattern, String) // bind a Term.embeddedTriple to the named variable
 }
 
 extension Algebra : Codable {
@@ -227,7 +227,7 @@ extension Algebra : Codable {
             let q = try container.decode(Query.self, forKey: .query)
             self = .subquery(q)
         case "embeddedTriple":
-            let s = try container.decode(EmbeddedTriple.self, forKey: .embeddedTriple)
+            let s = try container.decode(EmbeddedTriplePattern.Pattern.self, forKey: .embeddedTriple)
             let name = try container.decode(String.self, forKey: .name)
             self = .embeddedTriple(s, name)
         default:
@@ -452,7 +452,7 @@ public extension Algebra {
     }
 }
 
-public extension EmbeddedTriple {
+public extension EmbeddedTriplePattern.Pattern {
     func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         var d = "\(indent)Embedded Triple:\n"
@@ -463,7 +463,7 @@ public extension EmbeddedTriple {
     }
 }
 
-public extension EmbeddedPattern {
+public extension EmbeddedTriplePattern {
     func serialize(depth: Int=0) -> String {
         let indent = String(repeating: " ", count: (depth*2))
         switch self {

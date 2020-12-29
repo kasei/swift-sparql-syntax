@@ -1149,13 +1149,13 @@ public class SPARQLParser {
             guard let id = freshCounter.next() else { fatalError("No fresh variable available") }
             let vname = ".v\(id)"
             let s = Node.init(variable: vname)
-            let et = EmbeddedTriple(subject: .node(subject), predicate: predicate, object: .node(object))
+            let et = EmbeddedTriplePattern.Pattern(subject: .node(subject), predicate: predicate, object: .node(object))
             return (s, [.embeddedTriple(et, vname)])
         }
     }
     
-    private func nestedStatement(_ pattern: EmbeddedTriplePattern) -> EmbeddedTriple {
-        var subject: EmbeddedPattern
+    private func nestedStatement(_ pattern: EmbeddedTriplePatternAST) -> EmbeddedTriplePattern.Pattern {
+        var subject: EmbeddedTriplePattern
         switch pattern.subject {
         case .node(let n):
             subject = .node(n)
@@ -1163,7 +1163,7 @@ public class SPARQLParser {
             subject = .embeddedTriple(self.nestedStatement(tp))
         }
         
-        var object: EmbeddedPattern
+        var object: EmbeddedTriplePattern
         switch pattern.object {
         case .node(let n):
             object = .node(n)
@@ -1171,7 +1171,7 @@ public class SPARQLParser {
             object = .embeddedTriple(self.nestedStatement(tp))
         }
 
-        return EmbeddedTriple(subject: subject, predicate: pattern.predicate, object: object)
+        return EmbeddedTriplePattern.Pattern(subject: subject, predicate: pattern.predicate, object: object)
     }
     
     private func triplesFromEmbedding(_ e: NodeOrEmbededTriplePattern) -> (Node, [Algebra]) {
@@ -1518,15 +1518,15 @@ public class SPARQLParser {
         }
     }
     
-    struct EmbeddedTriplePattern { // EXTENSION-002
+    private struct EmbeddedTriplePatternAST { // EXTENSION-002
         var subject: NodeOrEmbededTriplePattern
         var predicate: Node
         var object: NodeOrEmbededTriplePattern
     }
     
-    indirect enum NodeOrEmbededTriplePattern { // EXTENSION-002
+    private indirect enum NodeOrEmbededTriplePattern { // EXTENSION-002
         case node(Node)
-        case triplePattern(EmbeddedTriplePattern)
+        case triplePattern(EmbeddedTriplePatternAST)
     }
 
     private func parseVarOrTermOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
@@ -1534,7 +1534,7 @@ public class SPARQLParser {
         return try parseNodeOrEmbTP()
     }
     
-    private func parseEmbTP() throws -> EmbeddedTriplePattern { // EXTENSION-002
+    private func parseEmbTP() throws -> EmbeddedTriplePatternAST { // EXTENSION-002
         try expect(token: .dlt)
         let s = try parseNodeOrEmbTP()
         let t = try peekExpectedToken()
@@ -1546,7 +1546,7 @@ public class SPARQLParser {
         }
         let o = try parseNodeOrEmbTP()
         try expect(token: .dgt)
-        return EmbeddedTriplePattern(subject: s, predicate: p, object: o)
+        return EmbeddedTriplePatternAST(subject: s, predicate: p, object: o)
     }
 
     private func parseNodeOrEmbTP() throws -> NodeOrEmbededTriplePattern { // EXTENSION-002
@@ -1595,7 +1595,7 @@ public class SPARQLParser {
     
     private enum ExpressionOrEmbTP { // EXTENSION-002
         case expression(Expression)
-        case triplePattern(EmbeddedTriplePattern)
+        case triplePattern(EmbeddedTriplePatternAST)
     }
     
     private func parseExpressionOrEmbTP() throws -> ExpressionOrEmbTP { // EXTENSION-002
@@ -2603,7 +2603,7 @@ extension Algebra {
                 }
             }
             for e in [t.subject, t.object] {
-                let et = EmbeddedTriple(subject: e, predicate: .bound(Term(iri: "tag:dummy")), object: .node(.bound(Term(iri: "tag:dummy"))))
+                let et = EmbeddedTriplePattern.Pattern(subject: e, predicate: .bound(Term(iri: "tag:dummy")), object: .node(.bound(Term(iri: "tag:dummy"))))
                 let a = Algebra.embeddedTriple(et, "dummy")
                 let labels = a.blankNodeLabels
                 b.formUnion(labels)
