@@ -296,7 +296,7 @@ extension QuadPattern {
     }
 }
 
-public indirect enum EmbeddedTriplePattern: Hashable {
+public indirect enum EmbeddedTriplePattern: Hashable, Equatable, CustomStringConvertible {
     case node(Node)
     case embeddedTriple(Pattern)
 
@@ -309,6 +309,19 @@ public indirect enum EmbeddedTriplePattern: Hashable {
             self.subject = subject
             self.predicate = predicate
             self.object = object
+        }
+
+        public var description: String {
+            return "\(subject) \(predicate) \(object) ."
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .node(let n):
+            return n.description
+        case .embeddedTriple(let p):
+            return p.description
         }
     }
 
@@ -406,161 +419,3 @@ public extension EmbeddedTriplePattern.Pattern {
         return EmbeddedTriplePattern.Pattern(subject: s, predicate: p, object: o)
     }
 }
-
-public struct StarTriplePattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
-    public var subject: EmbeddedTriplePattern
-    public var predicate: Node
-    public var object: EmbeddedTriplePattern
-    public typealias GroundType = Triple
-    public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Triple.subject, \Triple.predicate, \Triple.object]
-    public static var groundKeyNames = ["subject", "predicate", "object"]
-    
-    public init(subject: EmbeddedTriplePattern, predicate: Node, object: EmbeddedTriplePattern) {
-        self.subject = subject
-        self.predicate = predicate
-        self.object = object
-    }
-    
-    public var description: String {
-        return "\(subject) \(predicate) \(object) ."
-    }
-    
-    public func bind(_ variable: String, to replacement: Node) -> StarTriplePattern {
-        let subject = self.subject.bind(variable, to: replacement)
-        let predicate = self.predicate.bind(variable, to: replacement)
-        let object = self.object.bind(variable, to: replacement)
-        return StarTriplePattern(subject: subject, predicate: predicate, object: object)
-    }
-    
-    public var bindingAllVariables: StarTriplePattern {
-        let mapPattern = { (n: EmbeddedTriplePattern) -> EmbeddedTriplePattern in
-            switch n {
-            case .node(.variable(let name, binding: false)):
-                return .node(.variable(name, binding: true))
-            default:
-                return n
-            }
-        }
-        let mapNode = { (n: Node) -> Node in
-            switch n {
-            case .variable(let name, binding: false):
-                return .variable(name, binding: true)
-            default:
-                return n
-            }
-        }
-        
-        let s = mapPattern(subject)
-        let p = mapNode(predicate)
-        let o = mapPattern(object)
-        return StarTriplePattern(subject: s, predicate: p, object: o)
-    }
-
-    public static var all: StarTriplePattern {
-        return StarTriplePattern(
-            subject: .node(.variable("subject", binding: true)),
-            predicate: .variable("predicate", binding: true),
-            object: .node(.variable("object", binding: true))
-        )
-    }
-
-    public func makeIterator() -> IndexingIterator<[Node]> {
-        fatalError("Cannot iterate over StarTriplePattern")
-    }
-    
-}
-
-extension StarTriplePattern {
-    public subscript(_ position: Triple.Position) -> EmbeddedTriplePattern {
-        switch position {
-        case .subject:
-            return self.subject
-        case .predicate:
-            return .node(self.predicate)
-        case .object:
-            return self.object
-        }
-    }
-}
-
-//extension StarTriplePattern: Sequence {
-//    public func makeIterator() -> IndexingIterator<[EmbeddedTriplePattern]> {
-//        return [subject, .node(predicate), object].makeIterator()
-//    }
-//}
-
-extension StarTriplePattern {
-    public var ground: GroundType? {
-        guard case let .node(.bound(s)) = subject, case let .bound(p) = predicate, case let .node(.bound(o)) = object else { return nil }
-        return Triple(subject: s, predicate: p, object: o)
-    }
-
-    public func replace(_ map: (Node) throws -> Node?) throws -> StarTriplePattern {
-        let p = try map(self.predicate) ?? self.predicate
-        let s: EmbeddedTriplePattern
-        let o: EmbeddedTriplePattern
-
-        switch self.subject {
-        case .node(let n):
-            if let nn = try map(n) {
-                s = .node(nn)
-            } else {
-                s = self.subject
-            }
-        default:
-            s = self.subject
-        }
-
-        switch self.object {
-        case .node(let n):
-            if let nn = try map(n) {
-                o = .node(nn)
-            } else {
-                o = self.subject
-            }
-        default:
-            o = self.subject
-        }
-        
-        return StarTriplePattern(subject: s, predicate: p, object: o)
-    }
-    
-    public func matches(_ triple: Triple) -> Bool {
-        var matched = [String:Term]()
-        switch self.predicate {
-        case .variable(let name, binding: true):
-            if let t = matched[name] {
-                if t != triple.predicate {
-                    return false
-                }
-            } else {
-                matched[name] = triple.predicate
-            }
-        case .bound(let t) where t != triple.predicate:
-            return false
-        default:
-            break
-        }
-        
-        for (node, term) in zip([self.subject, self.object], [triple.subject, triple.object]) {
-            switch node {
-            case .node(.variable(let name, binding: true)):
-                if let t = matched[name] {
-                    if t != term {
-                        return false
-                    }
-                } else {
-                    matched[name] = term
-                }
-            case .node(.bound(let t)) where t != term:
-                return false
-            case .embeddedTriple:
-                return false
-            default:
-                continue
-            }
-        }
-        return true
-    }
-}
-
