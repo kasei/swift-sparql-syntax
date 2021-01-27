@@ -1144,4 +1144,10 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
+    
+    func testInvalidDuplicateSelectExpression() throws {
+        let sparql = "SELECT (1 AS ?X) (1 AS ?X) {}"
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        XCTAssertThrowsError(try p.parseAlgebra(), "Expected failure of a duplicate select expression variable binding")
+    }
 }

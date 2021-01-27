@@ -290,6 +290,7 @@ public struct SPARQLParser {
             projection = .star
         } else {
             var projectionVariables = [String]()
+            var projectionVariablesSet = Set<String>()
             LOOP: while true {
                 let t = try peekExpectedToken()
                 switch t {
@@ -307,12 +308,17 @@ public struct SPARQLParser {
                     guard case .variable(let name, binding: _) = node else {
                         throw parseError("Expecting project expressions variable but got \(node)")
                     }
+                    if projectionVariablesSet.contains(name) {
+                        throw parseError("Variable \(name) cannot be assigned more than once in select expression")
+                    }
                     try expect(token: .rparen)
                     projectExpressions.append((expression, name))
                     projectionVariables.append(name)
+                    projectionVariablesSet.insert(name)
                 case ._var(let name):
                     nextToken()
                     projectionVariables.append(name)
+                    projectionVariablesSet.insert(name)
                 default:
                     break LOOP
                 }
