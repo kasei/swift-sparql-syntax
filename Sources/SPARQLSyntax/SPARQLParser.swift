@@ -70,6 +70,10 @@ private enum UnfinishedAlgebra {
     }
 }
 
+public enum SPARQLParserError: Error {
+    case initializationError
+}
+
 // swiftlint:disable:next type_body_length
 public struct SPARQLParser {
     public var parseBlankNodesAsVariables: Bool
@@ -86,6 +90,12 @@ public struct SPARQLParser {
         return SPARQLSyntaxError.parsingError("\(message) at \(lexer.line):\(lexer.column) near '\(rest)...'")
     }
     
+    public static func parse(query: String) throws -> Query {
+        guard var p = SPARQLParser(string: query) else { throw SPARQLParserError.initializationError }
+        let q = try p.parseQuery()
+        return q
+    }
+    
     public init(lexer: SPARQLLexer, prefixes: [String:String] = [:], base: String? = nil) {
         self.lexer = lexer
         self.prefixes = prefixes
@@ -99,14 +109,18 @@ public struct SPARQLParser {
         guard let data = string.data(using: .utf8) else { return nil }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+        guard let lexer = try? SPARQLLexer(source: stream, includeComments: includeComments) else {
+            return nil
+        }
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
     public init?(data: Data, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = SPARQLLexer(source: stream, includeComments: includeComments)
+        guard let lexer = try? SPARQLLexer(source: stream, includeComments: includeComments) else {
+            return nil
+        }
         self.init(lexer: lexer, prefixes: prefixes, base: base)
     }
     
@@ -655,19 +669,23 @@ public struct SPARQLParser {
         if try attempt(token: .keyword("ORDER")) {
             try expect(token: .keyword("BY"))
             while true {
-                guard let c = try parseOrderCondition() else { break }
-                let e = c.expression.removeAggregations(freshCounter, mapping: &aggregation)
-                sortConditions.append(Algebra.SortComparator(ascending: c.ascending, expression: e))
+                guard var c = try parseOrderCondition() else { break }
+                if c.expression.hasAggregation {
+                    c.expression = c.expression.removeAggregations(freshCounter, mapping: &aggregation)
+                }
+                sortConditions.append(c)
             }
         }
 
+        // TODO: check if there are any duplicate aggregate definitions, and rewrite the query to only use one
+        // (e.g. if the same agg expr is used in a SELECT and ORDER BY clause)
         let aggregations = aggregation.map {
             Algebra.AggregationMapping(aggregation: $0.1, variableName: $0.0)
             }.sorted { $0.variableName <= $1.variableName }
         let windows = window.map {
             Algebra.WindowFunctionMapping(windowApplication: $0.1, variableName: $0.0)
             }.sorted { $0.variableName <= $1.variableName }
-        
+
         if aggregations.count > 0 { // if algebra contains aggregation
             applyAggregation = true
         }
@@ -690,6 +708,7 @@ public struct SPARQLParser {
             }
         }
         
+
         algebra = projectExpressions.reduce(algebra) {
             addAggregationAndWindowExtension(to: $0, expression: $1.0, variableName: $1.1)
         }

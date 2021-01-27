@@ -167,7 +167,7 @@ if let op = args.next() {
             let (sparql, _) = try data(fromFileOrString: qfile)
             let stream = InputStream(data: sparql)
             stream.open()
-            let lexer = SPARQLLexer(source: stream, includeComments: true)
+            let lexer = try SPARQLLexer(source: stream, includeComments: true)
             while let t = lexer.next() {
                 print("\(t)")
             }

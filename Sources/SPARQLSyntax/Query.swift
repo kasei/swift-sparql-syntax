@@ -132,7 +132,18 @@ public struct Query : Codable, Hashable, Equatable {
 
             let vset = Set(vars)
             if vars.count != vset.count {
-                throw SPARQLSyntaxError.parsingError("Cannot project variables more than once in a SELECT query")
+                // Parsing might allow a SELECT(vars) query form where there are repeated variables,
+                // but the SPARQL algebra says that projection is over a *set* of variables, so we
+                // unique the variables here (while preserving order):
+                var seen = Set<String>()
+                var uniqVars = [String]()
+                for v in vars {
+                    if !seen.contains(v) {
+                        uniqVars.append(v)
+                        seen.insert(v)
+                    }
+                }
+                self.form = .select(.variables(uniqVars))
             }
         default:
             break

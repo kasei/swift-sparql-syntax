@@ -69,5 +69,10 @@ class IRITest: XCTestCase {
         XCTAssertEqual(n.absoluteString, "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil")
     }
     
-    
+    func testIRI_file() {
+        let i = IRI(fileURLWithPath: "/tmp")
+        XCTAssertNotNil(i)
+        let iri = i!
+        XCTAssertEqual(iri.absoluteString, "file:///tmp")
+    }
 }
