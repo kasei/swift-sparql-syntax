@@ -88,6 +88,12 @@ extension QueryForm: Codable {
     }
 }
 
+public protocol DatasetProtocol {
+    var defaultGraphs: [Term] { get }
+    var namedGraphs: [Term] { get }
+    var isEmpty : Bool { get }
+}
+
 public struct Dataset : Codable, Equatable, Hashable {
     public var defaultGraphs: [Term]
     public var namedGraphs: [Term]
