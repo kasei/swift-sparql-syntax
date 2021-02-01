@@ -94,7 +94,7 @@ public protocol DatasetProtocol {
     var isEmpty : Bool { get }
 }
 
-public struct Dataset : Codable, Equatable, Hashable {
+public struct Dataset : DatasetProtocol, Codable, Equatable, Hashable {
     public var defaultGraphs: [Term]
     public var namedGraphs: [Term]
     
