@@ -476,10 +476,10 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         case .blank:
             return "_:\(value)"
         case .language(let lang):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            let escaped = value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\"@\(lang)"
         case .datatype(.string):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            let escaped = value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\""
         case .datatype(.float):
             let s = "\(value)"
@@ -491,7 +491,7 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         case .datatype(.integer), .datatype(.decimal), .datatype(.boolean):
             return "\(value)"
         case .datatype(let dt):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            let escaped = value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\"^^<\(dt.value)>"
         }
     }
@@ -505,10 +505,10 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         case .blank:
             return "_:\(value)"
         case .language(let lang):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            let escaped = value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\"@\(lang)"
         case .datatype(.string):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            let escaped = value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\""
         case .datatype(.float):
             let s = "\(value)"
@@ -524,7 +524,7 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         case .datatype(.boolean):
             return "\"\(value)\"^^<\(Namespace.xsd.iriString(for: "boolean"))>"
         case .datatype(let dt):
-            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            let escaped = value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of:"\"", with: "\\\"")
             return "\"\(escaped)\"^^<\(dt.value)>"
         }
     }
