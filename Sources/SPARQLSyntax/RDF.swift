@@ -496,6 +496,39 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         }
     }
     
+    public var fullDescription: String {
+        switch type {
+            //        case .iri where value == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+        //            return "a"
+        case .iri:
+            return "<\(value)>"
+        case .blank:
+            return "_:\(value)"
+        case .language(let lang):
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\"@\(lang)"
+        case .datatype(.string):
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\""
+        case .datatype(.float):
+            let s = "\(value)"
+            if s.lowercased().contains("e") {
+                return "\"\(s)\"^^<\(Namespace.xsd.iriString(for: "float"))>"
+            } else {
+                return "\"\(s)e0\"^^<\(Namespace.xsd.iriString(for: "float"))>"
+            }
+        case .datatype(.integer):
+            return "\"\(value)\"^^<\(Namespace.xsd.iriString(for: "integer"))>"
+        case .datatype(.decimal):
+            return "\"\(value)\"^^<\(Namespace.xsd.iriString(for: "decimal"))>"
+        case .datatype(.boolean):
+            return "\"\(value)\"^^<\(Namespace.xsd.iriString(for: "boolean"))>"
+        case .datatype(let dt):
+            let escaped = value.replacingOccurrences(of:"\"", with: "\\\"")
+            return "\"\(escaped)\"^^<\(dt.value)>"
+        }
+    }
+    
     private enum CodingKeys: String, CodingKey {
         case type
         case value
@@ -657,6 +690,10 @@ public struct Triple: Codable, Hashable, CustomStringConvertible {
     public var description: String {
         return "\(subject) \(predicate) \(object) ."
     }
+
+    public var fullDescription: String {
+        return "\(subject.fullDescription) \(predicate.fullDescription) \(object.fullDescription) ."
+    }
 }
 
 extension Triple {
@@ -719,8 +756,13 @@ public struct Quad: Codable, Hashable, CustomStringConvertible {
         self.object = triple.object
         self.graph = graph
     }
+    
     public var description: String {
         return "\(subject) \(predicate) \(object) \(graph) ."
+    }
+
+    public var fullDescription: String {
+        return "\(subject.fullDescription) \(predicate.fullDescription) \(object.fullDescription) \(graph.fullDescription) ."
     }
 
     public var triple: Triple {
@@ -825,6 +867,15 @@ extension Node: CustomStringConvertible {
         switch self {
         case .bound(let t):
             return t.description
+        case .variable(let name, _):
+            return "?\(name)"
+        }
+    }
+
+    public var fullDescription: String {
+        switch self {
+        case .bound(let t):
+            return t.fullDescription
         case .variable(let name, _):
             return "?\(name)"
         }
