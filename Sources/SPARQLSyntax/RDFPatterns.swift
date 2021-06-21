@@ -295,3 +295,16 @@ extension QuadPattern {
         return true
     }
 }
+
+public struct BGP {
+    var patterns: [TriplePattern]
+    public init(_ patterns: [TriplePattern]) {
+        self.patterns = patterns
+    }
+    
+    public var predicateSet: Set<Term> {
+        let nodes = patterns.map { $0.predicate }
+        let terms = nodes.map { $0.boundTerm }.compactMap { $0 }
+        return Set(terms)
+    }
+}
