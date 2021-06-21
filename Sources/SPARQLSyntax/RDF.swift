@@ -184,18 +184,20 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
     
     internal func canonicalFloatingPointComponents() -> (Double, Int) {
         var (mantissa, exponent) = floatingPointComponents()
-        while abs(mantissa) >= 10.0 {
-            mantissa /= 10.0
-            exponent += 1
-        }
-        if abs(mantissa) > 0.0 {
-            while abs(mantissa) < 1.0 {
-                mantissa *= 10.0
-                exponent -= 1
+        if mantissa.isFinite {
+            while abs(mantissa) >= 10.0 {
+                mantissa /= 10.0
+                exponent += 1
             }
-        }
-        if mantissa == 0.0 {
-            exponent = 0
+            if abs(mantissa) > 0.0 {
+                while abs(mantissa) < 1.0 {
+                    mantissa *= 10.0
+                    exponent -= 1
+                }
+            }
+            if mantissa == 0.0 {
+                exponent = 0
+            }
         }
         return (mantissa, exponent)
     }
@@ -239,11 +241,19 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
              .datatype(.double):
             if canonicalize {
                 self.value = self.value.uppercased()
-                let (mantissa, exponent) = canonicalFloatingPointComponents()
-                if mantissa.truncatingRemainder(dividingBy: 1) == 0 {
-                    self.value = "\(Int(mantissa))E\(exponent)"
+                if self.value == "INFINITY" || self.value == "INF" {
+                    self.value = "INF"
+                } else if self.value == "-INFINITY" || self.value == "-INF" {
+                    self.value = "-INF"
+                } else if self.value == "NAN" {
+                    self.value = "NaN"
                 } else {
-                    self.value = "\(mantissa)E\(exponent)"
+                    let (mantissa, exponent) = canonicalFloatingPointComponents()
+                    if mantissa.truncatingRemainder(dividingBy: 1) == 0 {
+                        self.value = "\(Int(mantissa))E\(exponent)"
+                    } else {
+                        self.value = "\(mantissa)E\(exponent)"
+                    }
                 }
             }
             _doubleValue = Double(value) ?? 0.0
@@ -794,7 +804,7 @@ extension Quad: Sequence {
 public enum Node : Equatable, Hashable {
     case bound(Term)
     case variable(String, binding: Bool)
-
+    
     public init(variable name: String) {
         self = .variable(name, binding: true)
     }
