@@ -144,6 +144,32 @@ public class IRI : Codable {
     }
 }
 
+@dynamicMemberLookup
+public struct TermNamespace {
+    public var namespace: Namespace
+    public init(namespace: Namespace) {
+        self.namespace = namespace
+    }
+    
+    public subscript(dynamicMember member: String) -> Term {
+        let i = namespace.iriString(for: member)
+        return Term(iri: i)
+    }
+}
+
+@dynamicMemberLookup
+public struct NodeNamespace {
+    public var namespace: Namespace
+    public init(namespace: Namespace) {
+        self.namespace = namespace
+    }
+    
+    public subscript(dynamicMember member: String) -> Node {
+        let i = namespace.iriString(for: member)
+        return .bound(Term(iri: i))
+    }
+}
+
 public enum IRIError : Error {
     case encodingError(String)
 }
