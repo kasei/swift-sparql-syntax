@@ -52,8 +52,8 @@ func getCurrentDateSeconds() -> UInt64 {
     return UInt64(startTime)
 }
 
-func getCurrentTime() -> CFAbsoluteTime {
-    return CFAbsoluteTimeGetCurrent()
+func getCurrentTime() -> TimeInterval {
+    return ProcessInfo.processInfo.systemUptime
 }
 
 func warn(_ items: String...) {
