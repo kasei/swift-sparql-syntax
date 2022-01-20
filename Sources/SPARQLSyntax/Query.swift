@@ -271,7 +271,7 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
     
     public var keys: [String] { return Array(self.bindings.keys) }
     
-    public func join(_ rhs: Self<T>) -> Self<T>? {
+    public func join(_ rhs: Self) -> Self? {
         let lvars = Set(bindings.keys)
         let rvars = Set(rhs.bindings.keys)
         let shared = lvars.intersection(rvars)
@@ -288,7 +288,7 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
         return result
     }
     
-    public func projected(variables: Set<String>) -> Self<T> {
+    public func projected(variables: Set<String>) -> Self {
         var bindings = [String:TermType]()
         for name in variables {
             if let term = self[name] {
@@ -334,7 +334,7 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
         self.bindings[variable] = value
     }
 
-    public func extended(variable: String, value: TermType) -> Self<T>? {
+    public func extended(variable: String, value: TermType) -> Self? {
         var b = bindings
         if let existing = b[variable] {
             if existing != value {
@@ -362,7 +362,7 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
         return i
     }
 
-    public func removing(variables: Set<String>) -> Self<T> {
+    public func removing(variables: Set<String>) -> Self {
         var bindings = [String: T]()
         for (k, v) in self.bindings {
             if !variables.contains(k) {
