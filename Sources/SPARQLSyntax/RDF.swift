@@ -1060,7 +1060,16 @@ public enum Node : Equatable, Hashable {
             return true
         }
     }
-
+    
+    public var term: Term? {
+        switch self {
+        case .bound(let t):
+            return t
+        case .variable:
+            return nil
+        }
+    }
+    
     public var boundTerm: Term? {
         switch self {
         case .bound(let t):
