@@ -26,10 +26,9 @@ func string(fromFileOrString qfile: String) throws -> (String, String?) {
     return (string, base)
 }
 
-let argscount = CommandLine.arguments.count
-var args = CommandLine.arguments
-guard let pname = args.first else { fatalError("Missing command name") }
-if argscount == 1 {
+func usage() {
+    let args = CommandLine.arguments
+    guard let pname = args.first else { fatalError("Missing command name") }
     print("Usage: \(pname) [FLAGS] query.rq")
     print("")
     print("Flags:")
@@ -39,55 +38,73 @@ if argscount == 1 {
     print("")
     exit(1)
 }
-guard let qfile = args.last else { fatalError("Missing query") }
 
-var benchmark = false
-var stdin = false
-var pretty = true
-var unescape = false
-for f in args.dropFirst() {
-    guard f.hasPrefix("-") else { break }
-    if f == "--" { break }
+func run() throws {
+    var args = Array(CommandLine.arguments.dropFirst())
+    
+    var benchmark = false
+    var stdin = false
+    var pretty = true
+    var unescape = false
+    var onePerLine = false
+    
+    while !args.isEmpty && args[0].hasPrefix("-") {
+        let f = args.remove(at: 0)
+        if f == "--" { break }
 
-    switch f {
-    case "-b":
-        benchmark = true
-    case "-c":
-        stdin = true
-    case "-l":
-        pretty = false
-    case "-d":
-        unescape = true
-    default:
-        break
+        switch f {
+        case "-b":
+            benchmark = true
+        case "-c":
+            stdin = true
+            onePerLine = true
+        case "-l":
+            pretty = false
+        case "-d":
+            unescape = true
+        case "--help":
+            usage()
+        default:
+            break
+        }
+    }
+
+    let unescapeQuery : (String) throws -> String = unescape ? {
+        let sparql = $0.replacingOccurrences(of: "+", with: " ")
+        if let s = sparql.removingPercentEncoding {
+            return s
+        } else {
+            let e = CLIError.error("Failed to URL percent decode SPARQL query")
+            throw e
+        }
+        } : { $0 }
+
+    if stdin || args.isEmpty {
+        let s = SPARQLSerializer(prettyPrint: pretty)
+        if onePerLine {
+            while let line = readLine() {
+                let sparql = try unescapeQuery(line)
+                let l = s.reformat(sparql)
+                print(l)
+            }
+        } else {
+            var sparql = ""
+            while let line = readLine() {
+                sparql += line
+            }
+            let l = s.reformat(sparql)
+            print(l)
+        }
+    } else if let arg = args.first {
+        let s = SPARQLSerializer(prettyPrint: pretty)
+        let (query, _) = try string(fromFileOrString: arg)
+        let max = benchmark ? 100_000 : 1
+        for _ in 0..<max {
+            let sparql = try unescapeQuery(query)
+            let l = s.reformat(sparql)
+            print(l)
+        }
     }
 }
 
-let unescapeQuery : (String) throws -> String = unescape ? {
-    let sparql = $0.replacingOccurrences(of: "+", with: " ")
-    if let s = sparql.removingPercentEncoding {
-        return s
-    } else {
-        let e = CLIError.error("Failed to URL percent decode SPARQL query")
-        throw e
-    }
-    } : { $0 }
-
-let sparql = try unescapeQuery(qfile)
-let s = SPARQLSerializer(prettyPrint: pretty)
-if stdin {
-    while let line = readLine() {
-        let sparql = try unescapeQuery(line)
-        let l = s.reformat(sparql)
-        print(l)
-    }
-} else {
-    guard let arg = args.last else { fatalError("Missing query") }
-    let (query, _) = try string(fromFileOrString: arg)
-    let max = benchmark ? 100_000 : 1
-    for _ in 0..<max {
-        let sparql = try unescapeQuery(query)
-        let l = s.reformat(sparql)
-        print(l)
-    }
-}
+try run()

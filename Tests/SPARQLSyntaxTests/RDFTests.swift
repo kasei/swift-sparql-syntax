@@ -128,6 +128,11 @@ class RDFTest: XCTestCase {
         XCTAssertEqual(t.value, "1.23E-3")
     }
     
+    func testConstructorDouble4() {
+        let t = Term(value: "Infinity", type: .datatype(.double))
+        XCTAssertEqual(t.value, "INF")
+    }
+    
     func testTermJSON_SimpleLiteral() throws {
         let t = Term(string: "foobar")
         let e = JSONEncoder()
