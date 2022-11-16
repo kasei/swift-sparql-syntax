@@ -47,7 +47,7 @@ class SPARQLReformattingTests: XCTestCase {
         """
         XCTAssertEqual(l, expected)
     }
-
+    
     func testReformat_pretty() throws {
         let sparql = """
         prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
@@ -61,7 +61,7 @@ class SPARQLReformattingTests: XCTestCase {
         """
         let s = SPARQLSerializer(prettyPrint: true)
         let l = s.reformat(sparql)
-//        print(l)
+        //        print(l)
         let expected = """
         PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
         SELECT ?s WHERE {
@@ -73,7 +73,7 @@ class SPARQLReformattingTests: XCTestCase {
             FILTER (?lat <= 33.0)
         }
         ORDER BY DESC(?s)
-
+        
         """
         XCTAssertEqual(l, expected)
     }
@@ -202,7 +202,6 @@ class SPARQLReformattingTests: XCTestCase {
         """
         let s = SPARQLSerializer(prettyPrint: true)
         let l = s.reformat(sparql)
-        //        print(l)
         let expected = """
         DELETE {
             ?a ?b ?c
@@ -222,4 +221,158 @@ class SPARQLReformattingTests: XCTestCase {
         """
         XCTAssertEqual(l, expected)
     }
+    
+    func testReformat_filterWithNewlineFromComment() throws {
+        let sparql = """
+        select * where {
+            FILTER(#comment
+            true)
+        }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        let expected = """
+        SELECT * WHERE {
+            FILTER (# comment
+                true)
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_tripleAfterBind() throws {
+        let sparql = """
+        select * where { bind  (1 AS ?x) ?s ?p ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            BIND (1 AS ?x)
+            ?s ?p ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_tripleAfterBrackettedFilter() throws {
+        let sparql = """
+        select * where { filter  (true) ?s ?p ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            FILTER (true)
+            ?s ?p ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_tripleAfterBareFunctionFilter() throws {
+        let sparql = """
+        select * where { filter <http://example.org/test>(true) ?s ?p ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            FILTER <http://example.org/test> (true)
+            ?s ?p ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_tripleAfterBareFunctionFilterEmptyArgs() throws {
+        let sparql = """
+        select * where { filter <http://example.org/test>() ?s ?p ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            FILTER <http://example.org/test> ()
+            ?s ?p ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_tripleAfterBuiltInFilter() throws {
+        let sparql = """
+        select * where { filter CONTAINS(?x, ?y) ?s ?p ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            FILTER CONTAINS(?x , ?y)
+            ?s ?p ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_tripleAfterBuiltInFilterEmptyArgs() throws {
+        let sparql = """
+        select * where { filter BNODE() ?s ?p ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            FILTER BNODE ()
+            ?s ?p ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_tripleAfterNestedFilterInExists() throws {
+        let sparql = """
+        select * where {
+            ?x ?y ?z
+            filter(
+                ?z && NOT EXISTS {
+                    ?x <q> <r>
+                    filter(true) ?x <qq> ?rr
+                }
+            ) ?s ?p ?o
+        }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            ?x ?y ?z
+            FILTER (?z && NOT EXISTS {
+                    ?x <q> <r>
+                    FILTER (true)
+                    ?x <qq> ?rr
+                }
+                )
+            ?s ?p ?o
+        }
+
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    // TODO: test a filter nested in another filter via an EXISTS block
 }

@@ -169,11 +169,64 @@ public struct SPARQLSerializer {
         return s
     }
     
+    internal func fixBrackettedExpressions(_ outputArray: [(SPARQLToken, SerializerOutput)]) -> [(SPARQLToken, SerializerOutput)] {
+        // Look for bracketted FILTER and BIND expressions, and add a newline after their closing rparen.
+        // This will ensure that a triple pattern after a BIND will appear on its own line, for example:
+        // "BIND(1 AS ?x) ?s ?p ?o" -> "BIND (1 AS ?x)\n?s ?p ?o"
+        var outputArray = outputArray
+        
+        // append some extra whitespace tokens so we can easily do 2-token lookahead
+        outputArray.append((.ws, .spaceSeparator))
+        outputArray.append((.ws, .spaceSeparator))
+        outputArray.append((.ws, .spaceSeparator))
+        var processedArray: [(SPARQLToken, SerializerOutput)] = []
+        var inCall: Int = 0
+        var closingDepth = Set<Int>()
+        var indentDepth = [Int:Int]()
+        var depth = 0
+        for i in 0..<(outputArray.count-2) {
+            let (t1, s1) = outputArray[i]
+            processedArray.append((t1, s1))
+            if case .newline(let i) = s1 {
+                indentDepth[depth] = i
+            }
+            
+            var needsNewline = false
+            let (_, s2) = outputArray[i+1]
+            let (_, s3) = outputArray[i+2]
+            switch (s1, s2, s3) {
+            case (.tokenString("FILTER"), .spaceSeparator, .tokenString("(")), (.tokenString("BIND"), .spaceSeparator, .tokenString("(")):
+                inCall += 1
+                closingDepth.insert(depth)
+            case (.tokenString("FILTER"), _, _): // may be a built-in call or an un-bracketted function call
+                inCall += 1
+            case (.tokenString("("), _, _) where inCall > 0:
+                depth += 1
+            case (.tokenString(")"), _, _) where inCall > 0:
+                depth -= 1
+                if (closingDepth.contains(depth) || depth == 0) {
+                    closingDepth.remove(depth)
+                    needsNewline = true
+                    inCall -= 1
+                }
+            case (.tokenString("()"), _, _) where inCall > 0 && depth == 0:
+                needsNewline = true
+                inCall -= 1
+            default:
+                break
+            }
+            if needsNewline {
+                let i = indentDepth[depth] ?? 0
+                processedArray.append((t1, .newline(i)))
+            }
+        }
+        return processedArray
+    }
+    
     // swiftlint:disable:next cyclomatic_complexity
     internal func serializePretty<S: Sequence, Target: TextOutputStream>(_ tokenSequence: S, to output: inout Target) where S.Iterator.Element == SPARQLToken {
         var tokens = Array(tokenSequence)
         tokens.append(.ws)
-        var pretty = ""
         var outputArray: [(SPARQLToken, SerializerOutput)] = []
         var pstate = ParseState()
         //        var sstate_stack = [SerializerState()]
@@ -330,8 +383,10 @@ public struct SPARQLSerializer {
                 pstate.openBrackets -= 1
             case .lparen:
                 pstate.openParens += 1
+                pstate.indentLevel += 1
             case .rparen:
                 pstate.openParens -= 1
+                pstate.indentLevel -= 1
             default:
                 break
             }
@@ -341,14 +396,19 @@ public struct SPARQLSerializer {
             return
         }
         
+        outputArray = fixBrackettedExpressions(outputArray)
+        
         var tempArray: [SerializerOutput] = []
         FILTER: for i in 0..<(outputArray.count-1) {
             let (_, s1) = outputArray[i]
             let (_, s2) = outputArray[i+1]
             switch (s1, s2) {
             case (.spaceSeparator, .newline), (.newline, .newline):
+                // skip whitespace appearing before a newline
                 continue FILTER
             case (.newline, .spaceSeparator):
+                // change newline-space to newline-newline, and then skip the first newline
+                // (resulting in a single newline being handled)
                 outputArray[i+1] = outputArray[i]
                 continue FILTER
             default:
@@ -368,6 +428,8 @@ public struct SPARQLSerializer {
             }
         }
         
+        // build up the output string
+        var pretty = ""
         for s in tempArray {
             switch s {
             case .newline(let indent):
