@@ -135,4 +135,91 @@ class SPARQLReformattingTests: XCTestCase {
         """
         XCTAssertEqual(l, expected)
     }
+    
+    func testReformat_delete() throws {
+        let sparql = """
+        prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        delete {?s ?p ?o}
+        where{
+        ?s geo:lat ?lat ;geo:long ?long FILTER(?long < -117.0) FILTER(?lat >= 31.0)FILTER(?lat <= 33.0)
+        }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        //        print(l)
+        let expected = """
+        PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        DELETE {
+            ?s ?p ?o
+        }
+        WHERE {
+            ?s geo:lat ?lat ;
+                geo:long ?long
+            FILTER (?long < - 117.0)
+            FILTER (?lat >= 31.0)
+            FILTER (?lat <= 33.0)
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_complexUpdate() throws {
+        let sparql = """
+        drop silent named;with<g1> DELETE { ?a ?b ?c } insert{ ?c?b ?a } WHERE { ?a
+        ?b ?c } ;
+        COPY
+            default
+        to <http://example.org/named>
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        //        print(l)
+        let expected = """
+        DROP SILENT NAMED ;
+        WITH <g1>
+        DELETE {
+            ?a ?b ?c
+        }
+        INSERT {
+            ?c ?b ?a
+        }
+        WHERE {
+            ?a ?b ?c
+        }
+        ;
+        COPY DEFAULT TO <http://example.org/named>
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_updateSubqueryProjection() throws {
+        let sparql = """
+        DELETE { ?a ?b ?c } WHERE {
+        { ?a <p> ?b ; <q> ?c } UNION {
+        SELECT ?a ?b ?c WHERE { ?a ?b ?c }}}
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        //        print(l)
+        let expected = """
+        DELETE {
+            ?a ?b ?c
+        }
+        WHERE {
+            {
+                ?a <p> ?b ;
+                    <q> ?c
+            }
+            UNION {
+                SELECT ?a ?b ?c WHERE {
+                    ?a ?b ?c
+                }
+            }
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
 }

@@ -243,11 +243,20 @@ public struct SPARQLSerializer {
 //                // TODO: but we only want the newline in VALUES, not in select expressions: SELECT (SUM(?o) AS ?s) (AVG(?o) AS ?a) ...
 //                outputArray.append((t, .tokenString("\(t.sparql)")))
 //                outputArray.append((t, .newline(pstate.indentLevel)))
+            case (_, .keyword("WHERE"), .lbrace):
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .spaceSeparator))
             case (_, _, .lbrace):
                 // {openBraces=_}    $ '{'            -> $ NEWLINE_INDENT
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel)))
-            case (_, _, .keyword("PREFIX")), (_, _, .keyword("SELECT")), (_, _, .keyword("ASK")), (_, _, .keyword("CONSTRUCT")), (_, _, .keyword("DESCRIBE")):
+            case (_, _, .keyword("PREFIX")), (_, _, .keyword("SELECT")), (_, _, .keyword("ASK")), (_, _, .keyword("CONSTRUCT")), (_, _, .keyword("DESCRIBE")),
+                (_, _, .keyword("INSERT")), (_, _, .keyword("DELETE")),
+                (_, _, .keyword("LOAD")), (_, _, .keyword("CLEAR")),
+                (_, _, .keyword("DROP")), (_, _, .keyword("CREATE")),
+                (_, _, .keyword("ADD")), (_, _, .keyword("MOVE")),
+                (_, _, .keyword("COPY")), (_, _, .keyword("CREATE")),
+                (_, _, .keyword("WITH")):
                 // newline before these keywords
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel)))
