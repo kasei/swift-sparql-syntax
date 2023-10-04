@@ -471,6 +471,27 @@ class SPARQLReformattingTests: XCTestCase {
         """
         XCTAssertEqual(l, expected)
     }
+    
+    func testReformat_groupBy_orderBy() throws {
+        let sparql = """
+        prefix ex: <http://example.org/>
+        select * where { ?s1 ex:foo ?o } group by ?s1 order by ?s1
+        
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        PREFIX ex: <http://example.org/>
+        SELECT * WHERE {
+            ?s1 ex:foo ?o
+        }
+        GROUP BY ?s1
+        ORDER BY ?s1
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
 
     // TODO: test a filter nested in another filter via an EXISTS block
 }
