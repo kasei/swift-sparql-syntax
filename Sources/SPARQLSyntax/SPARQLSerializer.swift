@@ -254,7 +254,6 @@ public struct SPARQLSerializer {
                 break
             }
             
-            print("\(state) : \(pstate.openParens)")
             switch state {
             case (_, .lbrace, _):
                 //                 '{' $            -> '{' NEWLINE_INDENT
