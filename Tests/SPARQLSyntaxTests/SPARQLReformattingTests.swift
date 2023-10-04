@@ -493,5 +493,30 @@ class SPARQLReformattingTests: XCTestCase {
         XCTAssertEqual(l, expected)
     }
 
+    func testReformat_propertyPathOperators() throws {
+        let sparql = """
+        SELECT DISTINCT  ?work ?date
+              WHERE
+                { ?work ex:related|^ex:related <http://example.org/8f59af8a-b71c-11ed-8912-01aa75ed71a1> .
+                  ?work  ex:date  ?date
+                }
+              ORDER BY DESC(?date)
+
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT DISTINCT ?work ?date WHERE {
+            ?work ex:related|^ex:related <http://example.org/8f59af8a-b71c-11ed-8912-01aa75ed71a1> .
+            ?work ex:date ?date
+        }
+        ORDER BY DESC(?date)
+
+        """
+        XCTAssertEqual(l, expected)
+    }
+
+
     // TODO: test a filter nested in another filter via an EXISTS block
 }

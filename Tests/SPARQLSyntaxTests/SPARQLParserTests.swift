@@ -881,7 +881,6 @@ class SPARQLParserTests: XCTestCase {
             let balancedRange = try SPARQLLexer.balancedRange(containing: range, in: sparql, level: depth)
             let balanced = String(sparql[balancedRange])
             XCTAssertEqual(balanced, balancedString)
-            print(balanced)
         }
     }
 
@@ -1001,7 +1000,6 @@ class SPARQLParserTests: XCTestCase {
         
         do {
             let a = try p.parseAlgebra()
-            print(a)
             guard case .project(.extend(_, .call("REGEX", let args), "var1"), Set(["var1"])) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -1043,7 +1041,6 @@ class SPARQLParserTests: XCTestCase {
         
         do {
             let a = try p.parseAlgebra()
-            print(a)
             guard case .project = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -1077,7 +1074,6 @@ class SPARQLParserTests: XCTestCase {
         
         do {
             let a = try p.parseAlgebra()
-            print(a.serialize(depth: 0))
             guard case let .project(.order(_, cmps), _) = a else {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
@@ -1088,8 +1084,6 @@ class SPARQLParserTests: XCTestCase {
             let cmp = cmps.first!
             let expr = cmp.expression
             guard case .node(.variable(let sortVar, _)) = expr else { XCTFail(); return }
-            print(sortVar)
-            print(aggMap)
             let aggDefn = aggMap[sortVar]
             XCTAssertNotNil(aggDefn, "No aggregate definition for `ORDER BY ?\(sortVar)` aggregate query")
         } catch let e {

@@ -229,7 +229,6 @@ class AlgebraTest: XCTestCase {
         let jd = JSONDecoder()
         let data = try je.encode(algebra)
         let r = try jd.decode(Algebra.self, from: data)
-        print("decoded: \(r.serialize())")
         XCTAssertEqual(r, algebra)
     }
     

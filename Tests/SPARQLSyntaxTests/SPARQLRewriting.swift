@@ -129,7 +129,6 @@ class SPARQLNodeReplacementTests: XCTestCase {
         guard var p = SPARQLParser(string: "PREFIX ex: <http://example.org/> SELECT DISTINCT * WHERE {\n_:s ex:value 7 . BIND(1 AS ?s)\n}\n") else { XCTFail(); return }
         do {
             let a = try p.parseAlgebra()
-            print(a.serialize())
             let replaced = try a.rewrite({ (a) -> RewriteStatus<Algebra> in
                 switch a {
                 case .distinct(.unionIdentity):
@@ -142,7 +141,6 @@ class SPARQLNodeReplacementTests: XCTestCase {
                     return .rewriteChildren(a)
                 }
             })
-            print(replaced.serialize())
             guard case .unionIdentity = replaced else {
                 XCTFail("Unexpected algebra: \(replaced.serialize())")
                 return

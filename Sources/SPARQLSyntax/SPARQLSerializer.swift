@@ -348,7 +348,7 @@ public struct SPARQLSerializer {
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .spaceSeparator))
             case (_, .hathat, _):
-                // no trailing whitespace after ^^ (it's probably followed by an IRI or PrefixName
+                // no trailing whitespace after ^^ (it's probably followed by an IRI or PrefixName)
                 outputArray.append((t, .tokenString("\(t.sparql)")))
             case (_, .keyword("ASC"), _), (_, .keyword("DESC"), _):
                 // no trailing whitespace after these keywords (they're probably followed by a LPAREN
@@ -372,6 +372,9 @@ public struct SPARQLSerializer {
                 // no space in between any token and a ^^ or @lang
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 
+            case (_, .hat, .iri), (_, .hat, .prefixname):
+                // no whitespace between ^ and an IRI (or prefixed name) (property path)
+                outputArray.append((t, .tokenString("\(t.sparql)")))
             case (_, .rparen, .star) where pstate.openParens == 1,
                 (_, .rparen, .plus) where pstate.openParens == 1:
                 // no space between a rparen and a star or plus while NOT within another set of parens (property path)
@@ -381,9 +384,12 @@ public struct SPARQLSerializer {
             case (_, .iri, .plus), (_, .prefixname, .plus), (_, .iri, .star), (_, .prefixname, .star):
                 // no space in between an IRI or PrefixedName token and a plus or a star (property path)
                 outputArray.append((t, .tokenString("\(t.sparql)")))
+            case (_, .or, _), (_, _, .or):
+                // no whitespace surrounding an '|' (property path)
+                outputArray.append((t, .tokenString("\(t.sparql)")))
             case (_, .iri, .slash), (_, .prefixname, .slash), (_, .slash, .iri), (_, .slash, .prefixname),
                 (_, .plus, .slash), (_, .star, .slash):
-                // no space in between an IRI or PrefixedName token and a slash (property path)
+                // no space in between an IRI or PrefixedName token and a slash or pipe (property path)
                 // no space in between a slash and an IRI or PrefixedName token (property path)
                 outputArray.append((t, .tokenString("\(t.sparql)")))
             default:

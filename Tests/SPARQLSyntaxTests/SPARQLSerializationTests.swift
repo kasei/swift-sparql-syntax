@@ -499,7 +499,7 @@ class SPARQLSerializationTests: XCTestCase {
             let query = s.serializePretty(tokens)
             let expected = """
             SELECT * WHERE {
-                ?s (<http://example.org/value> / <http://example.org/value>) | <http://example.org/value> ?o .
+                ?s (<http://example.org/value>/<http://example.org/value>)|<http://example.org/value> ?o .
             }
             ORDER BY ("xyz")
             
