@@ -66,7 +66,7 @@ class SPARQLReformattingTests: XCTestCase {
         PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
         SELECT ?s WHERE {
             ?s geo:lat ?lat ;
-                geo:long + ?long ;
+                geo:long+ ?long ;
                 #  foo bar
             FILTER (?long < - 117.0)
             FILTER (?lat >= 31.0)
@@ -124,7 +124,7 @@ class SPARQLReformattingTests: XCTestCase {
         PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
         SELECT ?s WHERE {
             ?s geo:lat ?lat ;
-                geo:long + ?long ;
+                geo:long+ ?long ;
                 #  foo bar
             FILTER (?long < - 117.0)
             FILTER (?lat >= 31.0)
@@ -373,6 +373,104 @@ class SPARQLReformattingTests: XCTestCase {
         """
         XCTAssertEqual(l, expected)
     }
-    
+
+    func testReformat_values() throws {
+        let sparql = """
+        select * where { values ?x { 1 2 3 } }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            VALUES ?x
+            {
+                1 2 3
+            }
+        }
+
+        """
+        XCTAssertEqual(l, expected)
+    }
+
+    func testReformat_prefixedname_with_underscores() throws {
+        let sparql = """
+        prefiX ex: <http://example.org/>
+        select * where { ?s ex:foo_bar ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        PREFIX ex: <http://example.org/>
+        SELECT * WHERE {
+            ?s ex:foo_bar ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+
+    func testReformat_propertyPath() throws {
+        let sparql = """
+        prefix ex: <http://example.org/>
+        select * where { ?s (ex:foo+/ex:bar)* ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        PREFIX ex: <http://example.org/>
+        SELECT * WHERE {
+            ?s (ex:foo+/ex:bar)* ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+
+    func testReformat_propertyPath2() throws {
+        // Token lookahead and paren depth isn't enough state to tell that the property star
+        // in this query is part of a property path (and so shouldn't have leading whitespace)
+        // as opposed to part of a numeric expression.
+        let sparql = """
+        prefix ex: <http://example.org/>
+        select * where { ?s ((ex:foo/ex:bar)*/ex:baz) ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        PREFIX ex: <http://example.org/>
+        SELECT * WHERE {
+            ?s ((ex:foo/ex:bar) */ex:baz) ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+
+    func testReformat_prefix_base() throws {
+        let sparql = """
+        prefix ex1: <http://example.org/> base <http://example.org/> prefix ex2: </ns2/>
+        select * from <a> where { ?s ex1:foo ?o }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        PREFIX ex1: <http://example.org/>
+        BASE <http://example.org/>
+        PREFIX ex2: </ns2/>
+        SELECT *
+        FROM <a>
+        WHERE {
+            ?s ex1:foo ?o
+        }
+        
+        """
+        XCTAssertEqual(l, expected)
+    }
+
     // TODO: test a filter nested in another filter via an EXISTS block
 }

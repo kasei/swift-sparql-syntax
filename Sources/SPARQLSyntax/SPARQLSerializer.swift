@@ -254,6 +254,7 @@ public struct SPARQLSerializer {
                 break
             }
             
+            print("\(state) : \(pstate.openParens)")
             switch state {
             case (_, .lbrace, _):
                 //                 '{' $            -> '{' NEWLINE_INDENT
@@ -303,7 +304,9 @@ public struct SPARQLSerializer {
                 // {openBraces=_}    $ '{'            -> $ NEWLINE_INDENT
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel)))
-            case (_, _, .keyword("PREFIX")), (_, _, .keyword("SELECT")), (_, _, .keyword("ASK")), (_, _, .keyword("CONSTRUCT")), (_, _, .keyword("DESCRIBE")),
+            case (_, _, .keyword("BASE")), (_, _, .keyword("PREFIX")),
+                (_, _, .keyword("SELECT")), (_, _, .keyword("ASK")), (_, _, .keyword("CONSTRUCT")), (_, _, .keyword("DESCRIBE")),
+                (_, _, .keyword("FROM")),
                 (_, _, .keyword("INSERT")), (_, _, .keyword("DELETE")),
                 (_, _, .keyword("LOAD")), (_, _, .keyword("CLEAR")),
                 (_, _, .keyword("DROP")), (_, _, .keyword("CREATE")),
@@ -311,6 +314,10 @@ public struct SPARQLSerializer {
                 (_, _, .keyword("COPY")), (_, _, .keyword("CREATE")),
                 (_, _, .keyword("WITH")):
                 // newline before these keywords
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .newline(pstate.indentLevel)))
+            case (_, .iri, .keyword("WHERE")), (_, .prefixname, .keyword("WHERE")):
+                // newline between an IRI (or prefixed name) and WHERE (as in `SELECT * FROM <a> WHERE { … }`)
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel)))
             case (_, .keyword("ORDER"), _) where pstate.openParens > 0:
@@ -334,7 +341,7 @@ public struct SPARQLSerializer {
                 // newline after all other SEMICOLONs
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel+1)))
-            case (_, .keyword("FILTER"), _), (_, .keyword("BIND"), _):
+            case (_, .keyword("FILTER"), _), (_, .keyword("BIND"), _): // TODO: no traliing space if the lookahead token is a lparen
                 // newline before these keywords
                 //                 'FILTER' $        -> NEWLINE_INDENT 'FILTER'                { set no SPACE_SEP }
                 //                 'BIND' '('        -> NEWLINE_INDENT 'BIND'                { set no SPACE_SEP }
@@ -364,6 +371,21 @@ public struct SPARQLSerializer {
                 outputArray.append((t, .tokenString("\(t.sparql)")))
             case (_, _, .hathat), (_, _, .lang):
                 // no space in between any token and a ^^ or @lang
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                
+            case (_, .rparen, .star) where pstate.openParens == 1,
+                (_, .rparen, .plus) where pstate.openParens == 1:
+                // no space between a rparen and a star or plus while NOT within another set of parens (property path)
+                // this will handle paths like (ex:foo+/ex:bar)*, but not ((ex:foo/ex:bar)*/ex:baz)
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+
+            case (_, .iri, .plus), (_, .prefixname, .plus), (_, .iri, .star), (_, .prefixname, .star):
+                // no space in between an IRI or PrefixedName token and a plus or a star (property path)
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+            case (_, .iri, .slash), (_, .prefixname, .slash), (_, .slash, .iri), (_, .slash, .prefixname),
+                (_, .plus, .slash), (_, .star, .slash):
+                // no space in between an IRI or PrefixedName token and a slash (property path)
+                // no space in between a slash and an IRI or PrefixedName token (property path)
                 outputArray.append((t, .tokenString("\(t.sparql)")))
             default:
                 //                 $ $                -> $ ' '

@@ -430,7 +430,7 @@ public struct SPARQLParser {
     private mutating func parseTriplesBlock() throws -> [TriplePattern] {
         let sameSubj = try parseTriplesSameSubject()
         var t = try peekExpectedToken()
-        if t == .none || t != .dot {
+        if t != .dot {
             return sameSubj
         } else {
             try expect(token: .dot)
@@ -2178,7 +2178,7 @@ extension String {
              
              prefixed name first character:
              - leave untouched characters in pnCharsU, ':', or [0-9]
-             - backslash escape these characters: ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
+             - backslash escape these characters: ( '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
              - percent encode anything else
              **/
             
@@ -2196,14 +2196,16 @@ extension String {
             /**
              prefixed name local part (non-first character):
              - cannot end in a '.'
-             - backslash escape these characters: ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
+             - backslash escape these characters: ( '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
              - leave untouched characters in pnChars
              - percent encode anything else
              
              **/
             for c in self.dropFirst(1) {
                 let cs = CharacterSet(c.unicodeScalars)
-                if let escaped = String(c).sparqlBackslashEscape {
+                if String(c) == "_" {
+                    v += "_" // sparqlBackslashEscape will escape underscore, but it doesn't need to be escaped in prefixed names
+                } else if let escaped = String(c).sparqlBackslashEscape {
                     v += String(escaped)
                 } else if cs.isStrictSubset(of: String.pnChars) {
                     v += String(c)
