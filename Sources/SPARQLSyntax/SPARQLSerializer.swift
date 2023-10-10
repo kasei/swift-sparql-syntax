@@ -9,7 +9,7 @@
 import Foundation
 
 public struct SPARQLSerializer {
-    var prettyPrint: Bool
+    internal(set) public var prettyPrint: Bool
     
     public init(prettyPrint: Bool = false) {
         self.prettyPrint = prettyPrint
