@@ -23,37 +23,47 @@ private enum UnfinishedAlgebra {
     case minus(Algebra)
     case bind(Expression, String)
     case finished(Algebra)
-    
-    func finish(_ args: inout [Algebra]) throws -> Algebra {
+
+    func finish(_ args: inout [Algebra], _ parser: inout SPARQLParser) throws -> Algebra {
+        let jr = joinReduction(coalesceBGPs: true)
+        let reduce = { (lhs: Algebra, rhs: Algebra) -> Algebra in
+            let algebra = jr(lhs, rhs)
+            return parser.algebraValue(algebra, copyingTokenRangesFrom: [lhs, rhs])
+        }
         switch self {
         case .bind(let e, let name):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            let sources = args + [.extend(.joinIdentity, e, name)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
             if algebra.inscope.contains(name) {
+                // TODO: use a better error generator that uses algebra-associated token ranges
                 throw SPARQLSyntaxError.parsingError("Cannot BIND to an already in-scope variable (?\(name))") // TODO: can the line:col be included in this exception?
             }
-            return .extend(algebra, e, name)
+            return parser.algebraValue(.extend(algebra, e, name), copyingTokenRangesFrom: sources)
         case .filter(let expr):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            let sources = args + [.filter(.joinIdentity, expr)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
             if case let .filter(a, e) = algebra {
-                return .filter(a, .and(e, expr))
+                return parser.algebraValue(.filter(a, .and(e, expr)), copyingTokenRangesFrom: sources)
             } else {
-                return .filter(algebra, expr)
+                return parser.algebraValue(.filter(algebra, expr), copyingTokenRangesFrom: sources)
             }
         case .minus(let a):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            let sources = args + [.minus(.joinIdentity, a)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
-            return .minus(algebra, a)
+            return parser.algebraValue(.minus(algebra, a), copyingTokenRangesFrom: sources)
         case .optional(.filter(let a, let e)):
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            let sources = args + [.leftOuterJoin(.joinIdentity, a, e)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
-            return .leftOuterJoin(algebra, a, e)
+            return parser.algebraValue(.leftOuterJoin(algebra, a, e), copyingTokenRangesFrom: sources)
         case .optional(let a):
-            let e: Expression = .node(.bound(Term.trueValue))
-            let algebra: Algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+            let sources = args + [.leftOuterJoin(.joinIdentity, a, .trueExpression)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
-            return .leftOuterJoin(algebra, a, e)
+            return parser.algebraValue(.leftOuterJoin(algebra, a, .trueExpression), copyingTokenRangesFrom: sources)
         case .finished(let a):
             return a
         }
@@ -71,9 +81,12 @@ public struct SPARQLParser {
     var prefixes: [String:String]
     var bnodes: [String:Term]
     var base: String?
-    var tokenLookahead: SPARQLToken?
+    var lastTokenNumber: Int
+    var tokenLookahead: PositionedSPARQLToken?
     var freshCounter = AnyIterator(sequence(first: 1) { $0 + 1 })
     var seenBlankNodeLabels: Set<String>
+    private(set) public var algebraToTokens: [Algebra: Set<ClosedRange<Int>>]
+    var algebraStartLocationsStack: [Int]
     
     private mutating func parseError(_ message: String) -> SPARQLSyntaxError {
         let rest = lexer.buffer
@@ -93,6 +106,9 @@ public struct SPARQLParser {
         self.bnodes = [:]
         self.seenBlankNodeLabels = Set()
         self.parseBlankNodesAsVariables = true
+        self.algebraToTokens = [:]
+        self.algebraStartLocationsStack = []
+        self.lastTokenNumber = -1
     }
     
     public init?(string: String, prefixes: [String:String] = [:], base: String? = nil, includeComments: Bool = false) {
@@ -127,21 +143,21 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func peekToken() -> SPARQLToken? {
+    private mutating func peekToken() -> PositionedSPARQLToken? {
         if tokenLookahead == nil {
-            tokenLookahead = self.lexer.next()
+            tokenLookahead = self.lexer.nextPositionedToken()
         }
         return tokenLookahead
     }
     
-    private mutating func peekExpectedToken() throws -> SPARQLToken {
+    private mutating func peekExpectedToken() throws -> PositionedSPARQLToken {
         guard let t = peekToken() else {
             throw parseError("Unexpected EOF")
         }
         return t
     }
     
-    private mutating func nextExpectedToken() throws -> SPARQLToken {
+    private mutating func nextExpectedToken() throws -> PositionedSPARQLToken {
         guard let t = nextToken() else {
             throw parseError("Unexpected EOF")
         }
@@ -149,29 +165,32 @@ public struct SPARQLParser {
     }
     
     @discardableResult
-    private mutating func nextToken() -> SPARQLToken? {
+    private mutating func nextToken() -> PositionedSPARQLToken? {
         if let t = tokenLookahead {
             tokenLookahead = nil
+            self.lastTokenNumber = t.tokenNumber
             return t
         } else {
-            return self.lexer.next()
+            let t = self.lexer.nextPositionedToken()
+            self.lastTokenNumber = t?.tokenNumber ?? self.lastTokenNumber
+            return t
         }
     }
     
     private mutating func peek(token: SPARQLToken) throws -> Bool {
-        guard let t = peekToken() else { return false }
-        if t == token {
+        guard let pt = peekToken() else { return false }
+        if pt.token == token {
             return true
         } else {
             return false
         }
     }
     
-    private mutating func peek<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
-        guard let t = peekToken() else { return nil }
+    private mutating func peek<S: Sequence>(any tokens: S) throws -> PositionedSPARQLToken? where S.Element == SPARQLToken {
+        guard let pt = peekToken() else { return nil }
         for u in tokens {
-            if t == u {
-                return t
+            if pt.token == u {
+                return pt
             }
         }
         return nil
@@ -187,30 +206,110 @@ public struct SPARQLParser {
         }
     }
     
-    private mutating func attempt<S: Sequence>(any tokens: S) throws -> SPARQLToken? where S.Element == SPARQLToken {
-        if let t = try peek(any: tokens) {
+    private mutating func attempt<S: Sequence>(any tokens: S) throws -> PositionedSPARQLToken? where S.Element == SPARQLToken {
+        if let pt = try peek(any: tokens) {
             nextToken()
-            return t
+            return pt
         } else {
             return nil
         }
     }
     
-    private mutating func expect(token: SPARQLToken) throws {
-        guard let t = nextToken() else {
+    @discardableResult
+    private mutating func expect(token: SPARQLToken) throws -> PositionedSPARQLToken {
+        guard let pt = nextToken() else {
             throw parseError("Expected \(token) but got EOF")
         }
-        guard t == token else {
-            throw parseError("Expected \(token) but got \(t)")
+        guard pt.token == token else {
+            throw parseError("Expected \(token) but got \(pt.token)")
         }
-        return
+        return pt
+    }
+    
+    mutating func resetState() {
+        self.algebraToTokens = [:]
+        self.algebraStartLocationsStack = []
+    }
+    
+    mutating func markAlgebraStart() throws {
+        if let pt = peekToken() {
+            markAlgebraStart(pt)
+        } else {
+            self.algebraStartLocationsStack.append(lastTokenNumber)
+        }
+    }
+    
+    mutating func markAlgebraStart(_ pt: PositionedSPARQLToken) {
+        self.algebraStartLocationsStack.append(pt.tokenNumber)
+    }
+
+    @discardableResult
+    mutating func getAlgebraEndRange() throws -> ClosedRange<Int> {
+        let startTokenNumber: Int
+        let endTokenNumber: Int
+        if self.algebraStartLocationsStack.isEmpty {
+            startTokenNumber = 0
+        } else {
+            startTokenNumber = self.algebraStartLocationsStack.removeLast()
+        }
+        if let pt = peekToken() {
+            endTokenNumber = max(pt.tokenNumber-1, startTokenNumber)
+        } else {
+            endTokenNumber = lastTokenNumber
+        }
+        return startTokenNumber...endTokenNumber
+    }
+
+    @discardableResult
+    mutating func algebraSettingTokenRanges(_ algebra: Algebra, _ ranges: Set<ClosedRange<Int>>) -> Algebra {
+        self.algebraToTokens[algebra] = ranges
+        return algebra
+    }
+    
+    mutating func algebraValue<S: Sequence>(_ algebra: Algebra, copyingTokenRangesFrom sources: S) -> Algebra where S.Element == Algebra {
+        for a in sources {
+            let sourceRanges = self.algebraToTokens[a, default: []]
+            for r in sourceRanges {
+                self.algebraToTokens[algebra, default: []].insert(r)
+            }
+        }
+        return algebra
+    }
+    
+    public func getTokenRange(for algebra: Algebra) -> Set<ClosedRange<Int>> {
+        return self.algebraToTokens[algebra, default: []]
+    }
+
+    public func getCombinedTokenRange(for algebra: Algebra) -> ClosedRange<Int>? {
+        let ranges = self.algebraToTokens[algebra, default: []]
+        guard !ranges.isEmpty else { return nil }
+        let start = ranges.map { $0.lowerBound }.min()!
+        let end = ranges.map { $0.upperBound }.max()!
+        return start...end
+    }
+
+    mutating func markAlgebraEnd(_ algebra: Algebra) {
+        markAlgebrasEnd([algebra])
+    }
+    
+    mutating func markAlgebrasEnd<S: Sequence>(_ algebras: S, finishRange: Bool = true) where S.Element == Algebra {
+        let startTokenNumber = self.algebraStartLocationsStack.last! // assumes there was a balancing markAlgebraStart
+        if finishRange {
+            self.algebraStartLocationsStack.removeLast()
+        }
+        let endTokenNumber = lastTokenNumber
+        let range = startTokenNumber...endTokenNumber
+        for algebra in algebras {
+            self.algebraToTokens[algebra, default: []].insert(range)
+        }
     }
     
     public mutating func parseQuery() throws -> Query {
+        resetState()
         try parsePrologue()
         
-        let t = try peekExpectedToken()
-        guard case .keyword(let kw) = t else { throw parseError("Expected query method not found") }
+        let pt = try peekExpectedToken()
+        guard case .keyword(let kw) = pt.token else { throw parseError("Expected query method not found") }
         
         var query: Query
         switch kw {
@@ -225,11 +324,13 @@ public struct SPARQLParser {
         default:
             throw parseError("Expected query method not found: \(kw)")
         }
+        
         if let extra = peekToken() {
             throw parseError("Expected EOF, but found: \(extra)")
         } else if lexer.hasRemainingContent {
             throw parseError("Expected EOF, but found extra content: <<\(lexer.buffer)>>")
         }
+        
         return query
     }
     
@@ -241,13 +342,16 @@ public struct SPARQLParser {
     private mutating func parsePrologue() throws {
         while true {
             if try attempt(token: .keyword("PREFIX")) {
-                let pn = try nextExpectedToken()
+                let ptn = try nextExpectedToken()
+                let pn = ptn.token
                 guard case .prefixname(let name, "") = pn else { throw parseError("Expected prefix name but found \(pn)") }
-                let iri = try nextExpectedToken()
+                let ptiri = try nextExpectedToken()
+                let iri = ptiri.token
                 guard case .iri(let value) = iri else { throw parseError("Expected prefix IRI but found \(iri)") }
                 self.prefixes[name] = value
             } else if try attempt(token: .keyword("BASE")) {
-                let iri = try nextExpectedToken()
+                let ptiri = try nextExpectedToken()
+                let iri = ptiri.token
                 guard case .iri(let value) = iri else { throw parseError("Expected BASE IRI but found \(iri)") }
                 self.base = value
             } else {
@@ -274,7 +378,8 @@ public struct SPARQLParser {
         } else if try attempt(token: .keyword("REDUCED")) {
             distinct = .reduced
         }
-        
+        var aggRanges = Set<ClosedRange<Int>>()
+        try markAlgebraStart()
         var projection: SelectProjection
         if try attempt(token: .star) {
             projection = .star
@@ -282,16 +387,19 @@ public struct SPARQLParser {
             var projectionVariables = [String]()
             var projectionVariablesSet = Set<String>()
             LOOP: while true {
-                let t = try peekExpectedToken()
-                switch t {
+                let pt = try peekExpectedToken()
+                switch pt.token {
                 case .lparen:
                     try expect(token: .lparen)
+                    try markAlgebraStart()
                     var expression = try parseExpression()
+                    let range = try getAlgebraEndRange()
                     if expression.hasWindow {
                         expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
                     }
                     if expression.hasAggregation {
                         expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
+                        aggRanges.insert(range) // TODO: this isn't a tight range; somethign like CONCAT(GROUP_CONCAT(…), "foo") would capture the whole expression, not just the aggreagte
                     }
                     try expect(token: .keyword("AS"))
                     let node = try parseVar()
@@ -315,6 +423,7 @@ public struct SPARQLParser {
             }
             projection = .variables(projectionVariables)
         }
+        let ranges = try getAlgebraEndRange()
         
         let dataset = try parseDatasetClauses()
         try attempt(token: .keyword("WHERE"))
@@ -325,8 +434,10 @@ public struct SPARQLParser {
             algebra: algebra,
             cardinality: distinct,
             projection: projection,
+            projectionRanges: [ranges],
             projectExpressions: projectExpressions,
             aggregation: aggregationExpressions,
+            aggregationRanges: aggRanges,
             window: windowExpressions,
             valuesBlock: values
         )
@@ -354,7 +465,7 @@ public struct SPARQLParser {
             case .bgp(let triples):
                 pattern = triples
             default:
-                throw parseError("Unexpected construct template: \(algebra)")
+                throw parseError("Unexpected construct template: \(algebra)") // TODO: use a better error generator that uses algebra-associated token ranges
             }
         }
         
@@ -362,8 +473,10 @@ public struct SPARQLParser {
             algebra: algebra,
             cardinality: .distinct,
             projection: .star,
+            projectionRanges: [],
             projectExpressions: [],
             aggregation: [:],
+            aggregationRanges: [],
             window: [:],
             valuesBlock: nil
         )
@@ -380,10 +493,10 @@ public struct SPARQLParser {
             let node = try parseVarOrIRI()
             describe.append(node)
             
-            while let t = peekToken() {
-                if t.isTerm {
+            while let pt = peekToken() {
+                if pt.token.isTerm {
                     describe.append(try parseVarOrIRI())
-                } else if case ._var = t {
+                } else if case ._var = pt.token {
                     describe.append(try parseVarOrIRI())
                 } else {
                     break
@@ -408,8 +521,10 @@ public struct SPARQLParser {
             algebra: ggp,
             cardinality: .distinct,
             projection: .star,
+            projectionRanges: [],
             projectExpressions: [],
             aggregation: [:],
+            aggregationRanges: [],
             window: [:],
             valuesBlock: nil
         )
@@ -429,13 +544,13 @@ public struct SPARQLParser {
     
     private mutating func parseTriplesBlock() throws -> [TriplePattern] {
         let sameSubj = try parseTriplesSameSubject()
-        var t = try peekExpectedToken()
-        if t != .dot {
+        var pt = try peekExpectedToken()
+        if pt.token != .dot {
             return sameSubj
         } else {
             try expect(token: .dot)
-            t = try peekExpectedToken()
-            if t.isTermOrVar {
+            pt = try peekExpectedToken()
+            if pt.token.isTermOrVar {
                 let more = try parseTriplesBlock()
                 return sameSubj + more
             } else {
@@ -497,6 +612,8 @@ public struct SPARQLParser {
             distinct = .reduced
         }
 
+        var aggRanges = Set<ClosedRange<Int>>()
+        try markAlgebraStart()
         var projection: SelectProjection
         if try attempt(token: .star) {
             projection = .star
@@ -504,16 +621,19 @@ public struct SPARQLParser {
         } else {
             var projectionVariables = [String]()
             LOOP: while true {
-                let t = try peekExpectedToken()
-                switch t {
+                let pt = try peekExpectedToken()
+                switch pt.token {
                 case .lparen:
                     try expect(token: .lparen)
+                    try markAlgebraStart()
                     var expression = try parseExpression()
+                    let range = try getAlgebraEndRange()
                     if expression.hasWindow {
                         expression = expression.removeWindows(freshCounter, mapping: &windowExpressions)
                     }
                     if expression.hasAggregation {
                         expression = expression.removeAggregations(freshCounter, mapping: &aggregationExpressions)
+                        aggRanges.insert(range) // TODO: this isn't a tight range; somethign like CONCAT(GROUP_CONCAT(…), "foo") would capture the whole expression, not just the aggreagte
                     }
                     try expect(token: .keyword("AS"))
                     let node = try parseVar()
@@ -532,7 +652,8 @@ public struct SPARQLParser {
             }
             projection = .variables(projectionVariables)
         }
-        
+        let ranges = try getAlgebraEndRange()
+
         try attempt(token: .keyword("WHERE"))
         var algebra = try parseGroupGraphPattern()
         
@@ -542,15 +663,17 @@ public struct SPARQLParser {
             algebra: algebra,
             cardinality: distinct,
             projection: projection,
+            projectionRanges: [ranges],
             projectExpressions: projectExpressions,
             aggregation: aggregationExpressions,
+            aggregationRanges: aggRanges,
             window: windowExpressions,
             valuesBlock: values
         )
         
         if star {
             if algebra.isAggregation {
-                throw parseError("Aggregation subqueries cannot use a `SELECT *`")
+                throw parseError("Aggregation subqueries cannot use a `SELECT *`") // TODO: use a better error generator that uses algebra-associated token ranges
             }
         }
         
@@ -574,8 +697,8 @@ public struct SPARQLParser {
                 return expr
             }
         } else {
-            guard let t = peekToken() else { return nil }
-            if case ._var = t {
+            guard let pt = peekToken() else { return nil }
+            if case ._var = pt.token {
                 node = try parseVar()
                 guard case .variable = node else {
                     throw parseError("Expecting GROUP variable but got \(node)")
@@ -599,10 +722,10 @@ public struct SPARQLParser {
         }
         
         var expr: Expression
-        guard let t = peekToken() else { return nil }
+        guard let pt = peekToken() else { return nil }
         if try forceBrackettedExpression || peek(token: .lparen) {
             expr = try parseBrackettedExpression()
-        } else if case ._var = t {
+        } else if case ._var = pt.token {
             expr = try .node(parseVarOrTerm())
         } else if let e = try? parseConstraint() {
             expr = e
@@ -616,8 +739,8 @@ public struct SPARQLParser {
         if try peek(token: .lparen) {
             return try parseBrackettedExpression()
         } else {
-            let t = try peekExpectedToken()
-            switch t {
+            let pt = try peekExpectedToken()
+            switch pt.token {
             case .iri, .prefixname(_, _):
                 return try parseFunctionCall()
             default:
@@ -633,25 +756,32 @@ public struct SPARQLParser {
     }
     
     // swiftlint:disable:next function_parameter_count
-    private mutating func parseSolutionModifier(algebra: Algebra, cardinality: QueryCardinality, projection: SelectProjection, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], window: [String:WindowApplication], valuesBlock: Algebra?) throws -> Algebra {
+    private mutating func parseSolutionModifier(algebra: Algebra, cardinality: QueryCardinality, projection: SelectProjection, projectionRanges: Set<ClosedRange<Int>>, projectExpressions: [(Expression, String)], aggregation: [String:Aggregation], aggregationRanges aggRanges: Set<ClosedRange<Int>>, window: [String:WindowApplication], valuesBlock: Algebra?) throws -> Algebra {
         var algebra = algebra
+        var aggRanges = aggRanges
         
         var groups = [Expression]()
         var applyAggregation: Bool = false
         var applyWindow: Bool = false
+        try markAlgebraStart()
         if try attempt(token: .keyword("GROUP")) {
             applyAggregation = true
             try expect(token: .keyword("BY"))
             while let e = ((try? parseGroupCondition(&algebra)) as Expression??), let expr = e {
                 groups.append(expr)
             }
+            aggRanges.insert(try getAlgebraEndRange())
+        } else {
+            try getAlgebraEndRange()
         }
         
         var window = window
         var aggregation = aggregation
         var havingExpression: Expression? = nil
+        try markAlgebraStart()
         if try attempt(token: .keyword("HAVING")) {
             var e = try parseConstraint()
+            aggRanges.insert(try getAlgebraEndRange())
             if e.hasWindow {
                 e = e.removeWindows(freshCounter, mapping: &window)
             }
@@ -659,8 +789,11 @@ public struct SPARQLParser {
                 e = e.removeAggregations(freshCounter, mapping: &aggregation)
             }
             havingExpression = e
+        } else {
+            try getAlgebraEndRange()
         }
         
+        try markAlgebraStart()
         var sortConditions: [Algebra.SortComparator] = []
         if try attempt(token: .keyword("ORDER")) {
             try expect(token: .keyword("BY"))
@@ -672,6 +805,7 @@ public struct SPARQLParser {
                 sortConditions.append(c)
             }
         }
+        let orderRange = try getAlgebraEndRange()
 
         // TODO: check if there are any duplicate aggregate definitions, and rewrite the query to only use one
         // (e.g. if the same agg expr is used in a SELECT and ORDER BY clause)
@@ -694,7 +828,7 @@ public struct SPARQLParser {
         }
         
         if applyAggregation {
-            algebra = .aggregate(algebra, groups, Set(aggregations))
+            algebra = algebraSettingTokenRanges(.aggregate(algebra, groups, Set(aggregations)), aggRanges)
         }
         
         let inScope = algebra.inscope
@@ -718,11 +852,11 @@ public struct SPARQLParser {
         }
         
         if sortConditions.count > 0 {
-            algebra = .order(algebra, sortConditions)
+            algebra = algebraSettingTokenRanges(.order(algebra, sortConditions), [orderRange])
         }
 
         if case .variables(let projection) = projection {
-            algebra = .project(algebra, Set(projection))
+            algebra = algebraSettingTokenRanges(.project(algebra, Set(projection)), projectionRanges)
         }
         
         switch cardinality {
@@ -734,6 +868,7 @@ public struct SPARQLParser {
             break
         }
         
+        try markAlgebraStart()
         if try attempt(token: .keyword("LIMIT")) {
             let limit = try parseInteger()
             if try attempt(token: .keyword("OFFSET")) {
@@ -742,6 +877,7 @@ public struct SPARQLParser {
             } else {
                 algebra = .slice(algebra, nil, limit)
             }
+            try algebraSettingTokenRanges(algebra, [getAlgebraEndRange()])
         } else if try attempt(token: .keyword("OFFSET")) {
             let offset = try parseInteger()
             if try attempt(token: .keyword("LIMIT")) {
@@ -750,6 +886,9 @@ public struct SPARQLParser {
             } else {
                 algebra = .slice(algebra, offset, nil)
             }
+            try algebraSettingTokenRanges(algebra, [getAlgebraEndRange()])
+        } else {
+            try getAlgebraEndRange()
         }
         return algebra
     }
@@ -766,16 +905,16 @@ public struct SPARQLParser {
     ///   - expression: the Expression to be evaluated
     ///   - variableName: the variable to which the evaluated expression value is to be bound
     /// - Returns: a new Algebra value
-    private func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
+    private mutating func addAggregationAndWindowExtension(to algebra: Algebra, expression: Expression, variableName: String) -> Algebra {
         if case .node(.variable(let name, _)) = expression {
             if name.hasPrefix(".") {
                 if case .aggregate = algebra {
                     if let a = algebra.renameAggregateAndWindowVariables(from: name, to: variableName) {
-                        return a
+                        return algebraValue(a, copyingTokenRangesFrom: [algebra])
                     }
                 } else if case .window = algebra {
                     if let a = algebra.renameAggregateAndWindowVariables(from: name, to: variableName) {
-                        return a
+                        return algebraValue(a, copyingTokenRangesFrom: [algebra])
                     }
                 }
             }
@@ -800,8 +939,8 @@ public struct SPARQLParser {
         var filters = [UnfinishedAlgebra]()
         
         while ok {
-            let t = try peekExpectedToken()
-            if t.isTermOrVar {
+            let pt = try peekExpectedToken()
+            if pt.token.isTermOrVar {
                 if !allowTriplesBlock {
                     break
                 }
@@ -809,7 +948,7 @@ public struct SPARQLParser {
                 allowTriplesBlock = false
                 patterns.append(contentsOf: algebras.map { .finished($0) })
             } else {
-                switch t {
+                switch pt.token {
                 case .lparen, .lbracket, ._var, .iri, .anon, .prefixname(_, _), .bnode, .string1d, .string1s, .string3d, .string3s, .boolean, .double, .decimal, .integer:
                     if !allowTriplesBlock {
                         break
@@ -819,7 +958,7 @@ public struct SPARQLParser {
                     patterns.append(contentsOf: algebras.map { .finished($0) })
                 case .lbrace, .keyword:
                     guard let unfinished = try treeByParsingGraphPatternNotTriples() else {
-                        throw parseError("Could not parse GraphPatternNotTriples in GroupGraphPatternSub (near \(t))")
+                        throw parseError("Could not parse GraphPatternNotTriples in GroupGraphPatternSub (near \(pt.token))")
                     }
                     
                     if case .filter = unfinished {
@@ -850,19 +989,25 @@ public struct SPARQLParser {
             default:
                 try guardBlankNodeResuse(with: currentBlockSeenLabels)
                 currentBlockSeenLabels = Set()
-                let algebra = try pattern.finish(&args)
-                args.append(algebra)
+                let orig = args
+                let algebra = try pattern.finish(&args, &self)
+                args.append(algebraValue(algebra, copyingTokenRangesFrom: orig))
             }
         }
 
         try guardBlankNodeResuse(with: currentBlockSeenLabels)
 
         for f in filters {
-            let algebra = try f.finish(&args)
+            let algebra = try f.finish(&args, &self)
             args.append(algebra)
         }
         
-        var algebra = args.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
+        let jr = joinReduction(coalesceBGPs: true)
+        let reduce = { (lhs: Algebra, rhs: Algebra) -> Algebra in
+            let algebra = jr(lhs, rhs)
+            return algebraValue(algebra, copyingTokenRangesFrom: [lhs, rhs])
+        }
+        var algebra = args.reduce(.joinIdentity, reduce)
         
         func replaceBlankNode(_ n: Node) -> Node? {
             switch n {
@@ -878,19 +1023,19 @@ public struct SPARQLParser {
                 switch a {
                 case .bgp(let triples):
                     if let newTriples = try? triples.map({ (t) in return try t.replace(replaceBlankNode) }) {
-                        return .bgp(newTriples)
+                        return algebraValue(.bgp(newTriples), copyingTokenRangesFrom: [a])
                     } else {
                         return nil
                     }
                 case .quad(let q):
                     if let qp = try? q.replace(replaceBlankNode) {
-                        return .quad(qp)
+                        return algebraValue(.quad(qp), copyingTokenRangesFrom: [a])
                     } else {
                         return nil
                     }
                 case .triple(let t):
                     if let tp = try? t.replace(replaceBlankNode) {
-                        return .triple(tp)
+                        return algebraValue(.triple(tp), copyingTokenRangesFrom: [a])
                     } else {
                         return nil
                     }
@@ -934,8 +1079,8 @@ public struct SPARQLParser {
     //[63]      InlineDataOneVar      ::=      Var '{' DataBlockValue* '}'
     //[64]      InlineDataFull      ::=      ( NIL | '(' Var* ')' ) '{' ( '(' DataBlockValue* ')' | NIL )* '}'
     private mutating func parseDataBlock() throws -> Algebra {
-        var t = try peekExpectedToken()
-        if case ._var = t {
+        var pt = try peekExpectedToken()
+        if case ._var = pt.token {
             let node = try parseVar()
             guard case .variable(_, binding: _) = node else {
                 throw parseError("Expecting variable but got \(node)")
@@ -949,16 +1094,16 @@ public struct SPARQLParser {
         } else {
             var vars = [Node]()
             var names = [String]()
-            if case ._nil = t {
-                try expect(token: t)
+            if case ._nil = pt.token {
+                try expect(token: pt.token)
             } else {
                 try expect(token: .lparen)
-                t = try peekExpectedToken()
-                while case ._var(let name) = t {
-                    try expect(token: t)
+                pt = try peekExpectedToken()
+                while case ._var(let name) = pt.token {
+                    try expect(token: pt.token)
                     vars.append(.variable(name, binding: true))
                     names.append(name)
-                    t = try peekExpectedToken()
+                    pt = try peekExpectedToken()
                 }
                 try expect(token: .rparen)
             }
@@ -966,8 +1111,8 @@ public struct SPARQLParser {
             var results = [[Term?]]()
             
             //            while try peek(token: .lparen) || peek(token: ._nil) {
-            while let t = try attempt(any: [.lparen, ._nil]) {
-                switch t {
+            while let pt = try attempt(any: [.lparen, ._nil]) {
+                switch pt.token {
                 case .lparen:
                     let values = try parseDataBlockValues()
                     try expect(token: .rparen)
@@ -985,31 +1130,31 @@ public struct SPARQLParser {
     
     //[65]      DataBlockValue      ::=      iri |    RDFLiteral |    NumericLiteral |    BooleanLiteral |    'UNDEF'
     private mutating func parseDataBlockValues() throws -> [Term?] {
-        var t = try peekExpectedToken()
+        var pt = try peekExpectedToken()
         var values = [Term?]()
         let undef = SPARQLToken.keyword("UNDEF")
-        while t == undef || t.isTerm {
+        while pt.token == undef || pt.token.isTerm {
             if try attempt(token: undef) {
                 values.append(nil)
             } else {
-                t = try nextExpectedToken()
-                let term = try tokenAsTerm(t)
+                pt = try nextExpectedToken()
+                let term = try tokenAsTerm(pt.token)
                 guard term.type != .blank else {
                     throw parseError("Blank nodes cannot appear in VALUES blocks")
                 }
                 values.append(term)
             }
-            t = try peekExpectedToken()
+            pt = try peekExpectedToken()
         }
         return values
     }
     
     private mutating func parseTriplesSameSubject() throws -> [TriplePattern] {
-        let t = try peekExpectedToken()
-        if t.isTermOrVar {
+        let pt = try peekExpectedToken()
+        if pt.token.isTermOrVar {
             let subj = try parseVarOrTerm()
             return try parsePropertyListNotEmpty(for: subj)
-        } else if t == .lparen || t == .lbracket {
+        } else if pt.token == .lparen || pt.token == .lbracket {
             let (subj, triples) = try parseTriplesNodeAsNode()
             let more = try parsePropertyList(subject: subj)
             return triples + more
@@ -1019,8 +1164,8 @@ public struct SPARQLParser {
     }
     
     private mutating func parsePropertyList(subject: Node) throws -> [TriplePattern] {
-        let t = try peekExpectedToken()
-        guard t.isVerb else { return [] }
+        let pt = try peekExpectedToken()
+        guard pt.token.isVerb else { return [] }
         return try parsePropertyListNotEmpty(for: subject)
     }
     
@@ -1034,18 +1179,20 @@ public struct SPARQLParser {
             case .bgp(let tps):
                 triples.append(contentsOf: tps)
             default:
-                throw parseError("Expected triple pattern but found \(algebra)")
+                throw parseError("Expected triple pattern but found \(algebra)") // TODO: use a better error generator that uses algebra-associated token ranges
             }
         }
         return triples
     }
     
     private mutating func triplesArrayByParsingTriplesSameSubjectPath() throws -> [Algebra] {
-        let t = try peekExpectedToken()
-        if t.isTermOrVar {
+        let pt = try peekExpectedToken()
+        try markAlgebraStart()
+        if pt.token.isTermOrVar {
             let subject = try parseVarOrTerm()
             let propertyObjectTriples = try parsePropertyListPathNotEmpty(for: subject)
             // NOTE: in the original code, propertyObjectTriples could be nil here. not sure why this changed, but haven't found cases where this new code is wrong...
+            markAlgebrasEnd(propertyObjectTriples, finishRange: true)
             return propertyObjectTriples
         } else {
             var triples = [Algebra]()
@@ -1053,14 +1200,15 @@ public struct SPARQLParser {
             triples.append(contentsOf: nodeTriples)
             let propertyObjectTriples = try parsePropertyListPath(for: subject)
             triples.append(contentsOf: propertyObjectTriples)
+            markAlgebrasEnd(triples, finishRange: true)
             return triples
         }
     }
     
     private mutating func parseExpressionList() throws -> [Expression] {
-        let t = try peekExpectedToken()
-        if case ._nil = t {
-            try expect(token: t)
+        let pt = try peekExpectedToken()
+        if case ._nil = pt.token {
+            try expect(token: pt.token)
             return []
         } else {
             try expect(token: .lparen)
@@ -1076,16 +1224,16 @@ public struct SPARQLParser {
     }
     
     private mutating func parsePropertyListPath(for subject: Node) throws -> [Algebra] {
-        let t = try peekExpectedToken()
-        guard t.isVerb else { return [] }
+        let pt = try peekExpectedToken()
+        guard pt.token.isVerb else { return [] }
         return try parsePropertyListPathNotEmpty(for: subject)
     }
     
     private mutating func parsePropertyListPathNotEmpty(for subject: Node) throws -> [Algebra] {
-        var t = try peekExpectedToken()
+        var pt = try peekExpectedToken()
         var verb: PropertyPath? = nil
         var varpred: Node? = nil
-        if case ._var = t {
+        if case ._var = pt.token {
             varpred = try parseVerbSimple()
         } else {
             verb = try parseVerbPath()
@@ -1099,19 +1247,18 @@ public struct SPARQLParser {
             } else {
                 propertyObjects.append(.triple(TriplePattern(subject: subject, predicate: varpred!, object: o)))
             }
+            markAlgebrasEnd([propertyObjects.last!], finishRange: false)
         }
         
         // push paths to the end
         propertyObjects.sort { (l, r) in if case .path = l { return false } else { return true } }
-//        let algebra: Algebra = propertyObjects.reduce(.joinIdentity, joinReduction(coalesceBGPs: true))
-//        propertyObjects = [algebra]
         
         
         LOOP: while try attempt(token: .semicolon) {
-            t = try peekExpectedToken()
+            pt = try peekExpectedToken()
             var verb: PropertyPath? = nil
             var varpred: Node? = nil
-            switch t {
+            switch pt.token {
             case ._var:
                 varpred = try parseVerbSimple()
             case .keyword("A"), .lparen, .hat, .bang, .iri, .prefixname(_, _):
@@ -1128,6 +1275,7 @@ public struct SPARQLParser {
                 } else {
                     propertyObjects.append(.triple(TriplePattern(subject: subject, predicate: varpred!, object: o)))
                 }
+                markAlgebrasEnd([propertyObjects.last!], finishRange: false)
             }
         }
         
@@ -1218,13 +1366,13 @@ public struct SPARQLParser {
         if try attempt(token: .lparen) {
             let path = try parsePathOneInPropertySet()
             guard case .link(let iri) = path else {
-                throw parseError("Expected NPS IRI but found \(path)")
+                throw parseError("Expected NPS IRI but found \(path)") // TODO: use a better error generator that uses algebra-associated token ranges
             }
             var iris = [iri]
             while try attempt(token: .or) {
                 let rhs = try parsePathOneInPropertySet()
                 guard case .link(let iri) = rhs else {
-                    throw parseError("Expected NPS IRI but found \(path)")
+                    throw parseError("Expected NPS IRI but found \(path)") // TODO: use a better error generator that uses algebra-associated token ranges
                 }
                 iris.append(iri)
             }
@@ -1233,23 +1381,23 @@ public struct SPARQLParser {
         } else {
             let path = try parsePathOneInPropertySet()
             guard case .link(let iri) = path else {
-                throw parseError("Expected NPS IRI but found \(path)")
+                throw parseError("Expected NPS IRI but found \(path)") // TODO: use a better error generator that uses algebra-associated token ranges
             }
             return .nps([iri])
         }
     }
     
-    private mutating func parsePathOneInPropertySet() throws -> PropertyPath {
-        let t = try peekExpectedToken()
-        if t == .hat {
-            switch t {
+    private mutating func parsePathOneInPropertySet() throws -> PropertyPath { // TODO: set token ranges on property paths
+        let pt = try peekExpectedToken()
+        if pt.token == .hat {
+            switch pt.token {
             case .keyword("A"):
                 return .inv(.link(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri)))
             default:
                 let iri = try parseIRI()
                 return .inv(.link(iri))
             }
-        } else if case .keyword("A") = t {
+        } else if case .keyword("A") = pt.token {
             return .link(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
         } else {
             let iri = try parseIRI()
@@ -1258,7 +1406,9 @@ public struct SPARQLParser {
     }
     
     private mutating func parseObjectPathAsNode() throws -> (Node, [Algebra]) {
-        return try parseGraphNodePathAsNode()
+        let pair = try parseGraphNodePathAsNode()
+        markAlgebrasEnd(pair.1, finishRange: false)
+        return pair
     }
     
     private mutating func parseTriplesNodeAsNode() throws -> (Node, [TriplePattern]) {
@@ -1279,7 +1429,7 @@ public struct SPARQLParser {
             case .bgp(let ts):
                 triples.append(contentsOf: ts)
             default:
-                throw parseError("Unexpected template triple: \(p)")
+                throw parseError("Unexpected template triple: \(p)") // TODO: use a better error generator that uses algebra-associated token ranges
             }
         }
         return (node, triples)
@@ -1312,7 +1462,7 @@ public struct SPARQLParser {
             case .bgp(let ts):
                 triples.append(contentsOf: ts)
             default:
-                throw parseError("Unexpected template triple: \(p)")
+                throw parseError("Unexpected template triple: \(p)") // TODO: use a better error generator that uses algebra-associated token ranges
             }
         }
         return (node, triples)
@@ -1363,8 +1513,8 @@ public struct SPARQLParser {
     //    private mutating func parseGraphNodeAsNode() throws -> (Node, [Algebra]) { fatalError }
     
     private mutating func parseGraphNodePathAsNode() throws -> (Node, [Algebra]) {
-        let t = try peekExpectedToken()
-        if t.isTermOrVar {
+        let pt = try peekExpectedToken()
+        if pt.token.isTermOrVar {
             let node = try parseVarOrTerm()
             return (node, [])
         } else {
@@ -1373,8 +1523,8 @@ public struct SPARQLParser {
     }
     
     private mutating func parseVarOrTerm() throws -> Node {
-        let t = try nextExpectedToken()
-        return try tokenAsNode(t)
+        let pt = try nextExpectedToken()
+        return try tokenAsNode(pt.token)
     }
     
     private mutating func parseVarOrIRI() throws -> Node {
@@ -1388,8 +1538,8 @@ public struct SPARQLParser {
     }
     
     private mutating func parseVar() throws -> Node {
-        let t = try nextExpectedToken()
-        let node = try tokenAsNode(t)
+        let pt = try nextExpectedToken()
+        let node = try tokenAsNode(pt.token)
         guard case .variable = node else {
             throw parseError("Expected variable but found \(node)")
         }
@@ -1399,7 +1549,7 @@ public struct SPARQLParser {
     private mutating func parseNonAggregatingExpression() throws -> Expression {
         let expr = try parseExpression()
         guard !expr.hasAggregation else {
-            throw parseError("Unexpected aggregation in BIND expression")
+            throw parseError("Unexpected aggregation in BIND expression") // TODO: use a better error generator that uses algebra-associated token ranges
         }
         return expr
     }
@@ -1432,20 +1582,20 @@ public struct SPARQLParser {
     
     private mutating func parseRelationalExpression() throws -> Expression {
         let expr = try parseNumericExpression()
-        let t = try peekExpectedToken()
-        switch t {
+        let pt = try peekExpectedToken()
+        switch pt.token {
         case .equals, .notequals, .lt, .gt, .le, .ge:
             nextToken()
             let rhs = try parseNumericExpression()
-            if t == .equals {
+            if pt.token == .equals {
                 return .eq(expr, rhs)
-            } else if t == .notequals {
+            } else if pt.token == .notequals {
                 return .ne(expr, rhs)
-            } else if t == .lt {
+            } else if pt.token == .lt {
                 return .lt(expr, rhs)
-            } else if t == .gt {
+            } else if pt.token == .gt {
                 return .gt(expr, rhs)
-            } else if t == .le {
+            } else if pt.token == .le {
                 return .le(expr, rhs)
             } else {
                 return .ge(expr, rhs)
@@ -1470,32 +1620,32 @@ public struct SPARQLParser {
     
     private mutating func parseAdditiveExpression() throws -> Expression {
         var expr = try parseMultiplicativeExpression()
-        var t = try peekExpectedToken()
-        while t == .plus || t == .minus {
-            try expect(token: t)
+        var pt = try peekExpectedToken()
+        while pt.token == .plus || pt.token == .minus {
+            try expect(token: pt.token)
             let rhs = try parseMultiplicativeExpression()
-            if t == .plus {
+            if pt.token == .plus {
                 expr = .add(expr, rhs)
             } else {
                 expr = .sub(expr, rhs)
             }
-            t = try peekExpectedToken()
+            pt = try peekExpectedToken()
         }
         return expr
     }
     
     private mutating func parseMultiplicativeExpression() throws -> Expression {
         var expr = try parseUnaryExpression()
-        var t = try peekExpectedToken()
-        while t == .star || t == .slash {
-            try expect(token: t)
+        var pt = try peekExpectedToken()
+        while pt.token == .star || pt.token == .slash {
+            try expect(token: pt.token)
             let rhs = try parseUnaryExpression()
-            if t == .star {
+            if pt.token == .star {
                 expr = .mul(expr, rhs)
             } else {
                 expr = .div(expr, rhs)
             }
-            t = try peekExpectedToken()
+            pt = try peekExpectedToken()
         }
         return expr
     }
@@ -1524,13 +1674,13 @@ public struct SPARQLParser {
         if try peek(token: .lparen) {
             return try parseBrackettedExpression()
         } else {
-            let t = try peekExpectedToken()
-            switch t {
+            let pt = try peekExpectedToken()
+            switch pt.token {
             case .iri, .prefixname(_, _):
                 let expr = try parseIRIOrFunction()
-                if let t = peekToken(), case .keyword("OVER") = t {
+                if let pt = peekToken(), case .keyword("OVER") = pt.token {
                     guard case let .call(iri, exprs) = expr else {
-                        throw parseError("Expected extension window function call but found \(t)")
+                        throw parseError("Expected extension window function call but found \(pt.token)")
                     }
                     let function: WindowFunction = .custom(iri, exprs)
                     let w = try parseWindow(with: function)
@@ -1539,8 +1689,8 @@ public struct SPARQLParser {
                     return expr
                 }
             case ._nil, .anon, .bnode:
-                throw parseError("Expected PrimaryExpression term (IRI, Literal, or Var) but found \(t)")
-            case _ where t.isTermOrVar:
+                throw parseError("Expected PrimaryExpression term (IRI, Literal, or Var) but found \(pt.token)")
+            case _ where pt.token.isTermOrVar:
                 return try .node(parseVarOrTerm())
             default:
                 let expr = try parseBuiltInCall()
@@ -1666,11 +1816,11 @@ public struct SPARQLParser {
     }
     
     private mutating func parseBuiltInCall() throws -> Expression {
-        let t = try peekExpectedToken()
-        switch t {
+        let pt = try peekExpectedToken()
+        switch pt.token {
         case .keyword(let kw) where SPARQLLexer.validAggregations.contains(kw):
             let agg = try parseAggregate()
-            if let t = peekToken(), case .keyword("OVER") = t {
+            if let pt = peekToken(), case .keyword("OVER") = pt.token {
                 // aggregates can be used as window functions
                 let function : WindowFunction = .aggregation(agg)
                 let w = try parseWindow(with: function)
@@ -1682,16 +1832,16 @@ public struct SPARQLParser {
             let w = try parseWindow()
             return .window(w)
         case .keyword("NOT"):
-            try expect(token: t)
+            try expect(token: pt.token)
             try expect(token: .keyword("EXISTS"))
             let ggp = try parseGroupGraphPattern()
             return .not(.exists(ggp))
         case .keyword("EXISTS"):
-            try expect(token: t)
+            try expect(token: pt.token)
             let ggp = try parseGroupGraphPattern()
             return .exists(ggp)
         case .keyword(let kw) where SPARQLLexer.validFunctionNames.contains(kw):
-            try expect(token: t)
+            try expect(token: pt.token)
             var args = [Expression]()
             if try !attempt(token: ._nil) {
                 try expect(token: .lparen)
@@ -1705,14 +1855,14 @@ public struct SPARQLParser {
             }
             return convertCallToExpression(e: .call(kw, args))
         default:
-            throw parseError("Expected built-in function call but found \(t)")
+            throw parseError("Expected built-in function call but found \(pt.token)")
         }
     }
     
     private mutating func parseWindow() throws -> WindowApplication {
-        let t = try nextExpectedToken()
-        guard case .keyword(let name) = t else {
-            throw parseError("Expected window function name but found \(t)")
+        let pt = try nextExpectedToken()
+        guard case .keyword(let name) = pt.token else {
+            throw parseError("Expected window function name but found \(pt.token)")
         }
         
         var function: WindowFunction
@@ -1747,10 +1897,10 @@ public struct SPARQLParser {
             try expect(token: .keyword("BY"))
             
             while true {
-                guard let t = peekToken() else { break }
+                guard let pt = peekToken() else { break }
                 if try peek(token: .lparen) {
                     partition.append(try parseBrackettedExpression())
-                } else if case ._var = t {
+                } else if case ._var = pt.token {
                     partition.append(try .node(parseVarOrTerm()))
                 } else if let e = try? parseConstraint() {
                     partition.append(e)
@@ -1818,9 +1968,9 @@ public struct SPARQLParser {
     }
     
     private mutating func parseAggregate() throws -> Aggregation {
-        let t = try nextExpectedToken()
-        guard case .keyword(let name) = t else {
-            throw parseError("Expected aggregate name but found \(t)")
+        let pt = try nextExpectedToken()
+        guard case .keyword(let name) = pt.token else {
+            throw parseError("Expected aggregate name but found \(pt.token)")
         }
         
         switch name {
@@ -1880,8 +2030,8 @@ public struct SPARQLParser {
             if try attempt(token: .semicolon) {
                 try expect(token: .keyword("SEPARATOR"))
                 try expect(token: .equals)
-                let t = try nextExpectedToken()
-                let term = try tokenAsTerm(t)
+                let pt = try nextExpectedToken()
+                let term = try tokenAsTerm(pt.token)
                 sep = term.value
             }
             let agg: Aggregation = .groupConcat(expr, sep, distinct)
@@ -1893,8 +2043,8 @@ public struct SPARQLParser {
     }
 
     private mutating func parseIRI() throws -> Term {
-        let t = try nextExpectedToken()
-        let term = try tokenAsTerm(t)
+        let pt = try nextExpectedToken()
+        let term = try tokenAsTerm(pt.token)
         guard case .iri = term.type else {
             throw parseError("Bad path IRI: \(term)")
         }
@@ -1903,14 +2053,17 @@ public struct SPARQLParser {
     
     private mutating func triplesByParsingTriplesBlock() throws -> [Algebra] {
         var sameSubj = try triplesArrayByParsingTriplesSameSubjectPath()
-        let t = peekToken()
-        if t == .none || t != .some(.dot) {
+        let pt = peekToken()
+        if pt == nil || pt!.token != .dot {
             
         } else {
             try expect(token: .dot)
-            let t = try peekExpectedToken()
-            switch t {
-            case _ where t.isTermOrVar, .lparen, .lbracket:
+            
+            
+            
+            let pt = try peekExpectedToken()
+            switch pt.token {
+            case _ where pt.token.isTermOrVar, .lparen, .lbracket:
                 let more = try triplesByParsingTriplesBlock()
                 sameSubj += more
             default:
@@ -1921,30 +2074,34 @@ public struct SPARQLParser {
         return Array(sameSubj.map { simplifyPath($0) })
     }
     
-    private func simplifyPath(_ algebra: Algebra) -> Algebra {
+    private mutating func simplifyPath(_ algebra: Algebra) -> Algebra {
         guard case .path(let s, .link(let iri), let o) = algebra else { return algebra }
         let node: Node = .bound(iri)
         let triple = TriplePattern(subject: s, predicate: node, object: o)
-        return .triple(triple)
+        return algebraValue(.triple(triple), copyingTokenRangesFrom: [algebra])
     }
-    
+
     private mutating func treeByParsingGraphPatternNotTriples() throws -> UnfinishedAlgebra? {
-        let t = try peekExpectedToken()
-        if case .keyword("OPTIONAL") = t {
-            try expect(token: t)
+        let pt = try peekExpectedToken()
+        try markAlgebraStart()
+        if case .keyword("OPTIONAL") = pt.token {
+            try expect(token: pt.token)
             let ggp = try parseGroupGraphPattern()
+            markAlgebraEnd(.leftOuterJoin(.joinIdentity, ggp, .trueExpression))
             return .optional(ggp)
-        } else if case .keyword("MINUS") = t {
-            try expect(token: t)
+        } else if case .keyword("MINUS") = pt.token {
+            try expect(token: pt.token)
             let ggp = try parseGroupGraphPattern()
+            markAlgebraEnd(.minus(.joinIdentity, ggp))
             return .minus(ggp)
-        } else if case .keyword("GRAPH") = t {
-            try expect(token: t)
+        } else if case .keyword("GRAPH") = pt.token {
+            try expect(token: pt.token)
             let node = try parseVarOrIRI()
             let ggp = try parseGroupGraphPattern()
+            markAlgebraEnd(.namedGraph(ggp, node))
             return .finished(.namedGraph(ggp, node))
-        } else if case.keyword("SERVICE") = t {
-            try expect(token: t)
+        } else if case.keyword("SERVICE") = pt.token {
+            try expect(token: pt.token)
             let silent = try attempt(token: .keyword("SILENT"))
             let node = try parseVarOrIRI()
             guard case .bound(let endpoint) = node else {
@@ -1955,24 +2112,33 @@ public struct SPARQLParser {
                 throw parseError("Endpoint IRI is an invalid URL: \(endpoint.value)")
             }
             
+            markAlgebraEnd(.service(url, ggp, silent))
             return .finished(.service(url, ggp, silent))
-        } else if case .keyword("FILTER") = t {
-            try expect(token: t)
+        } else if case .keyword("FILTER") = pt.token {
+            try expect(token: pt.token)
             let expression = try parseConstraint()
+            markAlgebraEnd(.filter(.joinIdentity, expression))
             return .filter(expression)
-        } else if case .keyword("VALUES") = t {
+        } else if case .keyword("VALUES") = pt.token {
             let data = try parseInlineData()
+            markAlgebraEnd(data)
             return .finished(data)
-        } else if case .keyword("BIND") = t {
-            return try parseBind()
-        } else if case .keyword = t {
-            throw parseError("Expecting KEYWORD but got \(t)")
-        } else if case .lbrace = t {
+        } else if case .keyword("BIND") = pt.token {
+            let bind = try parseBind()
+            guard case let .bind(expr, string) = bind else {
+                throw parseError("Unexpected non-BIND: \(bind)")
+            }
+            markAlgebraEnd(.extend(.joinIdentity, expr, string))
+            return bind
+        } else if case .keyword = pt.token {
+            throw parseError("Expecting KEYWORD but got \(pt.token)")
+        } else if case .lbrace = pt.token {
             var ggp = try parseGroupGraphPattern()
             while try attempt(token: .keyword("UNION")) {
                 let rhs = try parseGroupGraphPattern()
                 ggp = .union(ggp, rhs)
             }
+            markAlgebraEnd(ggp)
             return .finished(ggp)
         } else {
             let t = try peekExpectedToken()
@@ -1982,15 +2148,15 @@ public struct SPARQLParser {
     
     private mutating func literalAsTerm(_ value: String) throws -> Term {
         if try attempt(token: .hathat) {
-            let t = try nextExpectedToken()
-            let dtterm = try tokenAsTerm(t)
+            let pt = try nextExpectedToken()
+            let dtterm = try tokenAsTerm(pt.token)
             guard case .iri = dtterm.type else {
                 throw parseError("Expecting datatype IRI but found '\(dtterm)'")
             }
             return Term(value: value, type: .datatype(TermDataType(stringLiteral: dtterm.value)))
         } else {
-            let t = try peekExpectedToken()
-            if case .lang(let lang) = t {
+            let pt = try peekExpectedToken()
+            if case .lang(let lang) = pt.token {
                 let _ = try nextExpectedToken()
                 return Term(value: value, type: .language(lang))
             }
@@ -2038,11 +2204,11 @@ public struct SPARQLParser {
         case .string1d(let value), .string1s(let value), .string3d(let value), .string3s(let value):
             return try literalAsTerm(value)
         case .plus:
-            let t = try nextExpectedToken()
-            return try tokenAsTerm(t)
+            let pt = try nextExpectedToken()
+            return try tokenAsTerm(pt.token)
         case .minus:
-            let t = try nextExpectedToken()
-            let term = try tokenAsTerm(t)
+            let pt = try nextExpectedToken()
+            let term = try tokenAsTerm(pt.token)
             guard term.isNumeric, let value = term.numeric else {
                 throw parseError("Cannot negate \(term)")
             }
@@ -2087,11 +2253,11 @@ public struct SPARQLParser {
             let term = try literalAsTerm(value)
             return .bound(term)
         case .plus:
-            let t = try nextExpectedToken()
-            return try tokenAsNode(t)
+            let pt = try nextExpectedToken()
+            return try tokenAsNode(pt.token)
         case .minus:
-            let t = try nextExpectedToken()
-            let term = try tokenAsTerm(t)
+            let pt = try nextExpectedToken()
+            let term = try tokenAsTerm(pt.token)
             guard term.isNumeric, let value = term.numeric else {
                 throw parseError("Cannot negate \(term)")
             }
@@ -2103,8 +2269,8 @@ public struct SPARQLParser {
     }
     
     mutating private func parseInteger() throws -> Int {
-        let l = try nextExpectedToken()
-        let term = try tokenAsTerm(l)
+        let pt = try nextExpectedToken()
+        let term = try tokenAsTerm(pt.token)
         guard case .datatype(.integer) = term.type else {
             throw parseError("Expecting integer but found \(term)")
         }

@@ -35,8 +35,6 @@ class ExpressionTest: XCTestCase {
         let i2 = Expression.node(.bound(Term(integer: 2)))
         let i3 = Expression.node(.bound(Term(integer: 3)))
 
-//        let b1 = Expression.node(.bound(Term.trueValue))
-
         let call1 = Expression.call("tag:kasei.us,2018:example-function", [])
         
         var e = expr
