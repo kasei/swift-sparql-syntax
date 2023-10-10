@@ -28,7 +28,7 @@ public struct SPARQLSerializer {
             return sparql
         }
         
-        var tokens = [PositionedToken]()
+        var tokens = [PositionedSPARQLToken]()
         do {
             while true {
                 if let pt = try lexer.getToken() {
@@ -1025,7 +1025,7 @@ extension Algebra {
             tokens.append(.keyword("OPTIONAL"))
             tokens.append(.lbrace)
             tokens.append(contentsOf: try rhs.sparqlTokens(depth: depth+1))
-            if expr != .node(.bound(Term.trueValue)) {
+            if expr != .trueExpression {
                 tokens.append(.keyword("FILTER"))
                 var addParens : Bool = expr.needsSurroundingParentheses
                 if case .node = expr {
