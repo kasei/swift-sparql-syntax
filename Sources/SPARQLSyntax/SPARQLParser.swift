@@ -32,7 +32,7 @@ private enum UnfinishedAlgebra {
         }
         switch self {
         case .bind(let e, let name):
-            let sources = args + [.extend(.joinIdentity, e, name)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let sources : [Algebra] = [.extend(.joinIdentity, e, name)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
             let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
             if algebra.inscope.contains(name) {
@@ -41,11 +41,11 @@ private enum UnfinishedAlgebra {
             }
             return parser.algebraValue(.extend(algebra, e, name), copyingTokenRangesFrom: sources)
         case .filter(let expr):
-            let sources = args + [.filter(.joinIdentity, expr)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let sources : [Algebra] = [.filter(.joinIdentity, expr)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
             let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
             if case let .filter(a, e) = algebra {
-                return parser.algebraValue(.filter(a, .and(e, expr)), copyingTokenRangesFrom: sources)
+                return parser.algebraValue(.filter(a, .and(e, expr)), copyingTokenRangesFrom: sources+[algebra])
             } else {
                 return parser.algebraValue(.filter(algebra, expr), copyingTokenRangesFrom: sources)
             }
@@ -55,12 +55,12 @@ private enum UnfinishedAlgebra {
             args = []
             return parser.algebraValue(.minus(algebra, a), copyingTokenRangesFrom: sources)
         case .optional(.filter(let a, let e)):
-            let sources = args + [.leftOuterJoin(.joinIdentity, a, e)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let sources : [Algebra] = [.leftOuterJoin(.joinIdentity, a, e)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
             let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
             return parser.algebraValue(.leftOuterJoin(algebra, a, e), copyingTokenRangesFrom: sources)
         case .optional(let a):
-            let sources = args + [.leftOuterJoin(.joinIdentity, a, .trueExpression)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let sources : [Algebra] = [.leftOuterJoin(.joinIdentity, a, .trueExpression)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
             let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
             return parser.algebraValue(.leftOuterJoin(algebra, a, .trueExpression), copyingTokenRangesFrom: sources)
@@ -233,14 +233,14 @@ public struct SPARQLParser {
     
     mutating func markAlgebraStart() throws {
         if let pt = peekToken() {
-            markAlgebraStart(pt)
+            markAlgebraStart(pt.tokenNumber)
         } else {
-            self.algebraStartLocationsStack.append(lastTokenNumber)
+            markAlgebraStart(lastTokenNumber)
         }
     }
     
-    mutating func markAlgebraStart(_ pt: PositionedSPARQLToken) {
-        self.algebraStartLocationsStack.append(pt.tokenNumber)
+    mutating func markAlgebraStart(_ tokenNumber: Int) {
+        self.algebraStartLocationsStack.append(tokenNumber)
     }
 
     @discardableResult
@@ -989,9 +989,8 @@ public struct SPARQLParser {
             default:
                 try guardBlankNodeResuse(with: currentBlockSeenLabels)
                 currentBlockSeenLabels = Set()
-                let orig = args
                 let algebra = try pattern.finish(&args, &self)
-                args.append(algebraValue(algebra, copyingTokenRangesFrom: orig))
+                args.append(algebra)
             }
         }
 
