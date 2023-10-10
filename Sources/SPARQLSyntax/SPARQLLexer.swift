@@ -255,8 +255,9 @@ extension SPARQLToken {
     }
 }
 
-public struct PositionedToken {
+public struct PositionedSPARQLToken {
     public var token: SPARQLToken
+    public var tokenNumber: Int
     public var startColumn: Int
     public var startLine: Int
     public var startCharacter: UInt
@@ -274,7 +275,7 @@ public class SPARQLLexer: IteratorProtocol {
     var stringPos: UInt
     var line: Int
     var column: Int
-    var character: UInt
+    private(set) public var character: UInt
     var escapedBytes: [UInt8]
     var escapedBytesNewlineCount: Int
     var buffer: Substring
@@ -282,8 +283,9 @@ public class SPARQLLexer: IteratorProtocol {
     var startLine: Int
     var startCharacter: UInt
     var comments: Bool
-    var lookahead: PositionedToken?
+    var lookahead: PositionedSPARQLToken?
     var readbuffer : [UInt8]
+    private(set) public var tokenNumber: Int
 
     private func lexError(_ message: String) -> SPARQLSyntaxError {
         let rest = buffer
@@ -534,11 +536,12 @@ public class SPARQLLexer: IteratorProtocol {
         self.startCharacter = 0
         self.comments = true
         self.lookahead = nil
+        self.tokenNumber = 0
         
         try fillEntireBuffer()
     }
     
-    public func nextPositionedToken() -> PositionedToken? {
+    public func nextPositionedToken() -> PositionedSPARQLToken? {
         do {
             return try getToken()
         } catch {
@@ -558,7 +561,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     public func next() -> SPARQLToken? {
         do {
-            if let pt : PositionedToken = try getToken() {
+            if let pt : PositionedSPARQLToken = try getToken() {
                 return pt.token
             }
             return nil
@@ -682,7 +685,7 @@ public class SPARQLLexer: IteratorProtocol {
         buffer = s[s.startIndex..<s.endIndex]
     }
     
-    func peekToken() throws -> PositionedToken? {
+    func peekToken() throws -> PositionedSPARQLToken? {
         if let t = lookahead {
             return t
         } else {
@@ -691,7 +694,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getToken() throws -> PositionedToken? {
+    public func getToken() throws -> PositionedSPARQLToken? {
         if let t = lookahead {
             lookahead = nil
             return t
@@ -701,14 +704,17 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    private func packageToken(_ token: SPARQLToken?) -> PositionedToken? {
+    private func packageToken(_ token: SPARQLToken?) -> PositionedSPARQLToken? {
         guard let token = token else { return nil }
         if self.character == self.startCharacter {
             print("Zero-length token \(startCharacter), \(character): \(token)")
             fatalError()
         }
-        return PositionedToken(
+        let tNum = self.tokenNumber
+        self.tokenNumber += 1
+        return PositionedSPARQLToken(
             token: token,
+            tokenNumber: tNum,
             startColumn: startColumn,
             startLine: startLine,
             startCharacter: startCharacter,
@@ -719,7 +725,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     // swiftlint:disable:next cyclomatic_complexity
-    func _getToken() throws -> PositionedToken? {
+    func _getToken() throws -> PositionedSPARQLToken? {
         while true {
             guard var c = try peekChar() else {
                 return nil
@@ -1456,7 +1462,7 @@ public class SPARQLLexer: IteratorProtocol {
         stream.open()
         let lexer = try SPARQLLexer(source: stream)
         
-        var stack = [PositionedToken]()
+        var stack = [PositionedSPARQLToken]()
         let endBound = string.distance(from: string.startIndex, to: origRange.upperBound)
         while let t = lexer.nextPositionedToken() {
             if Int(t.endCharacter) > endBound {
@@ -1497,7 +1503,7 @@ public class SPARQLLexer: IteratorProtocol {
         let lexer = try SPARQLLexer(source: stream)
         
         
-        var stack = [PositionedToken]()
+        var stack = [PositionedSPARQLToken]()
         let empty = string.startIndex..<string.startIndex
         var balance = empty
         var depth = level

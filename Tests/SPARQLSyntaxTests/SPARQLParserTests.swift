@@ -135,7 +135,7 @@ class SPARQLParserTests: XCTestCase {
         XCTAssertEqual(loc, 0)
         XCTAssertEqual(len, 6)
         
-        let tokens: UnfoldSequence<PositionedToken, Int> = sequence(state: 0) { (_) in return lexer.nextPositionedToken() }
+        let tokens: UnfoldSequence<PositionedSPARQLToken, Int> = sequence(state: 0) { (_) in return lexer.nextPositionedToken() }
         let expected = [
             (7,1),
             (9,5),
