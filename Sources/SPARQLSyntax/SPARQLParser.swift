@@ -293,7 +293,7 @@ public struct SPARQLParser {
     }
     
     mutating func markAlgebrasEnd<S: Sequence>(_ algebras: S, finishRange: Bool = true) where S.Element == Algebra {
-        let startTokenNumber = self.algebraStartLocationsStack.last! // assumes there was a balancing markAlgebraStart
+        let startTokenNumber: Int = self.algebraStartLocationsStack.last ?? 0
         if finishRange {
             self.algebraStartLocationsStack.removeLast()
         }
