@@ -198,15 +198,24 @@ public struct SPARQLSerializer {
             case (.tokenString("FILTER"), .spaceSeparator, .tokenString("(")), (.tokenString("BIND"), .spaceSeparator, .tokenString("(")):
                 inCall += 1
                 closingDepth.insert(depth)
-            case (.tokenString("FILTER"), _, _): // may be a built-in call or an un-bracketted function call
+            case (.tokenString("FILTER"), _, _), (.tokenString("BIND"), _, _): // may be a built-in call or an un-bracketted function call
                 inCall += 1
+                closingDepth.insert(depth)
             case (.tokenString("("), _, _) where inCall > 0:
                 depth += 1
             case (.tokenString(")"), .spaceSeparator, .tokenString(".")) where inCall > 0: // no newline if there's a DOT after the RPAREN
                 depth -= 1
+                if (closingDepth.contains(depth) || depth == 0) {
+                    closingDepth.remove(depth)
+                    inCall -= 1
+                }
             case (.tokenString(")"), .spaceSeparator, .tokenString("ASC")) where inCall > 0,
                 (.tokenString(")"), .spaceSeparator, .tokenString("DESC")) where inCall > 0: // no newline if there's a sort direction after the RPAREN
                 depth -= 1
+                if (closingDepth.contains(depth) || depth == 0) {
+                    closingDepth.remove(depth)
+                    inCall -= 1
+                }
             case (.tokenString(")"), _, _) where inCall > 0:
                 depth -= 1
                 if (closingDepth.contains(depth) || depth == 0) {
@@ -268,13 +277,17 @@ public struct SPARQLSerializer {
                 // {openBraces=0}    $ '{'            -> $
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .spaceSeparator))
+            case (_, .rbrace, .keyword("UNION")), (_, .rbrace, .keyword("MINUS")):
+                outputArray.append((t, .newline(pstate.indentLevel)))
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .spaceSeparator))
             case (_, .rbrace, _):
                 // a right brace should be on a line by itself
                 //                 '}' $            -> NEWLINE_INDENT '}' NEWLINE_INDENT
                 outputArray.append((t, .newline(pstate.indentLevel)))
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel)))
-            case (_, .keyword("EXISTS"), .lbrace), (_, .keyword("OPTIONAL"), .lbrace), (_, .keyword("UNION"), .lbrace):
+            case (_, .keyword("EXISTS"), .lbrace), (_, .keyword("OPTIONAL"), .lbrace), (_, .keyword("UNION"), .lbrace), (_, .keyword("MINUS"), .lbrace):
                 //                 EXISTS '{'        -> EXISTS SPACE_SEP
                 //                 OPTIONAL '{'    -> OPTIONAL SPACE_SEP
                 //                 UNION '{'        -> UNION SPACE_SEP
@@ -345,7 +358,13 @@ public struct SPARQLSerializer {
                 // newline after all other SEMICOLONs
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .newline(pstate.indentLevel+1)))
-            case (_, .keyword("FILTER"), _), (_, .keyword("BIND"), _): // TODO: no traliing space if the lookahead token is a lparen
+            case (_, .keyword("FILTER"), .lparen), (_, .keyword("BIND"), .lparen):
+                // newline before these keywords
+                //                 'FILTER' $        -> NEWLINE_INDENT 'FILTER'                { set no SPACE_SEP }
+                //                 'BIND' '('        -> NEWLINE_INDENT 'BIND'                { set no SPACE_SEP }
+                outputArray.append((t, .newline(pstate.indentLevel)))
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+            case (_, .keyword("FILTER"), _), (_, .keyword("BIND"), _):
                 // newline before these keywords
                 //                 'FILTER' $        -> NEWLINE_INDENT 'FILTER'                { set no SPACE_SEP }
                 //                 'BIND' '('        -> NEWLINE_INDENT 'BIND'                { set no SPACE_SEP }

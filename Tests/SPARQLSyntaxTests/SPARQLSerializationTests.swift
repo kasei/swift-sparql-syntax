@@ -433,7 +433,7 @@ class SPARQLSerializationTests: XCTestCase {
             }
             WHERE {
                 ?s <http://example.org/value> ?o .
-                BIND (?o AS ?q)
+                BIND(?o AS ?q)
             }
             
             """
@@ -596,7 +596,7 @@ class SPARQLSerializationTests: XCTestCase {
             let expected = """
             SELECT (SUM(?oo) AS ?sum) WHERE {
                 ?s <http://example.org/value> ?o .
-                BIND (?o + "1"^^<http://www.w3.org/2001/XMLSchema#integer> AS ?oo)
+                BIND(?o + "1"^^<http://www.w3.org/2001/XMLSchema#integer> AS ?oo)
             }
             HAVING (?sum > "10"^^<http://www.w3.org/2001/XMLSchema#integer>)
             
@@ -679,7 +679,7 @@ class SPARQLSerializationTests: XCTestCase {
         PREFIX ex: <http://example.org/>
         SELECT * {
             ?s ex:value ?o
-            FILTER (DATATYPE(?o) = ex:foo)
+            FILTER(DATATYPE(?o) = ex:foo)
             FILTER BOUND(?o)
             FILTER SAMETERM(?o, <http://example.org/foo>)
         }
@@ -696,7 +696,7 @@ class SPARQLSerializationTests: XCTestCase {
             let expected = """
             SELECT * WHERE {
                 ?s <http://example.org/value> ?o .
-                FILTER (((DATATYPE(?o) = <http://example.org/foo>) && BOUND(?o)) && SAMETERM(?o , <http://example.org/foo>))
+                FILTER(((DATATYPE(?o) = <http://example.org/foo>) && BOUND(?o)) && SAMETERM(?o , <http://example.org/foo>))
             }
             
             """
@@ -822,8 +822,8 @@ class SPARQLSerializationTests: XCTestCase {
             SELECT DISTINCT ?y ?s WHERE {
                 {
                 }
-                BIND (<http://example.org/> AS ?s)
-                FILTER ("xyz")
+                BIND(<http://example.org/> AS ?s)
+                FILTER("xyz")
             }
             
             """
@@ -920,7 +920,7 @@ class SPARQLSerializationTests: XCTestCase {
                     OPTIONAL {
                         {
                         }
-                        FILTER (?s)
+                        FILTER(?s)
                     }
                 }
             }

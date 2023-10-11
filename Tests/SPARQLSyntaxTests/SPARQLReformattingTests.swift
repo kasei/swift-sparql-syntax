@@ -68,9 +68,9 @@ class SPARQLReformattingTests: XCTestCase {
             ?s geo:lat ?lat ;
                 geo:long+ ?long ;
                 #  foo bar
-            FILTER (?long < - 117.0)
-            FILTER (?lat >= 31.0)
-            FILTER (?lat <= 33.0)
+            FILTER(?long < - 117.0)
+            FILTER(?lat >= 31.0)
+            FILTER(?lat <= 33.0)
         }
         ORDER BY DESC(?s)
         
@@ -126,9 +126,9 @@ class SPARQLReformattingTests: XCTestCase {
             ?s geo:lat ?lat ;
                 geo:long+ ?long ;
                 #  foo bar
-            FILTER (?long < - 117.0)
-            FILTER (?lat >= 31.0)
-            FILTER (?lat <= 33.0)
+            FILTER(?long < - 117.0)
+            FILTER(?lat >= 31.0)
+            FILTER(?lat <= 33.0)
         }
         ORDER BY DESC(?s) foo'
           bar
@@ -155,9 +155,9 @@ class SPARQLReformattingTests: XCTestCase {
         WHERE {
             ?s geo:lat ?lat ;
                 geo:long ?long
-            FILTER (?long < - 117.0)
-            FILTER (?lat >= 31.0)
-            FILTER (?lat <= 33.0)
+            FILTER(?long < - 117.0)
+            FILTER(?lat >= 31.0)
+            FILTER(?lat <= 33.0)
         }
         
         """
@@ -210,8 +210,7 @@ class SPARQLReformattingTests: XCTestCase {
             {
                 ?a <p> ?b ;
                     <q> ?c
-            }
-            UNION {
+            } UNION {
                 SELECT ?a ?b ?c WHERE {
                     ?a ?b ?c
                 }
@@ -233,7 +232,7 @@ class SPARQLReformattingTests: XCTestCase {
         let l = s.reformat(sparql)
         let expected = """
         SELECT * WHERE {
-            FILTER (# comment
+            FILTER(# comment
                 true)
         }
         
@@ -250,7 +249,7 @@ class SPARQLReformattingTests: XCTestCase {
         
         let expected = """
         SELECT * WHERE {
-            BIND (1 AS ?x)
+            BIND(1 AS ?x)
             ?s ?p ?o
         }
         
@@ -267,7 +266,7 @@ class SPARQLReformattingTests: XCTestCase {
         
         let expected = """
         SELECT * WHERE {
-            FILTER (true)
+            FILTER(true)
             ?s ?p ?o
         }
         
@@ -361,9 +360,9 @@ class SPARQLReformattingTests: XCTestCase {
         let expected = """
         SELECT * WHERE {
             ?x ?y ?z
-            FILTER (?z && NOT EXISTS {
+            FILTER(?z && NOT EXISTS {
                     ?x <q> <r>
-                    FILTER (true)
+                    FILTER(true)
                     ?x <qq> ?rr
                 }
                 )
