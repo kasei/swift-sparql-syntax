@@ -231,6 +231,11 @@ public struct SPARQLParser {
         self.algebraStartLocationsStack = []
     }
     
+    // Mark the current position in the input (the next token that will be returned by getToken)
+    // as the start of a range of tokens that will be associated with some algebra.
+    // The range will be ended by a call to getAlgebraEndRange(), markAlgebraEnd(:), or markAlgebrasEnd(:finishRange:).
+    // Higher-level algebra expressions (combining other sub-algebras) can combine these ranges
+    // using algebraSettingTokenRanges(:, ranges:) and algebraValue(:, copyingTokenRangesFrom:)
     mutating func markAlgebraStart() throws {
         if let pt = peekToken() {
             markAlgebraStart(pt.tokenNumber)
@@ -239,10 +244,14 @@ public struct SPARQLParser {
         }
     }
     
+    // Mark an algebraic expression as starting with the supplied token.
     mutating func markAlgebraStart(_ tokenNumber: Int) {
         self.algebraStartLocationsStack.append(tokenNumber)
     }
 
+    // Return the range of an algebraic expression starting at the location marked previously (via markAlgebraStart())
+    // and ending at the current input location (the last token returned by getToken).
+    // This range can be used in a call to algebraSettingTokenRanges(: ranges:).
     @discardableResult
     mutating func getAlgebraEndRange() throws -> ClosedRange<Int> {
         let startTokenNumber: Int
@@ -260,12 +269,15 @@ public struct SPARQLParser {
         return startTokenNumber...endTokenNumber
     }
 
+    // Return the supplied algebra, with the side effect of marking its associated token ranges.
     @discardableResult
     mutating func algebraSettingTokenRanges(_ algebra: Algebra, _ ranges: Set<ClosedRange<Int>>) -> Algebra {
         self.algebraToTokens[algebra] = ranges
         return algebra
     }
     
+    // Return the supplied algebra, with the side effect of marking its associated token ranges as the union
+    // of ranges associated with the given source algebras.
     mutating func algebraValue<S: Sequence>(_ algebra: Algebra, copyingTokenRangesFrom sources: S) -> Algebra where S.Element == Algebra {
         for a in sources {
             let sourceRanges = self.algebraToTokens[a, default: []]
@@ -276,22 +288,13 @@ public struct SPARQLParser {
         return algebra
     }
     
-    public func getTokenRange(for algebra: Algebra) -> Set<ClosedRange<Int>> {
-        return self.algebraToTokens[algebra, default: []]
-    }
-
-    public func getCombinedTokenRange(for algebra: Algebra) -> ClosedRange<Int>? {
-        let ranges = self.algebraToTokens[algebra, default: []]
-        guard !ranges.isEmpty else { return nil }
-        let start = ranges.map { $0.lowerBound }.min()!
-        let end = ranges.map { $0.upperBound }.max()!
-        return start...end
-    }
-
+    // Mark the supplied algebra's associated token range as ending at the current input location (the last token returned by getToken).
     mutating func markAlgebraEnd(_ algebra: Algebra) {
         markAlgebrasEnd([algebra])
     }
     
+    // Mark the supplied algebras' associated token ranges as ending at the current input location (the last token returned by getToken).
+    // If finishRange is true, removes the associated range starting location (set with markAlgebraStart()).
     mutating func markAlgebrasEnd<S: Sequence>(_ algebras: S, finishRange: Bool = true) where S.Element == Algebra {
         let startTokenNumber: Int = self.algebraStartLocationsStack.last ?? 0
         if finishRange {
@@ -304,6 +307,22 @@ public struct SPARQLParser {
         }
     }
     
+    // Returns a single tken range for the given algebra, possibly including intervening tokens
+    // that were not directly associated with the algebra but appear in the input string between
+    // tokens which were.
+    public func getCombinedTokenRange(for algebra: Algebra) -> ClosedRange<Int>? {
+        let ranges = self.algebraToTokens[algebra, default: []]
+        guard !ranges.isEmpty else { return nil }
+        let start = ranges.map { $0.lowerBound }.min()!
+        let end = ranges.map { $0.upperBound }.max()!
+        return start...end
+    }
+
+    // Returns the tracked token ranges for the given algebra.
+    public func getTokenRange(for algebra: Algebra) -> Set<ClosedRange<Int>> {
+        return self.algebraToTokens[algebra, default: []]
+    }
+
     public mutating func parseQuery() throws -> Query {
         resetState()
         try parsePrologue()
