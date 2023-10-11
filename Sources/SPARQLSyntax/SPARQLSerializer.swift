@@ -204,6 +204,9 @@ public struct SPARQLSerializer {
                 depth += 1
             case (.tokenString(")"), .spaceSeparator, .tokenString(".")) where inCall > 0: // no newline if there's a DOT after the RPAREN
                 depth -= 1
+            case (.tokenString(")"), .spaceSeparator, .tokenString("ASC")) where inCall > 0,
+                (.tokenString(")"), .spaceSeparator, .tokenString("DESC")) where inCall > 0: // no newline if there's a sort direction after the RPAREN
+                depth -= 1
             case (.tokenString(")"), _, _) where inCall > 0:
                 depth -= 1
                 if (closingDepth.contains(depth) || depth == 0) {
