@@ -417,6 +417,10 @@ public struct SPARQLSerializer {
                 // no space in between an IRI or PrefixedName token and a slash or pipe (property path)
                 // no space in between a slash and an IRI or PrefixedName token (property path)
                 outputArray.append((t, .tokenString("\(t.sparql)")))
+            case (_, .keyword("VALUES"), _):
+                outputArray.append((t, .newline(pstate.indentLevel)))
+                outputArray.append((t, .tokenString("\(t.sparql)")))
+                outputArray.append((t, .spaceSeparator))
             default:
                 //                 $ $                -> $ ' '
                 outputArray.append((t, .tokenString("\(t.sparql)")))
