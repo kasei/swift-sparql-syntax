@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum SPARQLToken {
+public enum SPARQLToken: Hashable {
     case ws
     case comment(String)
     case _nil
