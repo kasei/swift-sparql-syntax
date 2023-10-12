@@ -516,6 +516,28 @@ class SPARQLReformattingTests: XCTestCase {
         XCTAssertEqual(l, expected)
     }
 
+    func testReformat_tripleOptional() throws {
+        let sparql = """
+        select * where {
+            ?s ?p ?o OPTIONAL { ?s <http://example.org/8f59af8a-b71c-11ed-8912-01aa75ed71a1> 1. }
+        }
+
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            ?s ?p ?o
+            OPTIONAL {
+                ?s <http://example.org/8f59af8a-b71c-11ed-8912-01aa75ed71a1> 1 .
+            }
+        }
+
+        """
+        XCTAssertEqual(l, expected)
+    }
+
 
     // TODO: test a filter nested in another filter via an EXISTS block
 }

@@ -146,7 +146,7 @@ public struct SPARQLSerializer {
         var indent = "    "
     }
     
-    enum SerializerOutput {
+    enum SerializerOutput : Equatable {
         case newline(Int)
         case spaceSeparator
         case tokenString(String)
@@ -291,6 +291,7 @@ public struct SPARQLSerializer {
                 //                 EXISTS '{'        -> EXISTS SPACE_SEP
                 //                 OPTIONAL '{'    -> OPTIONAL SPACE_SEP
                 //                 UNION '{'        -> UNION SPACE_SEP
+                outputArray.append((t, .newline(pstate.indentLevel)))
                 outputArray.append((t, .tokenString("\(t.sparql)")))
                 outputArray.append((t, .spaceSeparator))
             case (_, .comment(let c), _):
@@ -450,7 +451,7 @@ public struct SPARQLSerializer {
         outputArray = fixBrackettedExpressions(outputArray)
         
         var tempArray: [SerializerOutput] = []
-        FILTER: for i in 0..<(outputArray.count-1) {
+        FILTER: for i in 0..<(outputArray.count-2) {
             let (_, s1) = outputArray[i]
             let (_, s2) = outputArray[i+1]
             switch (s1, s2) {
@@ -461,6 +462,15 @@ public struct SPARQLSerializer {
                 // change newline-space to newline-newline, and then skip the first newline
                 // (resulting in a single newline being handled)
                 outputArray[i+1] = outputArray[i]
+                continue FILTER
+            case (.newline(_), .tokenString("OPTIONAL")) where tempArray.last == .some(.tokenString("}")),
+                (.newline(_), .tokenString("UNION")) where tempArray.last == .some(.tokenString("}")):
+                // remove newline between a rbrace and OPTIONAL/UNION to allow the syntax "} UNION {" on one line
+                tempArray.append(.spaceSeparator)
+                continue FILTER
+            case (.newline(_), .tokenString("EXISTS")) where tempArray.last == .some(.tokenString("NOT")):
+                // remove newline between a NOT and EXISTS
+                tempArray.append(.spaceSeparator)
                 continue FILTER
             default:
                 tempArray.append(s1)

@@ -916,8 +916,7 @@ class SPARQLSerializationTests: XCTestCase {
                     {
                         {
                         }
-                    }
-                    OPTIONAL {
+                    } OPTIONAL {
                         {
                         }
                         FILTER(?s)
