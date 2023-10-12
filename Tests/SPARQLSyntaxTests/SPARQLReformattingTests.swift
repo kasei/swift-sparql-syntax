@@ -392,6 +392,26 @@ class SPARQLReformattingTests: XCTestCase {
         XCTAssertEqual(l, expected)
     }
 
+    func testReformat_values_after_triple() throws {
+        let sparql = """
+        select * where { ?s ?p ?o values ?x { 1 2 3 } }
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        SELECT * WHERE {
+            ?s ?p ?o
+            VALUES ?x
+            {
+                1 2 3
+            }
+        }
+
+        """
+        XCTAssertEqual(l, expected)
+    }
+
     func testReformat_prefixedname_with_underscores() throws {
         let sparql = """
         prefiX ex: <http://example.org/>
@@ -511,6 +531,25 @@ class SPARQLReformattingTests: XCTestCase {
             ?work ex:date ?date
         }
         ORDER BY DESC(?date)
+
+        """
+        XCTAssertEqual(l, expected)
+    }
+
+    func testReformat_pname() throws {
+        let sparql = """
+        prefix ex: <http://example.org/>
+        select * where { ?s ex:foo-bar ?o }
+
+        """
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        
+        let expected = """
+        PREFIX ex: <http://example.org/>
+        SELECT * WHERE {
+            ?s ex:foo-bar ?o
+        }
 
         """
         XCTAssertEqual(l, expected)

@@ -2389,6 +2389,8 @@ extension String {
                 let cs = CharacterSet(c.unicodeScalars)
                 if String(c) == "_" {
                     v += "_" // sparqlBackslashEscape will escape underscore, but it doesn't need to be escaped in prefixed names
+                } else if String(c) == "-" {
+                        v += "-" // sparqlBackslashEscape will escape underscore, but it doesn't need to be escaped in prefixed names
                 } else if let escaped = String(c).sparqlBackslashEscape {
                     v += String(escaped)
                 } else if cs.isStrictSubset(of: String.pnChars) {
