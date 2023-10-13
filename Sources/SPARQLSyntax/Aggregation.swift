@@ -8,7 +8,7 @@
 import Foundation
 
 public enum Aggregation : Equatable, Hashable {
-    case countAll
+    case countAll(Bool)
     case count(Expression, Bool)
     case sum(Expression, Bool)
     case avg(Expression, Bool)
@@ -46,7 +46,8 @@ extension Aggregation: Codable {
         let type = try container.decode(String.self, forKey: .type)
         switch type {
         case "countAll":
-            self = .countAll
+            let distinct = try container.decode(Bool.self, forKey: .distinct)
+            self = .countAll(distinct)
         case "count":
             let expr = try container.decode(Expression.self, forKey: .expression)
             let distinct = try container.decode(Bool.self, forKey: .distinct)
@@ -81,8 +82,9 @@ extension Aggregation: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .countAll:
+        case .countAll(let distinct):
             try container.encode("countAll", forKey: .type)
+            try container.encode(distinct, forKey: .distinct)
         case let .count(expr, distinct):
             try container.encode("count", forKey: .type)
             try container.encode(expr, forKey: .expression)
@@ -116,7 +118,9 @@ extension Aggregation: Codable {
 extension Aggregation: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .countAll:
+        case .countAll(true):
+            return "COUNT(DISTINCT *)"
+        case .countAll(false):
             return "COUNT(*)"
         case .count(let expr, false):
             return "COUNT(\(expr.description))"

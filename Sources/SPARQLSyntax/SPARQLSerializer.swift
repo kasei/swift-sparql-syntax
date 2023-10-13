@@ -891,9 +891,12 @@ extension Aggregation {
     public func sparqlTokens() throws -> AnySequence<SPARQLToken> {
         var tokens = [SPARQLToken]()
         switch self {
-        case .countAll:
+        case .countAll(let distinct):
             tokens.append(.keyword("COUNT"))
             tokens.append(.lparen)
+            if distinct {
+                tokens.append(.keyword("DISTINCT"))
+            }
             tokens.append(.star)
             tokens.append(.rparen)
         case .count(let e, let distinct):
