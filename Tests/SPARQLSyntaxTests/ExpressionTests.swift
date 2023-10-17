@@ -144,4 +144,30 @@ class ExpressionTest: XCTestCase {
         ((((((((((((((((NOT(((((2 * (-(SUM(?var)) + 1)) - 3) / 1) BETWEEN 1 AND 2)) && BOUND(?v2)) || (?v1 < 2)) && ISIRI(?v1)) && ISBLANK(?v1)) && ISLITERAL(?v1)) && ISNUMERIC(?v1)) && LANGMATCHES(LANG(xsd:string(?v2)), ""en-US"")) && xsd:boolean(<tag:kasei.us,2018:example-function>())) && (?v1 == xsd:integer(?v2))) && (?v1 != xsd:float(?v2))) && (?v1 < xsd:double(?v2))) && (?v1 <= xsd:decimal(?v2))) && (?v1 > ?v2)) && (?v1 >= ?v2)) && SAMETERM(DATATYPE(?v1), ?v2)) && ?v2 IN (1,2))
         """)
     }
+    
+    func testWalkRecursive_ExistsAlgebraFilter() throws {
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
+        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
+        
+        let expr : Expression = .exists(.filter(.bgp([t1]), .eq(.node(vtype), .node(vname))))
+        
+        var variables = Set<String>()
+        let recursiveType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: true, descendIntoExpressions: true)
+        
+        let recursiveConfig = WalkConfig(type: recursiveType, expressionHandler: { (e) in
+            switch e {
+            case .node(.variable(let v, binding: _)):
+                variables.insert(v)
+            default:
+                break
+            }
+        })
+        try expr.walk(config: recursiveConfig)
+        
+        XCTAssertEqual(variables, ["type", "name"])
+    }
+
 }

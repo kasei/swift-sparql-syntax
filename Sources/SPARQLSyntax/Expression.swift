@@ -895,3 +895,58 @@ public extension Expression {
         }
     }
 }
+
+public extension Expression {
+    func walk(_ handler: @escaping (Expression) throws -> ()) throws {
+        let config = WalkConfig(type: .defaultType, expressionHandler: handler)
+        try walk(config: config)
+    }
+    
+    func walk(config: WalkConfig) throws {
+        try config.handle(self)
+        
+        switch self {
+        case .node:
+            return
+        case .window(let w):
+            try w.comparators.forEach {
+                try $0.expression.walk(config: config)
+            }
+            if let exprs = w.windowFunction.expressions {
+                try exprs.forEach {
+                    try $0.walk(config: config)
+                }
+            }
+        case .aggregate(let a):
+            if let e = a.expression {
+                try e.walk(config: config)
+            }
+        case .neg(let e), .not(let e), .isiri(let e), .isblank(let e), .isliteral(let e), .isnumeric(let e), .lang(let e), .datatype(let e), .bound(let e), .boolCast(let e), .intCast(let e), .floatCast(let e), .doubleCast(let e), .decimalCast(let e), .dateTimeCast(let e), .dateCast(let e), .stringCast(let e):
+            try e.walk(config: config)
+            
+        case .langmatches(let lhs, let rhs), .sameterm(let lhs, let rhs), .eq(let lhs, let rhs), .ne(let lhs, let rhs), .lt(let lhs, let rhs), .le(let lhs, let rhs), .gt(let lhs, let rhs), .ge(let lhs, let rhs), .add(let lhs, let rhs), .sub(let lhs, let rhs), .div(let lhs, let rhs), .mul(let lhs, let rhs), .and(let lhs, let rhs), .or(let lhs, let rhs):
+            try lhs.walk(config: config)
+            try rhs.walk(config: config)
+            
+        case let .between(e, lower, upper):
+            try e.walk(config: config)
+            try lower.walk(config: config)
+            try upper.walk(config: config)
+            
+        case .valuein(let e, let exprs):
+            try e.walk(config: config)
+            try exprs.forEach { (e) in
+                try e.walk(config: config)
+            }
+        case .call(_, let exprs):
+            try exprs.forEach { (e) in
+                try e.walk(config: config)
+            }
+            
+        case .exists(let a):
+            if config.type.descendIntoAlgebras {
+                try a.walk(config: config.findingExpressionsInAlgebras)
+            }
+        }
+    }
+}

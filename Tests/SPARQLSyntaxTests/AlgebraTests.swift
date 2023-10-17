@@ -284,6 +284,119 @@ class AlgebraTest: XCTestCase {
         XCTAssertEqual(tripleCount, 1)
     }
     
+    func testWalkRecursive_AlgebraExpressionAlgebra() throws {
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
+        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
+        let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
+        
+        let algebra : Algebra = .filter(.bgp([t1]), .exists(.bgp([t2])))
+
+        var bgpCount = 0
+        var variables = Set<String>()
+        let recursiveType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: true, descendIntoExpressions: true)
+        
+        let recursiveConfig = WalkConfig(type: recursiveType, algebraHandler: { (a) in
+            switch a {
+            case .bgp(_):
+                bgpCount += 1
+                variables.formUnion(a.inscope)
+            default:
+                break
+            }
+        })
+        try algebra.walk(config: recursiveConfig)
+        
+        XCTAssertEqual(bgpCount, 2)
+        XCTAssertEqual(variables, ["type", "name"])
+    }
+    
+    func testWalkRecursive_AlgebraExtendAlgebra() throws {
+        let subj: Node = .bound(Term(value: "b", type: .blank))
+        let type: Node = .bound(Term(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", type: .iri))
+        let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
+        let vtype: Node = .variable("type", binding: true)
+        let vname: Node = .variable("name", binding: true)
+        let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
+        let t2 = TriplePattern(subject: subj, predicate: name, object: vname)
+        
+        let algebra : Algebra = .extend(.bgp([t1]), .exists(.bgp([t2])), "e")
+
+        var bgpCount = 0
+        var variables = Set<String>()
+        let recursiveType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: true, descendIntoExpressions: true)
+        
+        let recursiveConfig = WalkConfig(type: recursiveType, algebraHandler: { (a) in
+            switch a {
+            case .bgp(_):
+                bgpCount += 1
+                variables.formUnion(a.inscope)
+            default:
+                break
+            }
+        })
+        try algebra.walk(config: recursiveConfig)
+        
+        XCTAssertEqual(bgpCount, 2)
+        XCTAssertEqual(variables, ["type", "name"])
+    }
+    
+    func testWalkRecursive_AlgebraAggregationAlgebra() throws {
+        let sparql = """
+        SELECT (COUNT(EXISTS { ?s <p> 1 OPTIONAL { ?s <q> 2 } }) AS ?count) {
+            ?s ?p ?o
+        }
+        
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let q = try p.parseQuery()
+        let algebra = q.algebra
+
+        var leftJoinCount = 0
+        let recursiveType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: true, descendIntoExpressions: true)
+        
+        let recursiveConfig = WalkConfig(type: recursiveType, algebraHandler: { (a) in
+            switch a {
+            case .leftOuterJoin:
+                leftJoinCount += 1
+            default:
+                break
+            }
+        })
+        try algebra.walk(config: recursiveConfig)
+        
+        XCTAssertEqual(leftJoinCount, 1)
+    }
+    
+    func testWalkRecursive_AlgebraWindowAlgebra() throws {
+        let sparql = """
+        SELECT (COUNT(EXISTS { ?s <p> 1 OPTIONAL { ?s <q> 2 } }) OVER (PARTITION BY ?s ?o ORDER BY ?o RANGE BETWEEN 3 PRECEDING AND current row) AS ?windowCount)
+        WHERE { ?s ?p ?o }
+        
+        """
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        let q = try p.parseQuery()
+        let algebra = q.algebra
+
+        var leftJoinCount = 0
+        let recursiveType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: true, descendIntoExpressions: true)
+        
+        let recursiveConfig = WalkConfig(type: recursiveType, algebraHandler: { (a) in
+            switch a {
+            case .leftOuterJoin:
+                leftJoinCount += 1
+            default:
+                break
+            }
+        })
+        try algebra.walk(config: recursiveConfig)
+        
+        XCTAssertEqual(leftJoinCount, 1)
+    }
+    
     func testBind() throws {
         let subj: Node = .bound(Term(value: "b", type: .blank))
         let type: Node = .bound(Term(iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"))

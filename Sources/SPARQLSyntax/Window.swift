@@ -29,6 +29,20 @@ public enum WindowFunction {
             return vars
         }
     }
+    
+    public var expressions: [Expression]? {
+        switch self {
+        case .rowNumber, .rank, .denseRank, .ntile(_):
+            return nil
+        case .aggregation(let agg):
+            if let expr = agg.expression {
+                return [expr]
+            }
+            return nil
+        case .custom(_, let args):
+            return args
+        }
+    }
 }
 
 extension WindowFunction : Hashable, Codable {

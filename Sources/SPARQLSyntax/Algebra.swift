@@ -6,6 +6,83 @@ public enum RewriteStatus<A> {
     case rewrite(A)
 }
 
+public struct WalkType {
+    public static let defaultType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: false, descendIntoExpressions: false)
+    var descendIntoAlgebras: Bool
+    var descendIntoSubqueries: Bool
+    var descendIntoExpressions: Bool
+}
+
+typealias WalkHandlerCallback<C> = (C) throws -> ()
+public struct WalkConfig {
+    var type: WalkType
+    var algebraHandler: WalkHandlerCallback<Algebra>?
+    var expressionHandler: WalkHandlerCallback<Expression>?
+    
+    func handle(_ a : Algebra) throws {
+        if let h = algebraHandler {
+            try h(a)
+        }
+    }
+    
+    func handle(_ e : Expression) throws {
+        if let h = expressionHandler {
+            try h(e)
+        }
+    }
+    
+    var findingAlgebrasInExpressions: WalkConfig {
+        var newConfig = self
+        let newExpressionHandler : WalkHandlerCallback<Expression> = { (e) in
+            try handle(e)
+            
+            switch e {
+            case .exists(let a):
+                try a.walk(config: self)
+            default:
+                break
+            }
+        }
+        newConfig.algebraHandler = nil
+        newConfig.expressionHandler = newExpressionHandler
+        return newConfig
+    }
+    
+    var findingExpressionsInAlgebras: WalkConfig {
+        var newConfig = self
+        let newAlgebraHandler : WalkHandlerCallback<Algebra> = { (a) in
+            try handle(a)
+            
+            switch a {
+            case .leftOuterJoin(_, _, let e), .filter(_, let e), .extend(_, let e, _):
+                try e.walk(config: self)
+            case .order(_, let cmps):
+                try cmps.forEach {
+                    try $0.expression.walk(config: self)
+                }
+            case .aggregate(_, let exprs, let mapping):
+                try exprs.forEach {
+                    try $0.walk(config: self)
+                }
+                
+                mapping.forEach { (mapping) in
+                    print("TODO: walk into aggregation expressions")
+                }
+            case .window(_, let mapping):
+                mapping.forEach { (mapping) in
+                    print("TODO: walk into window expressions")
+                }
+            default:
+                return
+            }
+        }
+        newConfig.algebraHandler = newAlgebraHandler
+        newConfig.expressionHandler = nil
+        return newConfig
+    }
+}
+
+
 public indirect enum Algebra : Hashable {
     public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
         public var ascending: Bool
@@ -947,45 +1024,89 @@ public extension Algebra {
         }
     }
 
-    func walk(_ handler: (Algebra) throws -> ()) throws {
-        try handler(self)
+    func walk(_ handler:  @escaping (Algebra) throws -> ()) throws {
+        let config = WalkConfig(type: .defaultType, algebraHandler: handler)
+        try walk(config: config)
+    }
+    
+    func walk(config: WalkConfig) throws {
+        try config.handle(self)
+        
         switch self {
-        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table, .subquery:
+        case .unionIdentity, .joinIdentity, .triple, .quad, .path, .bgp, .table:
             return
+        case .subquery(let q):
+            if config.type.descendIntoSubqueries {
+                try q.algebra.walk(config: config)
+            }
         case .distinct(let a):
-            try a.walk(handler)
+            try a.walk(config: config)
         case .reduced(let a):
-            try a.walk(handler)
+            try a.walk(config: config)
         case .project(let a, _):
-            try a.walk(handler)
-        case .order(let a, _):
-            try a.walk(handler)
+            try a.walk(config: config)
+        case .order(let a, let cmps):
+            try cmps.forEach {
+                try $0.expression.walk(config: config)
+            }
+            try a.walk(config: config)
         case .minus(let a, let b):
-            try a.walk(handler)
-            try b.walk(handler)
+            try a.walk(config: config)
+            try b.walk(config: config)
         case .union(let a, let b):
-            try a.walk(handler)
-            try b.walk(handler)
+            try a.walk(config: config)
+            try b.walk(config: config)
         case .innerJoin(let a, let b):
-            try a.walk(handler)
-            try b.walk(handler)
-        case .leftOuterJoin(let a, let b, _):
-            try a.walk(handler)
-            try b.walk(handler)
-        case .extend(let a, _, _):
-            try a.walk(handler)
-        case .filter(let a, _):
-            try a.walk(handler)
+            try a.walk(config: config)
+            try b.walk(config: config)
+        case .leftOuterJoin(let a, let b, let e):
+            if config.type.descendIntoExpressions {
+                try e.walk(config: config.findingAlgebrasInExpressions)
+            }
+            try a.walk(config: config)
+            try b.walk(config: config)
+        case .extend(let a, let e, _):
+            if config.type.descendIntoExpressions {
+                try e.walk(config: config.findingAlgebrasInExpressions)
+            }
+            try a.walk(config: config)
+        case .filter(let a, let e):
+            if config.type.descendIntoExpressions {
+                try e.walk(config: config.findingAlgebrasInExpressions)
+            }
+            try a.walk(config: config)
         case .namedGraph(let a, _):
-            try a.walk(handler)
+            try a.walk(config: config)
         case .slice(let a, _, _):
-            try a.walk(handler)
+            try a.walk(config: config)
         case .service(_, let a, _):
-            try a.walk(handler)
-        case .aggregate(let a, _, _):
-            try a.walk(handler)
-        case .window(let a, _):
-            try a.walk(handler)
+            try a.walk(config: config)
+        case .aggregate(let a, let groups, let aggs):
+            try a.walk(config: config)
+            if config.type.descendIntoExpressions {
+                try groups.forEach {
+                    try $0.walk(config: config.findingAlgebrasInExpressions)
+                }
+                for agg in aggs {
+                    if let e = agg.aggregation.expression {
+                        try e.walk(config: config.findingAlgebrasInExpressions)
+                    }
+                }
+            }
+        case .window(let a, let windows):
+            try a.walk(config: config)
+            if config.type.descendIntoExpressions {
+                for w in windows {
+                    try w.windowApplication.comparators.forEach {
+                        try $0.expression.walk(config: config.findingAlgebrasInExpressions)
+                    }
+                    if let exprs = w.windowApplication.windowFunction.expressions {
+                        try exprs.forEach {
+                            try $0.walk(config: config.findingAlgebrasInExpressions)
+                        }
+                    }
+                }
+            }
         }
     }
     

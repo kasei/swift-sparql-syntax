@@ -31,6 +31,21 @@ public enum Aggregation : Equatable, Hashable {
             return e.variables
         }
     }
+    
+    var expression: Expression? {
+        switch self {
+        case .countAll:
+            return nil
+        case .count(let e, _),
+             .sum(let e, _),
+             .avg(let e, _),
+             .min(let e),
+             .max(let e),
+             .sample(let e),
+             .groupConcat(let e, _, _):
+            return e
+        }
+    }
 }
 
 extension Aggregation: Codable {

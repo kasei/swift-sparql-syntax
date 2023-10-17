@@ -13,6 +13,28 @@ enum CLIError : Error {
     case error(String)
 }
 
+struct Config {
+    var benchmark = false
+    var stdin = false
+    var pretty = true
+    var unescape = false
+    var onePerLine = false
+    
+    func unescape(query : String) throws -> String {
+        if unescape {
+            let sparql = query.replacingOccurrences(of: "+", with: " ")
+            if let s = sparql.removingPercentEncoding {
+                return s
+            } else {
+                let e = CLIError.error("Failed to URL percent decode SPARQL query")
+                throw e
+            }
+        } else {
+            return query
+        }
+    }
+}
+
 func string(fromFileOrString qfile: String) throws -> (String, String?) {
     let url = URL(fileURLWithPath: qfile)
     let string: String
@@ -36,17 +58,16 @@ func usage() {
     print("  -d    URL-decode the query before parsing")
     print("  -l    Use a concise, one-line output format for the query")
     print("")
-    exit(1)
+    exit(0)
 }
 
-func run() throws {
-    var args = Array(CommandLine.arguments.dropFirst())
-    
-    var benchmark = false
-    var stdin = false
-    var pretty = true
-    var unescape = false
-    var onePerLine = false
+func reformat(_ sparql: String, config: Config) -> String {
+    let s = SPARQLSerializer(prettyPrint: config.pretty)
+    return s.reformat(sparql)
+}
+
+func parseConfig(_ args: inout [String]) -> Config {
+    var config = Config()
     
     while !args.isEmpty && args[0].hasPrefix("-") {
         let f = args.remove(at: 0)
@@ -54,57 +75,52 @@ func run() throws {
 
         switch f {
         case "-b":
-            benchmark = true
+            config.benchmark = true
         case "-c":
-            stdin = true
-            onePerLine = true
+            config.stdin = true
+            config.onePerLine = true
         case "-l":
-            pretty = false
+            config.pretty = false
         case "-d":
-            unescape = true
+            config.unescape = true
         case "--help":
             usage()
         default:
             break
         }
     }
+    return config
+}
 
-    let unescapeQuery : (String) throws -> String = unescape ? {
-        let sparql = $0.replacingOccurrences(of: "+", with: " ")
-        if let s = sparql.removingPercentEncoding {
-            return s
-        } else {
-            let e = CLIError.error("Failed to URL percent decode SPARQL query")
-            throw e
-        }
-        } : { $0 }
+func run() throws {
+    var args = Array(CommandLine.arguments.dropFirst())
+    let config = parseConfig(&args)
 
-    if stdin || args.isEmpty {
-        let s = SPARQLSerializer(prettyPrint: pretty)
-        if onePerLine {
+    if config.stdin || args.isEmpty {
+        if config.onePerLine {
             while let line = readLine() {
-                let sparql = try unescapeQuery(line)
-                let l = s.reformat(sparql)
-                print(l)
+                let sparql = try config.unescape(query: line)
+                print(reformat(sparql, config: config))
             }
         } else {
             var sparql = ""
             while let line = readLine() {
                 sparql += line
             }
-            let l = s.reformat(sparql)
-            print(l)
+            print(reformat(sparql, config: config))
         }
     } else if let arg = args.first {
-        let s = SPARQLSerializer(prettyPrint: pretty)
         let (query, _) = try string(fromFileOrString: arg)
-        let max = benchmark ? 100_000 : 1
+        let max = config.benchmark ? 100_000 : 1
         for _ in 0..<max {
-            let sparql = try unescapeQuery(query)
-            let l = s.reformat(sparql)
-            print(l)
+            let sparql = try config.unescape(query: query)
+            print(reformat(sparql, config: config))
         }
     }
 }
 
-try run()
+do {
+    try run()
+} catch {
+    exit(1)
+}
