@@ -11,6 +11,11 @@ public struct WalkType {
     var descendIntoAlgebras: Bool
     var descendIntoSubqueries: Bool
     var descendIntoExpressions: Bool
+    public init(descendIntoAlgebras: Bool, descendIntoSubqueries: Bool, descendIntoExpressions: Bool) {
+        self.descendIntoAlgebras = descendIntoAlgebras
+        self.descendIntoSubqueries = descendIntoSubqueries
+        self.descendIntoExpressions = descendIntoExpressions
+    }
 }
 
 typealias WalkHandlerCallback<C> = (C) throws -> ()
