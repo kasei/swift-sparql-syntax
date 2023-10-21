@@ -18,11 +18,17 @@ public struct WalkType {
     }
 }
 
-typealias WalkHandlerCallback<C> = (C) throws -> ()
+public typealias WalkHandlerCallback<C> = (C) throws -> ()
 public struct WalkConfig {
     var type: WalkType
     var algebraHandler: WalkHandlerCallback<Algebra>?
     var expressionHandler: WalkHandlerCallback<Expression>?
+    
+    public init(type: WalkType, algebraHandler: WalkHandlerCallback<Algebra>? = nil, expressionHandler: WalkHandlerCallback<Expression>? = nil) {
+        self.type = type
+        self.algebraHandler = algebraHandler
+        self.expressionHandler = expressionHandler
+    }
     
     func handle(_ a : Algebra) throws {
         if let h = algebraHandler {
