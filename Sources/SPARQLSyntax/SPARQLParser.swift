@@ -55,7 +55,7 @@ private enum UnfinishedAlgebra {
             args = []
             return parser.algebraValue(.minus(algebra, a), copyingTokenRangesFrom: sources)
         case .optional(.filter(let a, let e)):
-            let sources : [Algebra] = [.leftOuterJoin(.joinIdentity, a, e)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
+            let sources : [Algebra] = [.leftOuterJoin(.joinIdentity, a, .trueExpression)] // this algebra is marked with token ranges in treeByParsingGraphPatternNotTriples
             let algebra: Algebra = args.reduce(.joinIdentity, reduce)
             args = []
             return parser.algebraValue(.leftOuterJoin(algebra, a, e), copyingTokenRangesFrom: sources)
