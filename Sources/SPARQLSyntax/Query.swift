@@ -261,7 +261,7 @@ enum SPARQLResultError: Error {
     case compatabilityError(String)
 }
 
-public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, Comparable, CustomStringConvertible {
+public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, Comparable, Sequence, CustomStringConvertible {
     public typealias TermType = T
     public private(set) var bindings: [String: T]
     
