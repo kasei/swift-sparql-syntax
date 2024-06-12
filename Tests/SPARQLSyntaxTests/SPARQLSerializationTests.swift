@@ -740,7 +740,7 @@ class SPARQLSerializationTests: XCTestCase {
     }
 
     func testServiceExtend() throws {
-        let expr : Expression = .node(.bound(Term(string: "xyz")))
+        let expr : SPARQLSyntax.Expression = .node(.bound(Term(string: "xyz")))
         let url = URL(string: "http://example.org/")!
         let algebra: Algebra = .project(
             .service(
@@ -767,7 +767,7 @@ class SPARQLSerializationTests: XCTestCase {
     }
 
     func testAggregationExtend() throws {
-        let expr : Expression = .node(.bound(Term(string: "xyz")))
+        let expr : SPARQLSyntax.Expression = .node(.bound(Term(string: "xyz")))
         let algebra: Algebra = .distinct(
             .project(
                 .aggregate(
@@ -798,8 +798,8 @@ class SPARQLSerializationTests: XCTestCase {
     }
 
     func testFilterBindSerialization() throws {
-        let filterExpr : Expression = .node(.bound(Term(string: "xyz")))
-        let bindExpr : Expression = .node(.bound(Term(iri: "http://example.org/")))
+        let filterExpr : SPARQLSyntax.Expression = .node(.bound(Term(string: "xyz")))
+        let bindExpr : SPARQLSyntax.Expression = .node(.bound(Term(iri: "http://example.org/")))
         let algebra : Algebra = .distinct(
             .project(
                 .filter(

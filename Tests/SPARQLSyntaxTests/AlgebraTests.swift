@@ -123,13 +123,13 @@ class AlgebraTest: XCTestCase {
         let name: Node = .bound(Term(value: "http://xmlns.com/foaf/0.1/name", type: .iri))
         let greg: Node = .bound(Term(value: "Gregory", type: .language("en")))
         let vname: Node = .variable("name", binding: true)
-        let expr: Expression = .eq(.node(vname), .node(greg))
+        let expr: SPARQLSyntax.Expression = .eq(.node(vname), .node(greg))
         
         let t = TriplePattern(subject: subj, predicate: name, object: vname)
         let algebra: Algebra = .filter(.triple(t), expr)
         
         do {
-            let rewrite = try algebra.replace { (expr: Expression) in
+            let rewrite = try algebra.replace { (expr: SPARQLSyntax.Expression) in
                 switch expr {
                 case .eq(let a, let b):
                     return .ne(a, b)
@@ -152,10 +152,10 @@ class AlgebraTest: XCTestCase {
     func testExpressionReplacement() {
         let greg: Node = .bound(Term(value: "Gregory", type: .language("en")))
         let vname: Node = .variable("name", binding: true)
-        let expr: Expression = .eq(.node(vname), .node(greg))
+        let expr: SPARQLSyntax.Expression = .eq(.node(vname), .node(greg))
         
         do {
-            let rewrite = try expr.replace { (expr: Expression) in
+            let rewrite = try expr.replace { (expr: SPARQLSyntax.Expression) in
                 switch expr {
                 case .eq(let a, let b):
                     return .ne(a, b)

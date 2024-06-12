@@ -25,7 +25,7 @@ class ExpressionTest: XCTestCase {
         super.tearDown()
     }
     
-    func wrapDeepExpression(_ expr : Expression) -> Expression {
+    func wrapDeepExpression(_ expr : SPARQLSyntax.Expression) -> SPARQLSyntax.Expression {
         let v1 = Expression(variable: "v1")
         let v2 = Expression.node(.variable("v2", binding: false))
 
@@ -122,7 +122,7 @@ class ExpressionTest: XCTestCase {
     func testReplacementFunc() throws {
         let agg : Aggregation = .sum(.node(.variable("var", binding: true)), false)
         let expr = wrapDeepExpression(.aggregate(agg))
-        let r = try expr.replace { (e) -> Expression? in
+        let r = try expr.replace { (e) -> SPARQLSyntax.Expression? in
             switch e {
             case .and(_, _):
                 return Expression(variable: "xxx")
@@ -152,7 +152,7 @@ class ExpressionTest: XCTestCase {
         let vname: Node = .variable("name", binding: true)
         let t1 = TriplePattern(subject: subj, predicate: type, object: vtype)
         
-        let expr : Expression = .exists(.filter(.bgp([t1]), .eq(.node(vtype), .node(vname))))
+        let expr : SPARQLSyntax.Expression = .exists(.filter(.bgp([t1]), .eq(.node(vtype), .node(vname))))
         
         var variables = Set<String>()
         let recursiveType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: true, descendIntoExpressions: true)

@@ -277,7 +277,7 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
             
-            let expected: Expression = .isnumeric(.node(.variable("x", binding: true)))
+            let expected: SPARQLSyntax.Expression = .isnumeric(.node(.variable("x", binding: true)))
             XCTAssertEqual(expr, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -293,7 +293,7 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
             
-            let expected: Expression = .call("http://example.org/function", [.node(.variable("x", binding: true))])
+            let expected: SPARQLSyntax.Expression = .call("http://example.org/function", [.node(.variable("x", binding: true))])
             XCTAssertEqual(expr, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -316,7 +316,7 @@ class SPARQLParserTests: XCTestCase {
             }
             
             XCTAssertEqual(projection, ["x", "z"])
-            let expected: [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [SPARQLSyntax.Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -341,7 +341,7 @@ class SPARQLParserTests: XCTestCase {
             }
             
             XCTAssertEqual(projection, ["x", "sum", "avg"])
-            let expected: [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [SPARQLSyntax.Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -359,7 +359,7 @@ class SPARQLParserTests: XCTestCase {
             
             XCTAssertEqual(aggs.count, 0)
             XCTAssertEqual(projection, ["x"])
-            let expected: [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [SPARQLSyntax.Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -377,7 +377,7 @@ class SPARQLParserTests: XCTestCase {
             
             XCTAssertEqual(aggs.count, 0)
             XCTAssertEqual(projection, ["x"])
-            let expected: [Expression] = [.node(.variable("x", binding: true))]
+            let expected: [SPARQLSyntax.Expression] = [.node(.variable("x", binding: true))]
             XCTAssertEqual(groups, expected)
         } catch let e {
             XCTFail("\(e)")
@@ -1005,7 +1005,7 @@ class SPARQLParserTests: XCTestCase {
                 return
             }
             
-            let expected : [Expression] = [
+            let expected : [SPARQLSyntax.Expression] = [
                 .node(.bound(Term(string: "🐄"))),
                 .node(.bound(Term(string: "^.$")))
             ]
