@@ -261,7 +261,7 @@ enum SPARQLResultError: Error {
     case compatabilityError(String)
 }
 
-public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomStringConvertible {
+public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, Comparable, CustomStringConvertible {
     public typealias TermType = T
     public private(set) var bindings: [String: T]
     
@@ -297,7 +297,7 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
         }
         return Self(bindings: bindings)
     }
-
+    
     public subscript(key: Node) -> TermType? {
         get {
             switch key {
@@ -307,24 +307,24 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
                 return nil
             }
         }
-
+        
         set(value) {
             if case .variable(let name, _) = key {
                 self.bindings[name] = value
             }
         }
     }
-
+    
     public subscript(key: String) -> TermType? {
         get {
             return bindings[key]
         }
-
+        
         set(value) {
             bindings[key] = value
         }
     }
-
+    
     public mutating func extend(variable: String, value: TermType) throws {
         if let existing = self.bindings[variable] {
             if existing != value {
@@ -333,7 +333,7 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
         }
         self.bindings[variable] = value
     }
-
+    
     public func extended(variable: String, value: TermType) -> Self? {
         var b = bindings
         if let existing = b[variable] {
@@ -345,23 +345,23 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
         b[variable] = value
         return Self(bindings: b)
     }
-
+    
     public var description: String {
         let pairs = bindings.sorted { $0.0 < $1.0 }.map { "\($0): \($1)" }.joined(separator: ", ")
         return "Result[\(pairs)]"
     }
-
+    
     public func description(orderedBy variables: [String]) -> String {
         let order = Dictionary(uniqueKeysWithValues: variables.enumerated().map { ($0.element, $0.offset) })
         let pairs = bindings.sorted { order[$0.0, default: Int.max] < order[$1.0, default: Int.max] }.map { "\($0): \($1)" }.joined(separator: ", ")
         return "Result[\(pairs)]"
     }
-
+    
     public func makeIterator() -> DictionaryIterator<String, TermType> {
         let i = bindings.makeIterator()
         return i
     }
-
+    
     public func removing(variables: Set<String>) -> Self {
         var bindings = [String: T]()
         for (k, v) in self.bindings {
@@ -370,5 +370,22 @@ public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, CustomSt
             }
         }
         return Self(bindings: bindings)
+    }
+    
+    public static func < (lhs: SPARQLResultSolution<T>, rhs: SPARQLResultSolution<T>) -> Bool {
+        let keys = Set(lhs.keys + rhs.keys).sorted()
+        for key in keys {
+            if let l = lhs[key], let r = rhs[key] {
+                if l == r {
+                    continue
+                }
+                return l < r
+            } else if let _ = lhs[key] {
+                return false
+            } else {
+                return true
+            }
+        }
+        return false
     }
 }
