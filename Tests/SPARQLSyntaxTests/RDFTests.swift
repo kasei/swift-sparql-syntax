@@ -136,10 +136,11 @@ class RDFTest: XCTestCase {
     func testTermJSON_SimpleLiteral() throws {
         let t = Term(string: "foobar")
         let e = JSONEncoder()
+        e.outputFormatting = .sortedKeys
         let j = try e.encode(t)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
-            {"type":"literal","value":"foobar","datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string"}
+            {"datatype":"http:\\/\\/www.w3.org\\/2001\\/XMLSchema#string","type":"literal","value":"foobar"}
             """
         XCTAssertEqual(s, expected)
     }
@@ -147,6 +148,7 @@ class RDFTest: XCTestCase {
     func testTermJSON_LanguageLiteral() throws {
         let t = Term(value: "foobar", type: .language("en-us"))
         let e = JSONEncoder()
+        e.outputFormatting = .sortedKeys
         let j = try e.encode(t)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -158,6 +160,7 @@ class RDFTest: XCTestCase {
     func testTermJSON_Blank() throws {
         let t = Term(value: "b1", type: .blank)
         let e = JSONEncoder()
+        e.outputFormatting = .sortedKeys
         let j = try e.encode(t)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
@@ -169,6 +172,7 @@ class RDFTest: XCTestCase {
     func testTermJSON_IRI() throws {
         let t = Term(iri: "https://www.w3.org/TR/sparql11-results-json/#select-encode-terms")
         let e = JSONEncoder()
+        e.outputFormatting = .sortedKeys
         let j = try e.encode(t)
         let s = String(data: j, encoding: .utf8)!
         let expected = """
