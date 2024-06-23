@@ -7,7 +7,7 @@
 
 import Foundation
 
-public indirect enum PropertyPath: Hashable, Equatable {
+public indirect enum PropertyPath: Sendable, Hashable, Equatable {
     case link(Term)
     case inv(PropertyPath)
     case nps([Term])

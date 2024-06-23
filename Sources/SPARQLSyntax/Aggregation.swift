@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum Aggregation : Equatable, Hashable {
+public enum Aggregation : Sendable, Equatable, Hashable {
     case countAll(Bool)
     case count(Expression, Bool)
     case sum(Expression, Bool)

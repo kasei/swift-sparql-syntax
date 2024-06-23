@@ -1,6 +1,6 @@
 import Foundation
 
-public enum SelectProjection : Equatable, Hashable {
+public enum SelectProjection : Sendable, Equatable, Hashable {
     case star
     case variables([String])
 }
@@ -35,7 +35,7 @@ extension SelectProjection: Codable {
     }
 }
 
-public enum QueryForm : Equatable, Hashable {
+public enum QueryForm : Sendable, Equatable, Hashable {
     case select(SelectProjection)
     case ask
     case construct([TriplePattern])
@@ -94,7 +94,7 @@ public protocol DatasetProtocol {
     var isEmpty : Bool { get }
 }
 
-public struct Dataset : DatasetProtocol, Codable, Equatable, Hashable {
+public struct Dataset : DatasetProtocol, Sendable, Codable, Equatable, Hashable {
     public var defaultGraphs: [Term]
     public var namedGraphs: [Term]
     
@@ -108,7 +108,7 @@ public struct Dataset : DatasetProtocol, Codable, Equatable, Hashable {
     }
 }
 
-public struct Query : Codable, Hashable, Equatable {
+public struct Query : Sendable, Codable, Hashable, Equatable {
     public var base: String?
     public var form: QueryForm
     public var algebra: Algebra

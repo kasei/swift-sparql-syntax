@@ -9,14 +9,14 @@ import Foundation
 import serd
 
 @dynamicMemberLookup
-public struct Namespace {
-    public static var xsd = Namespace(value: "http://www.w3.org/2001/XMLSchema#")
-    public static var rdf = Namespace(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
-    public static var rdfs = Namespace(value: "http://www.w3.org/2000/01/rdf-schema#")
-    public static var sd = Namespace(value: "http://www.w3.org/ns/sparql-service-description#")
-    public static var hydra = Namespace(value: "http://www.w3.org/ns/hydra/core#")
-    public static var void = Namespace(value: "http://rdfs.org/ns/void#")
-    public static var formats = Namespace(value: "http://www.w3.org/ns/formats/")
+public struct Namespace: Sendable {
+    public static let xsd = Namespace(value: "http://www.w3.org/2001/XMLSchema#")
+    public static let rdf = Namespace(value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+    public static let rdfs = Namespace(value: "http://www.w3.org/2000/01/rdf-schema#")
+    public static let sd = Namespace(value: "http://www.w3.org/ns/sparql-service-description#")
+    public static let hydra = Namespace(value: "http://www.w3.org/ns/hydra/core#")
+    public static let void = Namespace(value: "http://rdfs.org/ns/void#")
+    public static let formats = Namespace(value: "http://www.w3.org/ns/formats/")
     
     var value: String
     public subscript(dynamicMember member: String) -> String {

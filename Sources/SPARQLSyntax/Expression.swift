@@ -10,7 +10,7 @@ import Foundation
 
 // swiftlint:disable cyclomatic_complexity
 // swiftlint:disable:next type_body_length
-public indirect enum Expression: Equatable, Hashable, CustomStringConvertible {
+public indirect enum Expression: Sendable, Equatable, Hashable, CustomStringConvertible {
     static let trueExpression: Expression = .node(.bound(Term.trueValue))
     static let falseExpression: Expression = .node(.bound(Term.falseValue))
 
