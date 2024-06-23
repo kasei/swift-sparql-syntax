@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum WindowFunction {
+public enum WindowFunction: Sendable {
     case rowNumber
     case rank
     case denseRank
@@ -161,14 +161,14 @@ public extension WindowFunction {
     }
 }
 
-public struct WindowFrame: Hashable, Codable {
+public struct WindowFrame: Sendable, Hashable, Codable {
     public enum FrameBound: Hashable {
         case current
         case unbound
         case preceding(Expression)
         case following(Expression)
     }
-    public enum FrameType: Hashable {
+    public enum FrameType: Sendable, Hashable {
         case rows
         case range
     }
@@ -183,7 +183,7 @@ public struct WindowFrame: Hashable, Codable {
     }
 }
 
-extension WindowFrame.FrameBound : Codable {
+extension WindowFrame.FrameBound : Sendable, Codable {
     private enum CodingKeys: String, CodingKey {
         case type
         case expression
@@ -255,11 +255,11 @@ extension WindowFrame.FrameType : Codable {
 }
 
 
-public struct WindowApplication: Hashable, Codable {
-    public var windowFunction: WindowFunction
-    public var comparators: [Algebra.SortComparator]
-    public var partition: [Expression]
-    public var frame: WindowFrame
+public struct WindowApplication: Sendable, Hashable, Codable {
+    public let windowFunction: WindowFunction
+    public let comparators: [Algebra.SortComparator]
+    public let partition: [Expression]
+    public let frame: WindowFrame
     public init(windowFunction: WindowFunction, comparators: [Algebra.SortComparator], partition: [Expression], frame: WindowFrame) {
         self.windowFunction = windowFunction
         self.comparators = comparators

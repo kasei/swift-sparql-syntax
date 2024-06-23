@@ -6,11 +6,11 @@ public enum RewriteStatus<A> {
     case rewrite(A)
 }
 
-public struct WalkType {
+public struct WalkType: Sendable {
     public static let defaultType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: false, descendIntoExpressions: false)
-    var descendIntoAlgebras: Bool
-    var descendIntoSubqueries: Bool
-    var descendIntoExpressions: Bool
+    let descendIntoAlgebras: Bool
+    let descendIntoSubqueries: Bool
+    let descendIntoExpressions: Bool
     public init(descendIntoAlgebras: Bool, descendIntoSubqueries: Bool, descendIntoExpressions: Bool) {
         self.descendIntoAlgebras = descendIntoAlgebras
         self.descendIntoSubqueries = descendIntoSubqueries
@@ -94,9 +94,9 @@ public struct WalkConfig {
 }
 
 
-public indirect enum Algebra : Hashable {
-    public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
-        public var ascending: Bool
+public indirect enum Algebra : Sendable, Hashable {
+    public struct SortComparator : Sendable, Hashable, Equatable, Codable, CustomStringConvertible {
+        public let ascending: Bool
         public var expression: Expression
         
         public init(ascending: Bool, expression: Expression) {
@@ -138,7 +138,7 @@ public indirect enum Algebra : Hashable {
         }
     }
     
-    public struct AggregationMapping: Hashable, Equatable, Codable, CustomStringConvertible {
+    public struct AggregationMapping: Sendable, Hashable, Equatable, Codable, CustomStringConvertible {
         public var aggregation: Aggregation
         public var variableName: String
         
@@ -152,7 +152,7 @@ public indirect enum Algebra : Hashable {
         }
     }
     
-    public struct WindowFunctionMapping: Hashable, Equatable, Codable {
+    public struct WindowFunctionMapping: Sendable, Hashable, Equatable, Codable {
         public var windowApplication: WindowApplication
         public var variableName: String
 

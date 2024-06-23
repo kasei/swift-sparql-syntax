@@ -57,13 +57,13 @@ extension TermPattern {
     }
 }
 
-public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
-    public var subject: Node
-    public var predicate: Node
-    public var object: Node
+public struct TriplePattern: Sendable, Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
+    public let subject: Node
+    public let predicate: Node
+    public let object: Node
     public typealias GroundType = Triple
-    public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Triple.subject, \Triple.predicate, \Triple.object]
-    public static var groundKeyNames = ["subject", "predicate", "object"]
+    public static let groundKeyPaths: [KeyPath<GroundType, Term>] = [\Triple.subject, \Triple.predicate, \Triple.object]
+    public static let groundKeyNames = ["subject", "predicate", "object"]
     
     public init(subject: Node, predicate: Node, object: Node) {
         self.subject = subject
@@ -163,15 +163,15 @@ extension TriplePattern {
     }
 }
 
-public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
+public struct QuadPattern: Sendable, Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
     public var subject: Node
     public var predicate: Node
     public var object: Node
     public var graph: Node
     public typealias GroundType = Quad
-    public static var keyPaths: [WritableKeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
-    public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Quad.subject, \Quad.predicate, \Quad.object, \Quad.graph]
-    public static var groundKeyNames = ["subject", "predicate", "object", "graph"]
+    public static let keyPaths: [WritableKeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
+    public static let groundKeyPaths: [KeyPath<GroundType, Term>] = [\Quad.subject, \Quad.predicate, \Quad.object, \Quad.graph]
+    public static let groundKeyNames = ["subject", "predicate", "object", "graph"]
 
     public init(triplePattern tp: TriplePattern, graph: Node) {
         self.subject = tp.subject
