@@ -10,12 +10,35 @@ import Foundation
 
 public struct SPARQLSerializer {
     internal(set) public var prettyPrint: Bool
-    
-    public init(prettyPrint: Bool = false) {
-        self.prettyPrint = prettyPrint
+    internal(set) public var anonymize: Bool
+    internal enum AnonymizedValueType {
+        case _var
+        case iri
+        case prefix
+        case localName
+        case string3d
+        case string3s
+        case string1d
+        case string1s
+        case bnode
+        case lang
+        case comment
+        case integer
+        case double
+        case decimal
     }
     
-    public func reformat(_ sparql: String) -> String {
+    internal var anonymizationData: [AnonymizedValueType: [String: String]]
+    internal var anonymizationCounters: [AnonymizedValueType: Int]
+
+    public init(prettyPrint: Bool = false, anonymize: Bool = false) {
+        self.prettyPrint = prettyPrint
+        self.anonymize = anonymize
+        self.anonymizationData = [:]
+        self.anonymizationCounters = [:]
+    }
+    
+    public mutating func reformat(_ sparql: String) -> String {
         guard let data = sparql.data(using: .utf8) else {
             return sparql
         }
@@ -25,6 +48,10 @@ public struct SPARQLSerializer {
         do {
             lexer = try SPARQLLexer(source: stream, includeComments: true)
         } catch {
+            if anonymize {
+                // return nothing to avoid leaking sensitive data in invalid trailing content
+                return "";
+            }
             return sparql
         }
         
@@ -52,18 +79,98 @@ public struct SPARQLSerializer {
 //            print("Reformatted prefix: <<<\(prefix)>>>")
             let suffix = sparql[index...]
 //            print("Rest of string: <<<\(suffix)>>>")
-            let formatted = "\(prefix) \(suffix)"
-            return formatted
+            if anonymize {
+                return prefix
+            } else {
+                let formatted = "\(prefix) \(suffix)"
+                return formatted
+            }
         }
     }
     
-    public func serialize(_ algebra: Algebra) throws -> String {
+    public mutating func serialize(_ algebra: Algebra) throws -> String {
         return try self.serialize(algebra.sparqlQueryTokens())
     }
+
+    private mutating func anonymized(_ type: AnonymizedValueType, _ value: String) -> String {
+        let map = anonymizationData[type, default: [:]]
+        if let v = map[value] {
+            return v
+        } else {
+            let id = anonymizationCounters[type, default: 0]
+            anonymizationCounters[type] = 1+id
+            switch type {
+            case .integer:
+                let a = "\(id)"
+                anonymizationData[type, default: [:]][value] = a
+                return a
+            case .decimal:
+                let a = "\(id).0"
+                anonymizationData[type, default: [:]][value] = a
+                return a
+            case .double:
+                let a = "\(id)E1"
+                anonymizationData[type, default: [:]][value] = a
+                return a
+            case .lang:
+                let a = "lang\(id)"
+                anonymizationData[type, default: [:]][value] = a
+                return a
+            default:
+                let a = "anon\(type)_\(id)"
+                anonymizationData[type, default: [:]][value] = a
+                return a
+            }
+        }
+    }
     
-    public func serialize<S: Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
+    private mutating func anonymizeToken(_ token: SPARQLToken) -> SPARQLToken {
+        switch token {
+        case ._var(let v):
+            return ._var(anonymized(._var, v))
+        case .iri(let v):
+            return .iri(anonymized(.iri, v))
+        case let .prefixname(p, ""):
+            return .prefixname(anonymized(.prefix, p), "")
+        case let .prefixname(p, l):
+            return .prefixname(anonymized(.prefix, p), anonymized(.localName, l))
+        case .comment(let v):
+            return .comment(anonymized(.comment, v))
+        case .double(let v):
+            return .double(anonymized(.double, v))
+        case .decimal(let v):
+            return .decimal(anonymized(.decimal, v))
+        case .integer(let v):
+            return .integer(anonymized(.integer, v))
+        case .string3d(let v):
+            return .string3d(anonymized(.string3d, v))
+        case .string3s(let v):
+            return .string3s(anonymized(.string3s, v))
+        case .string1d(let v):
+            return .string1d(anonymized(.string1d, v))
+        case .string1s(let v):
+            return .string1s(anonymized(.string1s, v))
+        case .bnode(let v):
+            return .bnode(anonymized(.bnode, v))
+        case .lang(let v):
+            return .lang(anonymized(.lang, v))
+
+        default:
+            return token
+        }
+    }
+    
+    private mutating func anonymizeSequnce<S: Sequence>(_ tokens: S) -> [SPARQLToken] where S.Iterator.Element == SPARQLToken {
+        return tokens.map { anonymizeToken($0) }
+    }
+    
+    public mutating func serialize<S: Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
         var s = ""
-        self.serialize(tokens, to: &s)
+        if anonymize {
+            self.serialize(anonymizeSequnce(tokens), to: &s)
+        } else {
+            self.serialize(tokens, to: &s)
+        }
         return s
     }
 

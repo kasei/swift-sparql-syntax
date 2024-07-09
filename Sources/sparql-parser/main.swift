@@ -63,15 +63,24 @@ func warn(_ items: String...) {
     }
 }
 
-func printSPARQL(_ data: Data, pretty: Bool = false, silent: Bool = false, includeComments: Bool = false) throws {
+func printSPARQL(_ data: Data, pretty: Bool = false, anonymize: Bool = false, silent: Bool = false, includeComments: Bool = false) throws {
     guard let sparql = String(data: data, encoding: .utf8) else {
         fatalError("Failed to decode SPARQL query as utf8")
     }
-    let s = SPARQLSerializer(prettyPrint: pretty)
+    var s = SPARQLSerializer(prettyPrint: pretty, anonymize: anonymize)
     print(s.reformat(sparql))
 }
 
 func data(fromFileOrString qfile: String) throws -> (Data, String?) {
+    if qfile == "-" {
+        print("reading from stdin...")
+        var s = ""
+        while let l = readLine() {
+            s += l
+        }
+        let data = s.data(using: .utf8)
+        return (data!, nil)
+    }
     let url = URL(fileURLWithPath: qfile)
     let data: Data
     var base: String? = nil
@@ -96,6 +105,7 @@ guard argscount > 2 else {
     print("       \(pname) parse query.rq")
     print("       \(pname) lint query.rq")
     print("       \(pname) tokens query.rq")
+    print("       \(pname) anonymize query.rq")
     print("")
     exit(1)
 }
@@ -139,7 +149,7 @@ if let op = args.next() {
                 print(query.serialize())
             }
             if printSPARQL {
-                let s = SPARQLSerializer(prettyPrint: pretty)
+                var s = SPARQLSerializer(prettyPrint: pretty)
                 let tokens  = try query.sparqlTokens()
                 print(s.serialize(tokens))
             }
@@ -173,11 +183,20 @@ if let op = args.next() {
         } catch let e {
             warn("*** Failed to tokenize query: \(e)")
         }
-    } else if op == "lint", let qfile = args.next() {
+    } else if let qfile = args.next() {
+        var pretty = false
+        var anon = false
+        if op == "lint" {
+            pretty = true
+        } else if op.starts(with: "anon") {
+            anon = true
+        } else {
+            warn("Unrecognized operation: '\(op)'")
+            exit(1)
+        }
         do {
-            let pretty = true
             let (sparql, _) = try data(fromFileOrString: qfile)
-            try printSPARQL(sparql, pretty: pretty, silent: false, includeComments: true)
+            try printSPARQL(sparql, pretty: pretty, anonymize: anon, silent: false, includeComments: true)
         } catch let e {
             warn("*** Failed to lint query: \(e)")
         }
