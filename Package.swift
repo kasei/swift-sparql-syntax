@@ -1,11 +1,13 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.7
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "SPARQLSyntax",
-    platforms: [.macOS(.v10_15)],
+    platforms: [
+        .macOS(.v13)
+    ],
     products: [
         .library(
             name: "SPARQLSyntax",
@@ -18,21 +20,21 @@ let package = Package(
         	targets: ["sparql-parser"]),
     ],
     dependencies: [
-		.package(name: "Cserd", url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.4"))
+		.package(url: "https://github.com/kasei/swift-serd.git", .upToNextMinor(from: "0.0.4"))
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "sparqllint",
             dependencies: ["SPARQLSyntax"]
         ),
-        .target(
+        .executableTarget(
             name: "sparql-parser",
             dependencies: ["SPARQLSyntax"]
         ),
         .target(
             name: "SPARQLSyntax",
             dependencies: [
-            	.product(name: "serd", package: "Cserd")
+            	.product(name: "serd", package: "swift-serd")
             ]
         ),
         .testTarget(

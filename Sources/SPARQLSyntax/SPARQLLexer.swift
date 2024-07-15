@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import RegexBuilder
 
 public enum SPARQLToken: Hashable {
     case ws
@@ -294,23 +295,79 @@ public class SPARQLLexer: IteratorProtocol {
     
     private static let rPNameLn    = "((((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[:0-9]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2}))(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})|[:.])*((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[:]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})))?))"
     private static let rPNameNS    = "(((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)"
-    private static let rDouble     = "(([0-9]+[.][0-9]*[eE][+-]?[0-9]+)|([.][0-9]+[eE][+-]?[0-9]+)|([0-9]+[eE][+-]?[0-9]+))"
-    private static let rDecimal    = "[0-9]*[.][0-9]+"
-    private static let rInteger    = "[0-9]+"
     
-    private static let _variableNameRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9])(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])*)", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
-        return r
+    private static let _bnodeNameRegex = {
+        // The codepoints in these ranges are non-NFC (or otherwise problematic), and currently cannot
+        // be used in a character class range in swift regex, so we construct the character class
+        // manually as a string and construct the regex at runtime
+        // https://github.com/apple/swift-experimental-string-processing/issues/750
+        let r_f900_fdcf_s = "[" + (0xF900...0xFDCF).map { String(format: "\\u{%04X}", $0) }.joined() + "]"
+        let r_f900_fdcf = try! Regex(r_f900_fdcf_s)
+        
+        let PN_CHARS_BASE = ChoiceOf {
+            #/[A-Z]/#
+            #/[a-z]/#
+            #/[\u{00C0}-\u{00D6}]/#
+            #/[\u{00D8}-\u{00F6}]/#
+            #/[\u{00F8}-\u{02FF}]/#
+            #/[\u{0370}-\u{037D}]/#
+            #/[\u{037F}-\u{1FFF}]/#
+            #/[\u{200C}-\u{200D}]/#
+            #/[\u{2070}-\u{218F}]/#
+            #/[\u{2C00}-\u{2FEF}]/#
+            #/[\u{3001}-\u{D7FF}]/#
+            r_f900_fdcf
+            #/[\u{FDF0}-\u{FFFD}]/#
+            #/[\u{10000}-\u{EFFFF}]/#
+        }
+        
+        let PN_CHARS_U      = ChoiceOf {
+            PN_CHARS_BASE
+            "_"
+        }
+        
+        let PN_CHARS      = Regex {
+            ChoiceOf {
+                PN_CHARS_U
+                "-"
+                #/[0-9]/#
+                #/\u{00B7}/#
+                #/[\u{0300}-\u{036F}]/#
+                #/[\u{203F}-\u{2040}]/#
+            }
+        }
+        
+        let BLANK_NODE_LABEL = Regex {
+            ChoiceOf {
+                PN_CHARS_U
+                #/[0-9]/#
+            }
+            Optionally {
+                ZeroOrMore {
+                    ChoiceOf {
+                        PN_CHARS
+                        "."
+                    }
+                }
+                PN_CHARS
+            }
+        }
+        
+        return BLANK_NODE_LABEL
     }()
     
-    private static let _bnodeNameRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "^([0-9A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])(([A-Za-z_\\x{00C0}-\\x{00D6}\\x{00D8}-\\x{00F6}\\x{00F8}-\\x{02FF}\\x{0370}-\\x{037D}\\x{037F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\x{10000}-\\x{EFFFF}])|([-0-9\\x{00B7}\\x{0300}-\\x{036F}\\x{203F}-\\x{2040}]))*", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-    private static let _keywordRegex: NSRegularExpression = {
-        let windowKeywords = "OVER|PARTITION|RANGE|ROWS|BETWEEN|UNBOUNDED|PRECEDING|CURRENT|ROW|FOLLOWING|AND|RANK|DENSE_RANK|ROW_NUMBER|NTILE"
-        guard let r = try? NSRegularExpression(pattern: "(\(windowKeywords)|ABS|ADD|ALL|ASC|ASK|AS|AVG|BASE|BIND|BNODE|BOUND|BY|CEIL|CLEAR|COALESCE|CONCAT|CONSTRUCT|CONTAINS|COPY|COUNT|CREATE|DATATYPE|DAY|DEFAULT|DELETE|DELETE WHERE|DESCRIBE|DESC|DISTINCT|DISTINCT|DROP|ENCODE_FOR_URI|EXISTS|FILTER|FLOOR|FROM|GRAPH|GROUP_CONCAT|GROUP|HAVING|HOURS|IF|INSERT|INSERT|DATA|INTO|IN|IRI|ISBLANK|ISIRI|ISLITERAL|ISNUMERIC|ISURI|LANGMATCHES|LANG|LCASE|LIMIT|LOAD|MAX|MD5|MINUS|MINUTES|MIN|MONTH|MOVE|NAMED|NOT|NOW|OFFSET|OPTIONAL|ORDER|PREFIX|RAND|REDUCED|REGEX|REPLACE|ROUND|SAMETERM|SAMPLE|SECONDS|SELECT|SEPARATOR|SERVICE|SHA1|SHA256|SHA384|SHA512|SILENT|STRAFTER|STRBEFORE|STRDT|STRENDS|STRLANG|STRLEN|STRSTARTS|STRUUID|STR|SUBSTR|SUM|TIMEZONE|TO|TZ|UCASE|UNDEF|UNION|URI|USING|UUID|VALUES|WHERE|WITH|YEAR)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError("Failed to compile built-in regular expression") }
+    private static let _keywordRegex: Regex = { () -> Regex in
+        let windowKeywords2 = #/OVER|PARTITION|RANGE|ROWS|BETWEEN|UNBOUNDED|PRECEDING|CURRENT|ROW|FOLLOWING|AND|RANK|DENSE_RANK|ROW_NUMBER|NTILE/#
+        let r = Regex {
+            Capture {
+                ChoiceOf {
+                    windowKeywords2
+                    #/ABS|ADD|ALL|ASC|ASK|AS|AVG|BASE|BIND|BNODE|BOUND|BY|CEIL|CLEAR|COALESCE|CONCAT|CONSTRUCT|CONTAINS|COPY|COUNT|CREATE|DATATYPE|DAY|DEFAULT|DELETE|DELETE WHERE|DESCRIBE|DESC|DISTINCT|DISTINCT|DROP|ENCODE_FOR_URI|EXISTS|FILTER|FLOOR|FROM|GRAPH|GROUP_CONCAT|GROUP|HAVING|HOURS|IF|INSERT|INSERT|DATA|INTO|IN|IRI|ISBLANK|ISIRI|ISLITERAL|ISNUMERIC|ISURI|LANGMATCHES|LANG|LCASE|LIMIT|LOAD|MAX|MD5|MINUS|MINUTES|MIN|MONTH|MOVE|NAMED|NOT|NOW|OFFSET|OPTIONAL|ORDER|PREFIX|RAND|REDUCED|REGEX|REPLACE|ROUND|SAMETERM|SAMPLE|SECONDS|SELECT|SEPARATOR|SERVICE|SHA1|SHA256|SHA384|SHA512|SILENT|STRAFTER|STRBEFORE|STRDT|STRENDS|STRLANG|STRLEN|STRSTARTS|STRUUID|STR|SUBSTR|SUM|TIMEZONE|TO|TZ|UCASE|UNDEF|UNION|URI|USING|UUID|VALUES|WHERE|WITH|YEAR/#
+                }
+            }
+            #/\b/#
+        }.anchorsMatchLineEndings().ignoresCase()
+
         return r
     }()
     
@@ -330,85 +387,161 @@ public class SPARQLLexer: IteratorProtocol {
         return aggs
     }()
     
-    private static let _aRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "a\\b", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
-        return r
+    private static let _aRegex = #/a\b/#
+    
+    private static let _booleanRegex = #/(true|false)/#.anchorsMatchLineEndings().ignoresCase()
+    
+    private static let prefixedNameRegex = {
+        // The codepoints in these ranges are non-NFC (or otherwise problematic), and currently cannot
+        // be used in a character class range in swift regex, so we construct the character class
+        // manually as a string and construct the regex at runtime
+        // https://github.com/apple/swift-experimental-string-processing/issues/750
+        let r_f900_fdcf_s = "[" + (0xF900...0xFDCF).map { String(format: "\\u{%04X}", $0) }.joined() + "]"
+        let r_f900_fdcf = try! Regex(r_f900_fdcf_s)
+        
+        let PN_CHARS_BASE = ChoiceOf {
+            #/[A-Z]/#
+            #/[a-z]/#
+            #/[\u{00C0}-\u{00D6}]/#
+            #/[\u{00D8}-\u{00F6}]/#
+            #/[\u{00F8}-\u{02FF}]/#
+            #/[\u{0370}-\u{037D}]/#
+            #/[\u{037F}-\u{1FFF}]/#
+            #/[\u{200C}-\u{200D}]/#
+            #/[\u{2070}-\u{218F}]/#
+            #/[\u{2C00}-\u{2FEF}]/#
+            #/[\u{3001}-\u{D7FF}]/#
+            r_f900_fdcf
+            #/[\u{FDF0}-\u{FFFD}]/#
+            #/[\u{10000}-\u{EFFFF}]/#
+        }
+        
+        let PN_CHARS_U      = ChoiceOf {
+            PN_CHARS_BASE
+            "_"
+        }
+        
+        let PN_CHARS      = Regex {
+            ChoiceOf {
+                PN_CHARS_U
+                "-"
+                #/[0-9]/#
+                #/\u{00B7}/#
+                #/[\u{0300}-\u{036F}]/#
+                #/[\u{203F}-\u{2040}]/#
+            }
+        }
+        
+        let PN_PREFIX = Regex {
+            PN_CHARS_BASE
+            Optionally {
+                ZeroOrMore {
+                    ChoiceOf {
+                        PN_CHARS
+                        "."
+                    }
+                }
+                PN_CHARS
+            }
+        }
+        
+        let PERCENT = #/%[0-9A-Fa-f][0-9A-Fa-f]/#
+        
+        let PN_LOCAL_ESC = Regex {
+            "\\"
+            ChoiceOf {
+                "_"
+                "~"
+                "."
+                "-"
+                "!"
+                "$"
+                "&"
+                "'"
+                "("
+                ")"
+                "*"
+                "+"
+                ","
+                ";"
+                "="
+                "/"
+                "?"
+                "#"
+                "@"
+                "%"
+            }
+        }
+        
+        
+        let PLX = ChoiceOf {
+            PERCENT
+            PN_LOCAL_ESC
+            
+        }
+        
+        let PN_LOCAL = Regex {
+            ChoiceOf {
+                PN_CHARS_U
+                ":"
+                #/[0-9]/#
+                PLX
+            }
+            Optionally {
+                ZeroOrMore {
+                    ChoiceOf {
+                        PN_CHARS
+                        "."
+                        ":"
+                        PLX
+                    }
+                }
+                ChoiceOf {
+                    PN_CHARS
+                    ":"
+                    PLX
+                }
+            }
+        }
+        
+        let PNAME_NS = Regex {
+            Capture {
+                Optionally {
+                    PN_PREFIX
+                }
+            }
+            ":"
+        }
+        
+        let PNAME_LN = Regex {
+            PNAME_NS
+            PN_LOCAL
+        }
+        
+        let PrefixedName = Regex {
+            PNAME_NS
+            Capture {
+                Optionally {
+                    PN_LOCAL
+                }
+            }
+        }
+        return PrefixedName
     }()
     
-    private static let _booleanRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "(true|false)\\b", options: [.anchorsMatchLines, .caseInsensitive]) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+    private static let _iriRegex = #/<([^<>"{}|^`\x{00}-\x{20}]*)>/#
     
-    private static let _multiLineAnonRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "(\\[|\\()[\\t\\r\\n ]*$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+    private static let _doubleRegex = #/(([0-9]+[.][0-9]*[eE][+-]?[0-9]+)|([.][0-9]+[eE][+-]?[0-9]+)|([0-9]+[eE][+-]?[0-9]+))/#
     
-    private static let _pNameLNre: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: rPNameLn, options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+    private static let _decimalRegex = #/[0-9]*[.][0-9]+/#
     
-    private static let _pNameNSre: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: rPNameNS, options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+    private static let _integerRegex = #/[0-9]+/#
     
-    private static let _escapedCharRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "\\\\(.)", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+    private static let _anonRegex = #/\[[ \u{0a}\u{0d}\u{09}]*\]/#
     
-    private static let _alphanumRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[0-9A-Fa-f]+", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+    private static let _prefixOrBaseRegex = #/(prefix|base)\b/#
     
-    private static let _iriRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "<([^<>\"{}|^`\\x{00}-\\x{20}])*>", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-    private static let _unescapedIRIRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[^>\\\\]+", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-//    private static let _nilRegex: NSRegularExpression = {
-//        guard let r = try? NSRegularExpression(pattern: "[(][ \r\n\t]*[)]", options: []) else { fatalError("Failed to compile built-in regular expression") }
-//        return r
-//    }()
-    
-    private static let _doubleRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: rDouble, options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-    private static let _decimalRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: rDecimal, options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-    private static let _integerRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: rInteger, options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-    private static let _anonRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "\\[[ \u{0a}\u{0d}\u{09}]*\\]", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-    private static let _prefixOrBaseRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "(prefix|base)\\b", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
-    
-    private static let _langRegex: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "[a-zA-Z]+(-[a-zA-Z0-9]+)*\\b", options: []) else { fatalError("Failed to compile built-in regular expression") }
-        return r
-    }()
+    private static let _langRegex = #/[a-zA-Z]+(-[a-zA-Z0-9]+)*\b/#
     
     // PN_CHARS_BASE
     internal static let pnCharsBase: CharacterSet = {
@@ -480,7 +613,7 @@ public class SPARQLLexer: IteratorProtocol {
         for bounds in ranges {
             guard let mn = UnicodeScalar(bounds.0) else { fatalError("Failed to construct built-in CharacterSet") }
             guard let mx = UnicodeScalar(bounds.1) else { fatalError("Failed to construct built-in CharacterSet") }
-            let range = mn...mx
+            let range : ClosedRange<UnicodeScalar> = mn...mx
             pn.insert(charactersIn: range)
         }
         return pn
@@ -793,10 +926,8 @@ public class SPARQLLexer: IteratorProtocol {
                     try read(word: "[ ]")
                     return packageToken(.anon)
                 } else {
-                    let bufferLength = NSMakeRange(0, buffer.count)
-                    let anon_range = SPARQLLexer._anonRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-                    if anon_range.location == 0 {
-                        try readCharacters(count: anon_range.length)
+                    if let match = try SPARQLLexer._anonRegex.prefixMatch(in: buffer) {
+                        try readCharacters(count: match.0.count)
                         return packageToken(.anon)
                     }
                 }
@@ -883,22 +1014,21 @@ public class SPARQLLexer: IteratorProtocol {
             }
             
             if SPARQLLexer.numberPrefix.contains(us) {
-                let bufferLength = NSMakeRange(0, buffer.count)
-                let double_range = SPARQLLexer._doubleRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-                if double_range.location == 0 {
-                    let value = try readCharacters(count: double_range.length)
+                if let match = try SPARQLLexer._doubleRegex.prefixMatch(in: buffer) {
+                    let value = String(match.0)
+                    try readCharacters(count: value.count)
                     return packageToken(.double(value))
                 }
                 
-                let decimal_range = SPARQLLexer._decimalRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-                if decimal_range.location == 0 {
-                    let value = try readCharacters(count: decimal_range.length)
+                if let match = try SPARQLLexer._decimalRegex.prefixMatch(in: buffer) {
+                    let value = String(match.0)
+                    try readCharacters(count: value.count)
                     return packageToken(.decimal(value))
                 }
                 
-                let integer_range = SPARQLLexer._integerRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-                if integer_range.location == 0 {
-                    let value = try readCharacters(count: integer_range.length)
+                if let match = try SPARQLLexer._integerRegex.prefixMatch(in: buffer) {
+                    let value = String(match.0)
+                    try readCharacters(count: value.count)
                     return packageToken(.integer(value))
                 }
             }
@@ -917,22 +1047,19 @@ public class SPARQLLexer: IteratorProtocol {
             }
         }
         
-        let bufferLength = NSMakeRange(0, buffer.count)
-        let keyword_range = SPARQLLexer._keywordRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-        if keyword_range.location == 0 {
-            let value = try readCharacters(count: keyword_range.length)
-            return .keyword(value.uppercased())
+        if let match = try SPARQLLexer._keywordRegex.prefixMatch(in: buffer) {
+            let v = String(match.0)
+            _ = try readCharacters(count: v.count)
+            return .keyword(v.uppercased())
         }
         
-        let a_range = SPARQLLexer._aRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-        if a_range.location == 0 {
+        if let _ = try SPARQLLexer._aRegex.prefixMatch(in: buffer) {
             try getChar(expecting: "a")
             return .keyword("A")
         }
         
-        let bool_range = SPARQLLexer._booleanRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-        if bool_range.location == 0 {
-            let value = try readCharacters(count: bool_range.length)
+        if let match = try SPARQLLexer._booleanRegex.prefixMatch(in: buffer) {
+            let value = try readCharacters(count: match.0.count)
             return .boolean(value.lowercased())
         }
         
@@ -1064,19 +1191,14 @@ public class SPARQLLexer: IteratorProtocol {
             // both the LN and NS branches start with a match of the NS regex, so ensure that it matches first
             return nil
         }
-        let bufferLength = NSMakeRange(0, buffer.count)
-//        let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: buffer, options: [.anchored], range: bufferLength)
-//        guard ns_range.location == 0 else {
-//            // both the LN and NS branches start with a match of the NS regex, so ensure that it matches first
-//            return nil
-//        }
 
-        let ln_range = SPARQLLexer._pNameLNre.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-        if ln_range.location == 0 {
-            var pname = try readutf16(count: ln_range.length)
-            if pname.contains("\\") {
+        if let match = try SPARQLLexer.prefixedNameRegex.prefixMatch(in: buffer) {
+            let ns = String(match.1)
+            var ln = String(match.2)
+            try readCharacters(count: match.0.count)
+            if ln.contains("\\") {
                 var chars = [Character]()
-                var i = pname.makeIterator()
+                var i = ln.makeIterator()
                 while let c = i.next() {
                     if c == "\\" {
                         guard let cc = i.next() else { throw lexError("Invalid prefixedname escape") }
@@ -1089,25 +1211,12 @@ public class SPARQLLexer: IteratorProtocol {
                         chars.append(c)
                     }
                 }
-                pname = String(chars)
+                ln = String(chars)
             }
             
-            var values = pname.components(separatedBy: ":")
-            if values.count != 2 {
-                let pn = values[0]
-                let ln = values.suffix(from: 1).joined(separator: ":")
-                values = [pn, ln]
-            }
-            return .prefixname(values[0], values[1])
+            return .prefixname(ns, ln)
         } else {
-            let ns_range = SPARQLLexer._pNameNSre.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-            if ns_range.location == 0 {
-                let pname = try readutf16(count: ns_range.length)
-                let values = pname.components(separatedBy: ":")
-                return .prefixname(values[0], values[1])
-            } else {
-                return nil
-            }
+            return nil
         }
     }
     func getOr() throws -> SPARQLToken? {
@@ -1122,15 +1231,14 @@ public class SPARQLLexer: IteratorProtocol {
     
     func getLanguage() throws -> SPARQLToken? {
         try getChar(expecting: "@")
-        let bufferLength = NSMakeRange(0, buffer.count)
         
-        let prefixOrBase_range = SPARQLLexer._prefixOrBaseRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-        let lang_range = SPARQLLexer._langRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-        if prefixOrBase_range.location == 0 {
-            let value = try readCharacters(count: prefixOrBase_range.length)
+        if let prefixOrBaseMatch = try SPARQLLexer._prefixOrBaseRegex.prefixMatch(in: buffer) {
+            let value = prefixOrBaseMatch.0
+            _ = try readCharacters(count: value.count)
             return .keyword(value.uppercased())
-        } else if lang_range.location == 0 {
-            let value = try readutf16(count: lang_range.length)
+        } else if let langMatch = try SPARQLLexer._langRegex.prefixMatch(in: buffer) {
+            let value = langMatch.0
+            _ = try readCharacters(count: value.count)
             return .lang(value.lowercased())
         } else {
             throw lexError("Expecting language")
@@ -1138,11 +1246,8 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     func getIRIRefOrRelational() throws -> SPARQLToken? {
-        let bufferLength = NSMakeRange(0, buffer.count)
-        let b = String(buffer)
-        let range = SPARQLLexer._iriRegex.rangeOfFirstMatch(in: b, options: [.anchored], range: bufferLength)
-        if range.location == 0 {
-            let matchedString = b[Range(range, in: b)!]
+        if let match = try SPARQLLexer._iriRegex.prefixMatch(in: buffer) {
+            let matchedString = String(match.1)
             if matchedString.contains("\\") {
                 try getChar(expecting: "<")
                 var chars = [Character]()
@@ -1162,8 +1267,8 @@ public class SPARQLLexer: IteratorProtocol {
                 return .iri(iri)
             } else {
                 try getChar(expecting: "<")
-                let iri = String(matchedString.dropFirst().dropLast())
-                try read(word: iri)
+                let iri = matchedString
+                _ = try readCharacters(count: iri.count)
                 try getChar(expecting: ">")
                 return .iri(iri)
             }
@@ -1270,11 +1375,11 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     func getBnode() throws -> SPARQLToken? {
-        try read(word: "_:")
-        let bufferLength = NSMakeRange(0, buffer.count)
-        let bnode_range = SPARQLLexer._bnodeNameRegex.rangeOfFirstMatch(in: String(buffer), options: [.anchored], range: bufferLength)
-        if bnode_range.location == 0 {
-            let value = try readutf16(count: bnode_range.length)
+        try getChar(expecting: "_")
+        try getChar(expecting: ":")
+        if let match = try SPARQLLexer._bnodeNameRegex.prefixMatch(in: buffer) {
+            let value = String(match.0)
+            try readCharacters(count: match.0.count)
             return .bnode(value)
         } else {
             throw lexError("Expecting blank node name")
@@ -1380,18 +1485,21 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func read(word: String) throws {
-        if buffer.count < word.count {
+    @discardableResult
+    func read(word: String) throws -> Int {
+        let bc = buffer.count
+        let wc = word.count
+        if bc < wc {
             throw lexError("Expecting '\(word)' but not enough read-ahead data available")
         }
         
         guard buffer.hasPrefix(word) else {
-            let index = buffer.index(buffer.startIndex, offsetBy: word.count)
+            let index = buffer.index(buffer.startIndex, offsetBy: wc)
             throw lexError("Expecting '\(word)' but found '\(buffer[..<index])'")
         }
         
-        buffer.removeFirst(word.count)
-        self.character += UInt(word.count)
+        buffer.removeFirst(wc)
+        self.character += UInt(wc)
         for c in word {
             if c == "\n" {
                 self.line += 1
@@ -1400,6 +1508,7 @@ public class SPARQLLexer: IteratorProtocol {
                 self.column += 1
             }
         }
+        return bc - wc
     }
     
     @discardableResult
