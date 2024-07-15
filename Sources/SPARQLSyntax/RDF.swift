@@ -262,19 +262,16 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         }
     }
 
-    private static let _integerPattern: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "^[-+]?\\d+$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
-        return r
+    private static let _integerPattern: Regex = {
+        return #/^[-+]?[0-9]+$/#.anchorsMatchLineEndings()
     }()
 
-    private static let _decimalPattern: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "^[-+]?(\\d+([.]\\d*)?|[.]\\d+)$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
-        return r
+    private static let _decimalPattern: Regex = {
+        return #/^[-+]?([0-9]+([.][0-9]*)?|[.]\d+)$/#.anchorsMatchLineEndings()
     }()
 
-    private static let _doublePattern: NSRegularExpression = {
-        guard let r = try? NSRegularExpression(pattern: "^[-+]?(\\d+([.]\\d*)?|[.]\\d+)([eE]([-+])?\\d+)?$", options: .anchorsMatchLines) else { fatalError("Failed to compile built-in regular expression") }
-        return r
+    private static let _doublePattern: Regex = {
+        return #/^[-+]?(\d+([.]\d*)?|[.]\d+)([eE]([-+])?\d+)?$/#.anchorsMatchLineEndings()
     }()
 
     private static let _boolSet: Set<String> = {
@@ -282,21 +279,29 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
     }()
 
     public static func isValidLexicalForm(_ value: String, for type: TermDataType) -> Bool {
-        let bufferLength = NSMakeRange(0, value.count)
         switch type {
         case .string:
             return true
         case .boolean:
             return _boolSet.contains(value)
         case .integer:
-            let range = _integerPattern.rangeOfFirstMatch(in: value, options: [.anchored], range: bufferLength)
-            return range.location == 0
+            if let _ = try? _integerPattern.prefixMatch(in: value) {
+                return true
+            } else {
+                return false
+            }
         case .decimal:
-            let range = _decimalPattern.rangeOfFirstMatch(in: value, options: [.anchored], range: bufferLength)
-            return range.location == 0
+            if let _ = try? _decimalPattern.prefixMatch(in: value) {
+                return true
+            } else {
+                return false
+            }
         case .float, .double:
-            let range = _doublePattern.rangeOfFirstMatch(in: value, options: [.anchored], range: bufferLength)
-            return range.location == 0
+            if let _ = try? _doublePattern.prefixMatch(in: value) {
+                return true
+            } else {
+                return false
+            }
         default:
             break
         }
