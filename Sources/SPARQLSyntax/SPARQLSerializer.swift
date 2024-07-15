@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct SPARQLSerializer {
+public class SPARQLSerializer {
     internal(set) public var prettyPrint: Bool
     internal(set) public var anonymize: Bool
     internal enum AnonymizedValueType {
@@ -38,7 +38,7 @@ public struct SPARQLSerializer {
         self.anonymizationCounters = [:]
     }
     
-    public mutating func reformat(_ sparql: String) -> String {
+    public func reformat(_ sparql: String) -> String {
         guard let data = sparql.data(using: .utf8) else {
             return sparql
         }
@@ -88,11 +88,11 @@ public struct SPARQLSerializer {
         }
     }
     
-    public mutating func serialize(_ algebra: Algebra) throws -> String {
+    public func serialize(_ algebra: Algebra) throws -> String {
         return try self.serialize(algebra.sparqlQueryTokens())
     }
 
-    private mutating func anonymized(_ type: AnonymizedValueType, _ value: String) -> String {
+    private func anonymized(_ type: AnonymizedValueType, _ value: String) -> String {
         let map = anonymizationData[type, default: [:]]
         if let v = map[value] {
             return v
@@ -113,7 +113,7 @@ public struct SPARQLSerializer {
                 anonymizationData[type, default: [:]][value] = a
                 return a
             case .lang:
-                let a = "lang\(id)"
+                let a = "lang-l\(id)"
                 anonymizationData[type, default: [:]][value] = a
                 return a
             default:
@@ -124,7 +124,7 @@ public struct SPARQLSerializer {
         }
     }
     
-    private mutating func anonymizeToken(_ token: SPARQLToken) -> SPARQLToken {
+    private func anonymizeToken(_ token: SPARQLToken) -> SPARQLToken {
         switch token {
         case ._var(let v):
             return ._var(anonymized(._var, v))
@@ -160,11 +160,11 @@ public struct SPARQLSerializer {
         }
     }
     
-    private mutating func anonymizeSequnce<S: Sequence>(_ tokens: S) -> [SPARQLToken] where S.Iterator.Element == SPARQLToken {
+    private func anonymizeSequnce<S: Sequence>(_ tokens: S) -> [SPARQLToken] where S.Iterator.Element == SPARQLToken {
         return tokens.map { anonymizeToken($0) }
     }
     
-    public mutating func serialize<S: Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
+    public func serialize<S: Sequence>(_ tokens: S) -> String where S.Iterator.Element == SPARQLToken {
         var s = ""
         if anonymize {
             self.serialize(anonymizeSequnce(tokens), to: &s)

@@ -67,7 +67,7 @@ func printSPARQL(_ data: Data, pretty: Bool = false, anonymize: Bool = false, si
     guard let sparql = String(data: data, encoding: .utf8) else {
         fatalError("Failed to decode SPARQL query as utf8")
     }
-    var s = SPARQLSerializer(prettyPrint: pretty, anonymize: anonymize)
+    let s = SPARQLSerializer(prettyPrint: pretty, anonymize: anonymize)
     print(s.reformat(sparql))
 }
 
@@ -149,7 +149,7 @@ if let op = args.next() {
                 print(query.serialize())
             }
             if printSPARQL {
-                var s = SPARQLSerializer(prettyPrint: pretty)
+                let s = SPARQLSerializer(prettyPrint: pretty)
                 let tokens  = try query.sparqlTokens()
                 print(s.serialize(tokens))
             }
