@@ -68,7 +68,7 @@ public class SPARQLSerializer {
         } catch {
             let offset: Int
             if let pt = tokens.last {
-                offset = Int(pt.endCharacter) + 1
+                offset = Int(pt.endCharacter)
             } else {
                 offset = Int(lexer.character)
             }
@@ -82,7 +82,7 @@ public class SPARQLSerializer {
             if anonymize {
                 return prefix
             } else {
-                let formatted = "\(prefix) \(suffix)"
+                let formatted = "\(prefix)\(suffix)"
                 return formatted
             }
         }

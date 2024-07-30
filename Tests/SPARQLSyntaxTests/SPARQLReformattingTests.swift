@@ -130,10 +130,25 @@ class SPARQLReformattingTests: XCTestCase {
             FILTER(?lat >= 31.0)
             FILTER(?lat <= 33.0)
         }
-        ORDER BY DESC(?s) foo'
+        ORDER BY DESC(?s)
+        foo'
           bar
         """
         XCTAssertEqual(l, expected)
+    }
+    
+    func testReformat_extraContent2() throws {
+        let sparql = "select    ?s where{ ?s ?p ?o}ORDER BY DESC ( ?s)\""
+        let s = SPARQLSerializer(prettyPrint: true)
+        let l = s.reformat(sparql)
+        let expected = """
+        SELECT ?s WHERE {
+            ?s ?p ?o
+        }
+        ORDER BY DESC(?s)"
+        """
+        XCTAssertEqual(l, expected)
+        XCTAssertTrue(l.contains(#/"/#))
     }
     
     func testReformat_delete() throws {
