@@ -62,8 +62,8 @@ public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomSt
     public var predicate: Node
     public var object: Node
     public typealias GroundType = Triple
-    public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Triple.subject, \Triple.predicate, \Triple.object]
-    public static var groundKeyNames = ["subject", "predicate", "object"]
+    nonisolated(unsafe) public static let groundKeyPaths: [KeyPath<GroundType, Term>] = [\Triple.subject, \Triple.predicate, \Triple.object]
+    public static let groundKeyNames = ["subject", "predicate", "object"]
     
     public init(subject: Node, predicate: Node, object: Node) {
         self.subject = subject
@@ -169,9 +169,9 @@ public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStri
     public var object: Node
     public var graph: Node
     public typealias GroundType = Quad
-    public static var keyPaths: [WritableKeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
-    public static var groundKeyPaths: [KeyPath<GroundType, Term>] = [\Quad.subject, \Quad.predicate, \Quad.object, \Quad.graph]
-    public static var groundKeyNames = ["subject", "predicate", "object", "graph"]
+    nonisolated(unsafe) public static let keyPaths: [WritableKeyPath<QuadPattern, Node>] = [\.subject, \.predicate, \.object, \.graph]
+    nonisolated(unsafe) public static let groundKeyPaths: [KeyPath<GroundType, Term>] = [\Quad.subject, \Quad.predicate, \Quad.object, \Quad.graph]
+    public static let groundKeyNames = ["subject", "predicate", "object", "graph"]
 
     public init(triplePattern tp: TriplePattern, graph: Node) {
         self.subject = tp.subject
