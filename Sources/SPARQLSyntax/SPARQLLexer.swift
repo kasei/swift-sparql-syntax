@@ -8,7 +8,7 @@
 import Foundation
 import RegexBuilder
 
-public enum SPARQLToken: Hashable {
+public enum SPARQLToken: Hashable, Sendable {
     case ws
     case comment(String)
     case _nil
@@ -256,7 +256,7 @@ extension SPARQLToken {
     }
 }
 
-public struct PositionedSPARQLToken {
+public struct PositionedSPARQLToken : Sendable {
     public var token: SPARQLToken
     public var tokenNumber: Int
     public var startColumn: Int

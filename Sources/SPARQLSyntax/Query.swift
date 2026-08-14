@@ -1,6 +1,6 @@
 import Foundation
 
-public enum SelectProjection : Equatable, Hashable {
+public enum SelectProjection : Equatable, Hashable, Sendable {
     case star
     case variables([String])
 }
@@ -35,7 +35,7 @@ extension SelectProjection: Codable {
     }
 }
 
-public enum QueryForm : Equatable, Hashable {
+public enum QueryForm : Equatable, Hashable, Sendable {
     case select(SelectProjection)
     case ask
     case construct([TriplePattern])
@@ -94,7 +94,7 @@ public protocol DatasetProtocol {
     var isEmpty : Bool { get }
 }
 
-public struct Dataset : DatasetProtocol, Codable, Equatable, Hashable {
+public struct Dataset : DatasetProtocol, Codable, Equatable, Hashable, Sendable {
     public var defaultGraphs: [Term]
     public var namedGraphs: [Term]
     
@@ -108,7 +108,7 @@ public struct Dataset : DatasetProtocol, Codable, Equatable, Hashable {
     }
 }
 
-public struct Query : Codable, Hashable, Equatable {
+public struct Query : Codable, Hashable, Equatable, Sendable {
     public var base: String?
     public var form: QueryForm
     public var algebra: Algebra
@@ -257,11 +257,11 @@ public extension Query {
     }
 }
 
-enum SPARQLResultError: Error {
+enum SPARQLResultError: Error, Sendable {
     case compatabilityError(String)
 }
 
-public struct SPARQLResultSolution<T: Hashable & Comparable>: Hashable, Comparable, Sequence, CustomStringConvertible {
+public struct SPARQLResultSolution<T: Hashable & Comparable & Sendable>: Hashable, Comparable, Sequence, CustomStringConvertible, Sendable {
     public typealias TermType = T
     public private(set) var bindings: [String: T]
     

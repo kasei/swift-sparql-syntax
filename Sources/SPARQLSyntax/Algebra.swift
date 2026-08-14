@@ -1,12 +1,12 @@
 import Foundation
 
-public enum RewriteStatus<A> {
+public enum RewriteStatus<A> : Sendable where A : Sendable {
     case keep
     case rewriteChildren(A)
     case rewrite(A)
 }
 
-public struct WalkType {
+public struct WalkType : Sendable {
     public static let defaultType = WalkType(descendIntoAlgebras: true, descendIntoSubqueries: false, descendIntoExpressions: false)
     var descendIntoAlgebras: Bool
     var descendIntoSubqueries: Bool
@@ -94,8 +94,8 @@ public struct WalkConfig {
 }
 
 
-public indirect enum Algebra : Hashable {
-    public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible {
+public indirect enum Algebra : Hashable, Sendable {
+    public struct SortComparator : Hashable, Equatable, Codable, CustomStringConvertible, Sendable {
         public var ascending: Bool
         public var expression: Expression
         
@@ -138,7 +138,7 @@ public indirect enum Algebra : Hashable {
         }
     }
     
-    public struct AggregationMapping: Hashable, Equatable, Codable, CustomStringConvertible {
+    public struct AggregationMapping: Hashable, Equatable, Codable, CustomStringConvertible, Sendable {
         public var aggregation: Aggregation
         public var variableName: String
         
@@ -152,7 +152,7 @@ public indirect enum Algebra : Hashable {
         }
     }
     
-    public struct WindowFunctionMapping: Hashable, Equatable, Codable {
+    public struct WindowFunctionMapping: Hashable, Equatable, Codable, Sendable {
         public var windowApplication: WindowApplication
         public var variableName: String
 

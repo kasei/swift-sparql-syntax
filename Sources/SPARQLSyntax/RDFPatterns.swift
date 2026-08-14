@@ -57,7 +57,7 @@ extension TermPattern {
     }
 }
 
-public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
+public struct TriplePattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible, Sendable {
     public var subject: Node
     public var predicate: Node
     public var object: Node
@@ -163,7 +163,7 @@ extension TriplePattern {
     }
 }
 
-public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible {
+public struct QuadPattern: Hashable, Equatable, Codable, TermPattern, CustomStringConvertible, Sendable {
     public var subject: Node
     public var predicate: Node
     public var object: Node
@@ -296,7 +296,7 @@ extension QuadPattern {
     }
 }
 
-public struct BGP {
+public struct BGP : Sendable {
     var patterns: [TriplePattern]
     public init(_ patterns: [TriplePattern]) {
         self.patterns = patterns

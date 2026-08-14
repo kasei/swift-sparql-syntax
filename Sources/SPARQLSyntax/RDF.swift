@@ -1,6 +1,6 @@
 import Foundation
 
-public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
+public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable, Sendable {
     case string
     case boolean
     case integer
@@ -62,7 +62,7 @@ public enum TermDataType: Hashable, ExpressibleByStringLiteral, Comparable {
     }
 }
 
-public enum TermType {
+public enum TermType : Sendable {
     case blank
     case iri
     case language(String)
@@ -164,7 +164,7 @@ extension TermType: Hashable {
     }
 }
 
-public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hashable, Codable {
+public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hashable, Codable, Sendable {
     public var value: String
     public var type: TermType
     public var _doubleValue: Double?
@@ -687,7 +687,7 @@ extension Term {
     }
 }
 
-public struct Triple: Codable, Hashable, CustomStringConvertible {
+public struct Triple: Codable, Hashable, CustomStringConvertible, Sendable {
     public enum Position: String, CaseIterable {
         case subject
         case predicate
@@ -747,7 +747,7 @@ extension Triple: Sequence {
     }
 }
 
-public struct Quad: Codable, Hashable, CustomStringConvertible {
+public struct Quad: Codable, Hashable, CustomStringConvertible, Sendable {
     public enum Position: String, CaseIterable {
         case subject
         case predicate
@@ -806,7 +806,7 @@ extension Quad: Sequence {
     }
 }
 
-public enum Node : Equatable, Hashable {
+public enum Node : Equatable, Hashable, Sendable {
     case bound(Term)
     case variable(String, binding: Bool)
     

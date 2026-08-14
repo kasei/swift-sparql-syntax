@@ -145,7 +145,7 @@ public class IRI : Codable {
 }
 
 @dynamicMemberLookup
-public struct TermNamespace {
+public struct TermNamespace : Sendable {
     public var namespace: Namespace
     public init(namespace: Namespace) {
         self.namespace = namespace
@@ -158,7 +158,7 @@ public struct TermNamespace {
 }
 
 @dynamicMemberLookup
-public struct NodeNamespace {
+public struct NodeNamespace : Sendable {
     public var namespace: Namespace
     public init(namespace: Namespace) {
         self.namespace = namespace
@@ -170,7 +170,7 @@ public struct NodeNamespace {
     }
 }
 
-public enum IRIError : Error {
+public enum IRIError : Error, Sendable {
     case encodingError(String)
 }
 

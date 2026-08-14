@@ -70,7 +70,7 @@ private enum UnfinishedAlgebra {
     }
 }
 
-public enum SPARQLParserError: Error {
+public enum SPARQLParserError: Error, Sendable {
     case initializationError
 }
 
@@ -2299,7 +2299,7 @@ public struct SPARQLParser {
     }
 }
 
-enum SPARQLEscapingType {
+enum SPARQLEscapingType : Sendable {
     case literal1d
     case literal1s
     case literal3d

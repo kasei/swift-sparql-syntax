@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum SPARQLSyntaxError: Error, CustomStringConvertible {
+public enum SPARQLSyntaxError: Error, CustomStringConvertible, Sendable {
     case lexicalError(String)
     case parsingError(String)
     case serializationError(String)
