@@ -262,15 +262,15 @@ public struct Term: CustomStringConvertible, CustomDebugStringConvertible, Hasha
         }
     }
 
-    private static let _integerPattern: Regex = {
+    nonisolated(unsafe) private static let _integerPattern: Regex = {
         return #/^[-+]?[0-9]+$/#.anchorsMatchLineEndings()
     }()
 
-    private static let _decimalPattern: Regex = {
+    nonisolated(unsafe) private static let _decimalPattern: Regex = {
         return #/^[-+]?([0-9]+([.][0-9]*)?|[.]\d+)$/#.anchorsMatchLineEndings()
     }()
 
-    private static let _doublePattern: Regex = {
+    nonisolated(unsafe) private static let _doublePattern: Regex = {
         return #/^[-+]?(\d+([.]\d*)?|[.]\d+)([eE]([-+])?\d+)?$/#.anchorsMatchLineEndings()
     }()
 

@@ -296,7 +296,7 @@ public class SPARQLLexer: IteratorProtocol {
     private static let rPNameLn    = "((((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[:0-9]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2}))(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})|[:.])*((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[:]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})))?))"
     private static let rPNameNS    = "(((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)"
     
-    private static let _bnodeNameRegex = {
+    nonisolated(unsafe) private static let _bnodeNameRegex = {
         // The codepoints in these ranges are non-NFC (or otherwise problematic), and currently cannot
         // be used in a character class range in swift regex, so we construct the character class
         // manually as a string and construct the regex at runtime
@@ -356,7 +356,7 @@ public class SPARQLLexer: IteratorProtocol {
         return BLANK_NODE_LABEL
     }()
     
-    private static let _keywordRegex: Regex = { () -> Regex in
+    nonisolated(unsafe) private static let _keywordRegex: Regex = { () -> Regex in
         let windowKeywords2 = #/OVER|PARTITION|RANGE|ROWS|BETWEEN|UNBOUNDED|PRECEDING|CURRENT|ROW|FOLLOWING|AND|RANK|DENSE_RANK|ROW_NUMBER|NTILE/#
         let r = Regex {
             Capture {
@@ -387,11 +387,11 @@ public class SPARQLLexer: IteratorProtocol {
         return aggs
     }()
     
-    private static let _aRegex = #/a\b/#
-    
-    private static let _booleanRegex = #/(true|false)/#.anchorsMatchLineEndings().ignoresCase()
-    
-    private static let prefixedNameRegex = {
+    nonisolated(unsafe) private static let _aRegex = #/a\b/#
+
+    nonisolated(unsafe) private static let _booleanRegex = #/(true|false)/#.anchorsMatchLineEndings().ignoresCase()
+
+    nonisolated(unsafe) private static let prefixedNameRegex = {
         // The codepoints in these ranges are non-NFC (or otherwise problematic), and currently cannot
         // be used in a character class range in swift regex, so we construct the character class
         // manually as a string and construct the regex at runtime
@@ -529,19 +529,19 @@ public class SPARQLLexer: IteratorProtocol {
         return PrefixedName
     }()
     
-    private static let _iriRegex = #/<([^<>"{}|^`\x{00}-\x{20}]*)>/#
-    
-    private static let _doubleRegex = #/(([0-9]+[.][0-9]*[eE][+-]?[0-9]+)|([.][0-9]+[eE][+-]?[0-9]+)|([0-9]+[eE][+-]?[0-9]+))/#
-    
-    private static let _decimalRegex = #/[0-9]*[.][0-9]+/#
-    
-    private static let _integerRegex = #/[0-9]+/#
-    
-    private static let _anonRegex = #/\[[ \u{0a}\u{0d}\u{09}]*\]/#
-    
-    private static let _prefixOrBaseRegex = #/(prefix|base)\b/#
-    
-    private static let _langRegex = #/[a-zA-Z]+(-[a-zA-Z0-9]+)*\b/#
+    nonisolated(unsafe) private static let _iriRegex = #/<([^<>"{}|^`\x{00}-\x{20}]*)>/#
+
+    nonisolated(unsafe) private static let _doubleRegex = #/(([0-9]+[.][0-9]*[eE][+-]?[0-9]+)|([.][0-9]+[eE][+-]?[0-9]+)|([0-9]+[eE][+-]?[0-9]+))/#
+
+    nonisolated(unsafe) private static let _decimalRegex = #/[0-9]*[.][0-9]+/#
+
+    nonisolated(unsafe) private static let _integerRegex = #/[0-9]+/#
+
+    nonisolated(unsafe) private static let _anonRegex = #/\[[ \u{0a}\u{0d}\u{09}]*\]/#
+
+    nonisolated(unsafe) private static let _prefixOrBaseRegex = #/(prefix|base)\b/#
+
+    nonisolated(unsafe) private static let _langRegex = #/[a-zA-Z]+(-[a-zA-Z0-9]+)*\b/#
     
     // PN_CHARS_BASE
     internal static let pnCharsBase: CharacterSet = {
