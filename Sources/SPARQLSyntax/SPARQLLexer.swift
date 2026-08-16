@@ -268,29 +268,29 @@ public struct PositionedSPARQLToken : Sendable {
 }
 
 // swiftlint:disable:next type_body_length
-public class SPARQLLexer: IteratorProtocol {
-    var blockSize: Int
+public struct SPARQLLexer: IteratorProtocol, Sendable {
     var includeComments: Bool
-    var source: InputStream
     var string: String
     var stringPos: UInt
     var line: Int
     var column: Int
     private(set) public var character: UInt
-    var escapedBytes: [UInt8]
-    var escapedBytesNewlineCount: Int
     var buffer: Substring
     var startColumn: Int
     var startLine: Int
     var startCharacter: UInt
     var comments: Bool
     var lookahead: PositionedSPARQLToken?
-    var readbuffer : [UInt8]
     private(set) public var tokenNumber: Int
 
     private func lexError(_ message: String) -> SPARQLSyntaxError {
         let rest = buffer
         return SPARQLSyntaxError.lexicalError("\(message) at \(line):\(column) near '\(rest)...'")
+    }
+    
+    private static func lexError(_ message: String, line: Int, column: Int, near bytes: ArraySlice<UInt8>) -> SPARQLSyntaxError {
+        let near = String(decoding: bytes, as: UTF8.self)
+        return SPARQLSyntaxError.lexicalError("\(message) at \(line):\(column) near '\(near)...'")
     }
     
     private static let rPNameLn    = "((((([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}])(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[.])*(([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}]))?))?:)((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|[:0-9]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2}))(((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})|[:.])*((([_]|([A-Z]|[a-z]|[\\x{00C0}-\\x{00D6}]|[\\x{00D8}-\\x{00F6}]|[\\x{00F8}-\\x{02FF}]|[\\x{0370}-\\x{037D}]|[\\x{037F}-\\x{1FFF}]|[\\x{200C}-\\x{200D}]|[\\x{2070}-\\x{218F}]|[\\x{2C00}-\\x{2FEF}]|[\\x{3001}-\\x{D7FF}]|[\\x{F900}-\\x{FDCF}]|[\\x{FDF0}-\\x{FFFD}]|[\\x{10000}-\\x{EFFFF}]))|-|[0-9]|\\x{00B7}|[\\x{0300}-\\x{036F}]|[\\x{203F}-\\x{2040}])|[:]|((?:\\\\([-~.!&'()*+,;=/?#@%_\\$]))|%[0-9A-Fa-f]{2})))?))"
@@ -649,39 +649,30 @@ public class SPARQLLexer: IteratorProtocol {
 
     
     public init(source: InputStream, includeComments: Bool = false) throws {
-        self.blockSize = 256
-        guard self.blockSize >= 8 else {
-            fatalError("SPARQL Lexer read block size must be at least 8 bytes")
-        }
-        self.readbuffer = [UInt8](repeatElement(0, count: blockSize))
-        self.source = source
         self.includeComments = includeComments
         self.string = ""
         self.stringPos = 0
         self.line = 1
         self.column = 1
         self.character = 0
-        self.buffer = ""
-        self.escapedBytes = []
-        self.escapedBytesNewlineCount = 0
         self.startColumn = -1
         self.startLine = -1
         self.startCharacter = 0
         self.comments = true
         self.lookahead = nil
         self.tokenNumber = 0
-        
-        try fillEntireBuffer()
+
+        self.buffer = try SPARQLLexer.unescapeInput(from: source)
     }
-    
-    public func nextPositionedToken() -> PositionedSPARQLToken? {
+
+    public mutating func nextPositionedToken() -> PositionedSPARQLToken? {
         do {
             return try getToken()
         } catch {
             return nil
         }
     }
-    
+
     public var hasRemainingContent: Bool {
         do {
             guard let _ = try peekChar() else { return false }
@@ -690,9 +681,9 @@ public class SPARQLLexer: IteratorProtocol {
         } catch {
             return false
         }
-        
+
     }
-    public func next() -> SPARQLToken? {
+    public mutating func next() -> SPARQLToken? {
         do {
             if let pt : PositionedSPARQLToken = try getToken() {
                 return pt.token
@@ -702,123 +693,132 @@ public class SPARQLLexer: IteratorProtocol {
             return nil
         }
     }
-    
-    func parseUnicodeEscape(length: Int, escapedBytes charbuffer: [UInt8], index: inout Int) throws -> [UInt8] {
-        guard let next = charbuffer.index(index, offsetBy: length, limitedBy: charbuffer.endIndex) else { throw lexError("Failed to read unicode escape") }
+
+    private static func parseUnicodeEscape(length: Int, escapedBytes charbuffer: [UInt8], index: inout Int, line: Int, column: Int) throws -> [UInt8] {
+        guard let next = charbuffer.index(index, offsetBy: length, limitedBy: charbuffer.endIndex) else {
+            throw lexError("Failed to read unicode escape", line: line, column: column, near: charbuffer[index...])
+        }
         let code = charbuffer[index..<next]
-        guard code.count == length else { throw lexError("Input buffer not long enough to decode \(length)-byte unicode escape") }
+        guard code.count == length else {
+            throw lexError("Input buffer not long enough to decode \(length)-byte unicode escape", line: line, column: column, near: charbuffer[index...])
+        }
         index = next
-        guard let hex = String(bytes: code, encoding: .utf8) else { throw lexError("Failed to read unicode escape") }
+        guard let hex = String(bytes: code, encoding: .utf8) else {
+            throw lexError("Failed to read unicode escape", line: line, column: column, near: charbuffer[index...])
+        }
         guard let codepoint = Int(hex, radix: 16), let us = UnicodeScalar(codepoint) else {
-            throw lexError("Invalid unicode codepoint: \(hex)")
+            throw lexError("Invalid unicode codepoint: \(hex)", line: line, column: column, near: code)
         }
         let s = String(us)
-        let u = Array(s.utf8)
-//        print("Decoded unicode escape U+\(hex) -> '\(s)' (\(u))")
-        return u
+        return Array(s.utf8)
     }
 
-    func fillBytes() throws -> Int {
-        guard source.hasBytesAvailable else { return 0 }
-        var bytes = [UInt8]()
-        bytes.reserveCapacity(blockSize)
+    // Read content from the InputStream, processing SPARQL \u and \U unicode escapes,
+    // and return the unescaped content as a string.
+    private static func unescapeInput(from source: InputStream) throws -> Substring {
+        let blockSize = 1024 // must be at least 8
+        var readbuffer = [UInt8](repeatElement(0, count: blockSize))
+        var escapedBytes: [UInt8] = []
+
+        var line = 1
+        var column = 1
+        var character = 0
         
-        var newlineCount = 0
-        LOOP: while true {
-            let read = source.read(&readbuffer, maxLength: blockSize)
-            guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
-            guard read > 0 else { break }
-            var prefix = Array(readbuffer.prefix(read))
-            
-            var index = prefix.startIndex
-            while index != prefix.endIndex {
-                let byte = prefix[index]
-//                index = prefix.index(after: index)
-                index += 1
-                
-                if byte == 0x5c {
-                    // backslash; check for \u or \U escapes
-                    
-                    if index == prefix.endIndex {
-                        let read = source.read(&readbuffer, maxLength: blockSize)
-                        guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
-                        guard read > 0 else { throw lexError("Input is not long enough to decode escape") }
-                        prefix.append(contentsOf: readbuffer.prefix(read))
-                    }
-                    
-                    let type = prefix[index]
-//                    index = prefix.index(after: index)
+        func fillBytes() throws -> Int {
+            guard source.hasBytesAvailable else { return 0 }
+            var bytes = [UInt8]()
+            bytes.reserveCapacity(blockSize)
+
+            LOOP: while true {
+                let read = source.read(&readbuffer, maxLength: blockSize)
+                guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
+                guard read > 0 else { break }
+                var prefix = Array(readbuffer.prefix(read))
+
+                var index = prefix.startIndex
+                while index != prefix.endIndex {
+                    let byte = prefix[index]
                     index += 1
                     
-                    switch type {
-                    case 0x75: // \u
-                        if prefix.index(index, offsetBy: 4, limitedBy: prefix.endIndex) == prefix.endIndex {
+                    character += 1
+                    if byte == 0x0A { // newline
+                        line += 1
+                        column = 1
+                    } else {
+                        column += 1
+                    }
+                    
+                    if byte == 0x5c {
+                        // backslash; check for \u or \U escapes
+
+                        if index == prefix.endIndex {
                             let read = source.read(&readbuffer, maxLength: blockSize)
                             guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
-                            guard read > 0 else { throw lexError("Input is not long enough to decode escape") }
+                            guard read > 0 else {
+                                throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
+                            }
                             prefix.append(contentsOf: readbuffer.prefix(read))
                         }
-                        guard prefix.distance(from: index, to: prefix.endIndex) >= 4 else { throw lexError("Input is not long enough to decode escape") }
-                        let unescapedBytes = try parseUnicodeEscape(length: 4, escapedBytes: prefix, index: &index)
-                        for b in unescapedBytes {
-                            if b == 0x0a || b == 0x0d {
-                                newlineCount += 1
+
+                        let type = prefix[index]
+                        index += 1
+
+                        switch type {
+                        case 0x75: // \u
+                            if prefix.index(index, offsetBy: 4, limitedBy: prefix.endIndex) == prefix.endIndex {
+                                let read = source.read(&readbuffer, maxLength: blockSize)
+                                guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
+                                guard read > 0 else {
+                                    throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
+                                }
+                                prefix.append(contentsOf: readbuffer.prefix(read))
                             }
-                        }
-                        bytes.append(contentsOf: unescapedBytes)
-                    case 0x55: // \U
-                        if prefix.index(index, offsetBy: 8, limitedBy: prefix.endIndex) == prefix.endIndex {
-                            let read = source.read(&readbuffer, maxLength: blockSize)
-                            guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
-                            guard read > 0 else { throw lexError("Input is not long enough to decode escape") }
-                            prefix.append(contentsOf: readbuffer.prefix(read))
-                        }
-                        guard prefix.distance(from: index, to: prefix.endIndex) >= 8 else { throw lexError("Input is not long enough to decode escape") }
-                        let unescapedBytes = try parseUnicodeEscape(length: 8, escapedBytes: prefix, index: &index)
-                        for b in unescapedBytes {
-                            if b == 0x0a || b == 0x0d {
-                                newlineCount += 1
+                            guard prefix.distance(from: index, to: prefix.endIndex) >= 4 else {
+                                throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
                             }
+                            let unescapedBytes = try parseUnicodeEscape(length: 4, escapedBytes: prefix, index: &index, line: line, column: column)
+                            bytes.append(contentsOf: unescapedBytes)
+                        case 0x55: // \U
+                            if prefix.index(index, offsetBy: 8, limitedBy: prefix.endIndex) == prefix.endIndex {
+                                let read = source.read(&readbuffer, maxLength: blockSize)
+                                guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
+                                guard read > 0 else {
+                                    throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
+                                }
+                                prefix.append(contentsOf: readbuffer.prefix(read))
+                            }
+                            guard prefix.distance(from: index, to: prefix.endIndex) >= 8 else {
+                                throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
+                            }
+                            let unescapedBytes = try parseUnicodeEscape(length: 8, escapedBytes: prefix, index: &index, line: line, column: column)
+                            bytes.append(contentsOf: unescapedBytes)
+                        default:
+                            bytes.append(0x5c)
+                            bytes.append(type)
                         }
-                        bytes.append(contentsOf: unescapedBytes)
-                    default:
-                        bytes.append(0x5c)
-                        if type == 0x0a || type == 0x0d {
-                            newlineCount += 1
-                        }
-                        bytes.append(type)
+                    } else {
+                        bytes.append(byte)
                     }
-                } else {
-                    if byte == 0x0a || byte == 0x0d {
-                        newlineCount += 1
-                    }
-                    bytes.append(byte)
                 }
             }
+            escapedBytes.append(contentsOf: bytes)
+            return bytes.count
         }
-        self.escapedBytesNewlineCount += newlineCount
-        self.escapedBytes.append(contentsOf: bytes)
-        return bytes.count
-    }
-    
-    func fillEntireBuffer() throws {
+
         LOOP: while true {
             let read = try fillBytes()
-            //            print("read \(read) escaped bytes from input")
             guard read > 0 else { break }
-            guard escapedBytes.count > 0 else { return }
+            guard escapedBytes.count > 0 else { return "" }
         }
-        
+
         guard let s = String(bytes: escapedBytes, encoding: .utf8) else {
             throw SPARQLSyntaxError.parsingError("Failed to decode input string as utf8")
         }
-        
-        escapedBytesNewlineCount = 0
-        escapedBytes = []
-        buffer = s[s.startIndex..<s.endIndex]
+
+        return s[s.startIndex..<s.endIndex]
     }
-    
-    func peekToken() throws -> PositionedSPARQLToken? {
+
+    mutating func peekToken() throws -> PositionedSPARQLToken? {
         if let t = lookahead {
             return t
         } else {
@@ -827,7 +827,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    public func getToken() throws -> PositionedSPARQLToken? {
+    public mutating func getToken() throws -> PositionedSPARQLToken? {
         if let t = lookahead {
             lookahead = nil
             return t
@@ -837,7 +837,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    private func packageToken(_ token: SPARQLToken?) -> PositionedSPARQLToken? {
+    private mutating func packageToken(_ token: SPARQLToken?) -> PositionedSPARQLToken? {
         guard let token = token else { return nil }
         if self.character == self.startCharacter {
             print("Zero-length token \(startCharacter), \(character): \(token)")
@@ -858,7 +858,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     // swiftlint:disable:next cyclomatic_complexity
-    func _getToken() throws -> PositionedSPARQLToken? {
+    mutating func _getToken() throws -> PositionedSPARQLToken? {
         while true {
             guard var c = try peekChar() else {
                 return nil
@@ -1038,7 +1038,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getKeyword() throws -> SPARQLToken? {
+    mutating func getKeyword() throws -> SPARQLToken? {
         let hotPathKeywords = ["PREFIX", "SELECT", "WHERE", "FILTER", "LIMIT"]
         for kw in hotPathKeywords {
             if buffer.hasPrefix("\(kw) ") {
@@ -1066,7 +1066,7 @@ public class SPARQLLexer: IteratorProtocol {
         throw lexError("Expecting keyword")
     }
     
-    func getVariableOrQuestion() throws -> SPARQLToken? {
+    mutating func getVariableOrQuestion() throws -> SPARQLToken? {
         dropChar()
         if let length = buffer.variableRegexMatchLength {
             let name = try readutf16(count: length)
@@ -1077,7 +1077,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     // swiftlint:disable:next cyclomatic_complexity
-    func getSingleLiteral() throws -> SPARQLToken? {
+    mutating func getSingleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
         if buffer.hasPrefix("'''") {
             try read(word: "'''")
@@ -1151,7 +1151,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getEscapedChar() throws -> Character {
+    mutating func getEscapedChar() throws -> Character {
         try getChar(expecting: "\\")
         let c = try getExpectedChar()
         switch c {
@@ -1186,7 +1186,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getPName() throws -> SPARQLToken? {
+    mutating func getPName() throws -> SPARQLToken? {
         guard let _ = buffer.pnameNS else { // TOOD: optimize performance; once we've matched the NS, finding out if the LN pattern matches shouldn't require the full NS pattern prefix again
             // both the LN and NS branches start with a match of the NS regex, so ensure that it matches first
             return nil
@@ -1219,7 +1219,7 @@ public class SPARQLLexer: IteratorProtocol {
             return nil
         }
     }
-    func getOr() throws -> SPARQLToken? {
+    mutating func getOr() throws -> SPARQLToken? {
         if buffer.hasPrefix("||") {
             try read(word: "||")
             return .oror
@@ -1229,7 +1229,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getLanguage() throws -> SPARQLToken? {
+    mutating func getLanguage() throws -> SPARQLToken? {
         try getChar(expecting: "@")
         
         if let prefixOrBaseMatch = try SPARQLLexer._prefixOrBaseRegex.prefixMatch(in: buffer) {
@@ -1245,7 +1245,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getIRIRefOrRelational() throws -> SPARQLToken? {
+    mutating func getIRIRefOrRelational() throws -> SPARQLToken? {
         if let match = try SPARQLLexer._iriRegex.prefixMatch(in: buffer) {
             let matchedString = String(match.1)
             if matchedString.contains("\\") {
@@ -1294,7 +1294,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     // swiftlint:disable:next cyclomatic_complexity
-    func getDoubleLiteral() throws -> SPARQLToken? {
+    mutating func getDoubleLiteral() throws -> SPARQLToken? {
         var chars = [Character]()
         if buffer.hasPrefix("\"\"\"") {
             try read(word: "\"\"\"")
@@ -1374,7 +1374,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getBnode() throws -> SPARQLToken? {
+    mutating func getBnode() throws -> SPARQLToken? {
         try getChar(expecting: "_")
         try getChar(expecting: ":")
         if let match = try SPARQLLexer._bnodeNameRegex.prefixMatch(in: buffer) {
@@ -1386,7 +1386,7 @@ public class SPARQLLexer: IteratorProtocol {
         }
     }
     
-    func getBang() throws -> SPARQLToken? {
+    mutating func getBang() throws -> SPARQLToken? {
         if buffer.hasPrefix("!=") {
             try read(word: "!=")
             return .notequals
@@ -1405,7 +1405,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     @discardableResult
-    func dropAndPeekChar() -> Character? {
+    mutating func dropAndPeekChar() -> Character? {
         let c = buffer.first!
         buffer.removeFirst()
         
@@ -1419,7 +1419,7 @@ public class SPARQLLexer: IteratorProtocol {
         return buffer.first
     }
     
-    func dropChar() {
+    mutating func dropChar() {
         let c = buffer.first!
         buffer.removeFirst()
 
@@ -1433,7 +1433,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     @discardableResult
-    func getChar() -> Character {
+    mutating func getChar() -> Character {
         let c = buffer.first!
         buffer.removeFirst()
         
@@ -1448,7 +1448,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     @discardableResult
-    func getExpectedChar() throws -> Character {
+    mutating func getExpectedChar() throws -> Character {
         guard let c = buffer.first else {
             throw lexError("Unexpected EOF")
         }
@@ -1464,7 +1464,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     @discardableResult
-    func getChar(expecting: Character) throws -> Character {
+    mutating func getChar(expecting: Character) throws -> Character {
         let c = getChar()
         guard c == expecting else {
             throw lexError("Expecting '\(expecting)' but got '\(c)'")
@@ -1472,7 +1472,7 @@ public class SPARQLLexer: IteratorProtocol {
         return c
     }
     
-    func read(until end: Character) throws -> String {
+    mutating func read(until end: Character) throws -> String {
         if let endIndex = buffer.firstIndex(of: end) {
             let length = buffer.distance(from: buffer.startIndex, to: endIndex)
             let s = try readCharacters(count: length)
@@ -1486,7 +1486,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     @discardableResult
-    func read(word: String) throws -> Int {
+    mutating func read(word: String) throws -> Int {
         let bc = buffer.count
         let wc = word.count
         if bc < wc {
@@ -1512,7 +1512,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     @discardableResult
-    func readutf16(count length: Int) throws -> String {
+    mutating func readutf16(count length: Int) throws -> String {
         let utf16 = buffer.utf16
         if utf16.count < length {
             throw lexError("Expecting \(length) characters but not enough read-ahead data available")
@@ -1537,7 +1537,7 @@ public class SPARQLLexer: IteratorProtocol {
     }
     
     @discardableResult
-    func readCharacters(count: Int) throws -> String {
+    mutating func readCharacters(count: Int) throws -> String {
         guard !buffer.isEmpty else {
             throw lexError("Expecting \(count) characters but not enough data available")
         }
@@ -1569,7 +1569,7 @@ public class SPARQLLexer: IteratorProtocol {
 
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = try SPARQLLexer(source: stream)
+        var lexer = try SPARQLLexer(source: stream)
         
         var stack = [PositionedSPARQLToken]()
         let endBound = string.distance(from: string.startIndex, to: origRange.upperBound)
@@ -1609,7 +1609,7 @@ public class SPARQLLexer: IteratorProtocol {
         guard let data = string.data(using: .utf8) else { throw SPARQLSyntaxError.lexicalError("Cannot encode string as utf-8") }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = try SPARQLLexer(source: stream)
+        var lexer = try SPARQLLexer(source: stream)
         
         
         var stack = [PositionedSPARQLToken]()

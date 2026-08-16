@@ -126,7 +126,7 @@ extension SPARQLSerializer {
             stream.open()
             var charRanges = [(Int, ClosedRange<Int>)]()
             do {
-                let lexer = try SPARQLLexer(source: stream)
+                var lexer = try SPARQLLexer(source: stream)
                 while let t = try lexer.getToken() {
                     if highlightedTokens.contains(t.tokenNumber) {
                         let range = Int(t.startCharacter)...Int(t.endCharacter)

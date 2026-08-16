@@ -44,7 +44,7 @@ public class SPARQLSerializer {
         }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer: SPARQLLexer
+        var lexer: SPARQLLexer
         do {
             lexer = try SPARQLLexer(source: stream, includeComments: true)
         } catch {

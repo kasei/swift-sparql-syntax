@@ -91,7 +91,7 @@ class SPARQLParserTests: XCTestCase {
         //        guard let data = "[ [] { - @en-US".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = try SPARQLLexer(source: stream)
+        var lexer = try SPARQLLexer(source: stream)
         XCTAssertEqual(lexer.next()!, .prefixname("HR", "resumé"), "expected token")
         XCTAssertEqual(lexer.next()!, ._var("resume"), "expected token")
         XCTAssertEqual(lexer.next()!, .lbracket, "expected token")
@@ -128,7 +128,7 @@ class SPARQLParserTests: XCTestCase {
         guard let sparql = "SELECT * WHERE { ?s <p> 'o' }".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: sparql)
         stream.open()
-        let lexer = try SPARQLLexer(source: stream, includeComments: false)
+        var lexer = try SPARQLLexer(source: stream, includeComments: false)
         let pt = lexer.nextPositionedToken()!
         let loc = pt.startCharacter
         let len = pt.endCharacter - pt.startCharacter
@@ -144,12 +144,12 @@ class SPARQLParserTests: XCTestCase {
             (20,3),
             (24,3),
             (28,1),
-            ]
+        ]
         
         let positions = tokens.map { (Int($0.startCharacter), Int($0.endCharacter-$0.startCharacter)) }
         let comparisions = zip(positions, expected)
         for (got, expected) in comparisions {
-//            print("got: \(got); expected: \(expected)")
+            //            print("got: \(got); expected: \(expected)")
             XCTAssertEqual(got.0, expected.0)
             XCTAssertEqual(got.1, expected.1)
         }
@@ -166,7 +166,7 @@ class SPARQLParserTests: XCTestCase {
         guard let data = "'foo' 'foo\\nbar' '\\u706B' '\\U0000661F' '''baz''' '''' ''' ''''''''".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = try SPARQLLexer(source: stream)
+        var lexer = try SPARQLLexer(source: stream)
         
         XCTAssertEqual(lexer.next()!, .string1s("foo"), "expected token")
         XCTAssertEqual(lexer.next()!, .string1s("foo\nbar"), "expected token")
@@ -181,7 +181,7 @@ class SPARQLParserTests: XCTestCase {
         guard let data = "\"foo\" \"foo\\nbar\" \"\\u706B\" \"\\U0000661F\" \"\"\"baz\"\"\" \"\"\"\" \"\"\" \"\"\"\"\"\"\"\"".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = try SPARQLLexer(source: stream)
+        var lexer = try SPARQLLexer(source: stream)
         
         XCTAssertEqual(lexer.next()!, .string1d("foo"), "expected token")
         XCTAssertEqual(lexer.next()!, .string1d("foo\nbar"), "expected token")
@@ -196,7 +196,7 @@ class SPARQLParserTests: XCTestCase {
         guard let data = "prefix : <http://example/> select * where { :a (:p/:p)? ?t }".data(using: .utf8) else { XCTFail(); return }
         let stream = InputStream(data: data)
         stream.open()
-        let lexer = try SPARQLLexer(source: stream)
+        var lexer = try SPARQLLexer(source: stream)
         var tokens = [SPARQLToken]()
         while let t = lexer.next() {
             tokens.append(t)
@@ -334,7 +334,7 @@ class SPARQLParserTests: XCTestCase {
             
             let aggMap1 = Algebra.AggregationMapping(aggregation: .sum(.node(.variable("y", binding: true)), false), variableName: "sum")
             let aggMap2 = Algebra.AggregationMapping(aggregation: .avg(.node(.variable("y", binding: true)), false), variableName: "avg")
-
+            
             guard case .aggregate(_, let groups, [aggMap1, aggMap2]) = agg else {
                 XCTFail("Unexpected algebra: \(agg.serialize())")
                 return
@@ -485,7 +485,7 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("\(e)")
         }
     }
-
+    
     func testConstruct() {
         guard var p = SPARQLParser(string: "CONSTRUCT { ?s <p1> <o> . ?s <p2> ?o } WHERE {?s ?p ?o}") else { XCTFail(); return }
         do {
@@ -712,7 +712,7 @@ class SPARQLParserTests: XCTestCase {
         # $Id: syn-blabel-cross-graph-bad.rq,v 1.2 2007/04/18 23:11:57 eric Exp $
         # BNode label used across a GRAPH.
         PREFIX : <http://xmlns.com/foaf/0.1/>
-
+        
         ASK { _:who :homepage ?homepage
               GRAPH ?g { ?someone :made ?homepage }
               _:who :schoolHomepage ?schoolPage }
@@ -734,7 +734,7 @@ class SPARQLParserTests: XCTestCase {
         # This isn't necessarily a *syntax* test, but references to bnode labels
         # may not span basic graph patterns.
         PREFIX foaf:     <http://xmlns.com/foaf/0.1/>
-
+        
         ASK { _:who foaf:homepage ?homepage
               OPTIONAL { ?someone foaf:made ?homepage }
               _:who foaf:schoolHomepage ?schoolPage }
@@ -776,7 +776,7 @@ class SPARQLParserTests: XCTestCase {
                 XCTFail("Unexpected algebra: \(a.serialize())")
                 return
             }
-
+            
             XCTAssertEqual(tps.count, 2)
             let t = tps.filter { $0.object == Node.variable("food", binding: true) }.first
             XCTAssertNotNil(t)
@@ -786,7 +786,7 @@ class SPARQLParserTests: XCTestCase {
             XCTFail("I18N error: \(e)")
         }
     }
-
+    
     func testi18nNormalization() {
         _testi18nNormalization(base: nil)
         _testi18nNormalization(base: "https://raw.githubusercontent.com/w3c/rdf-tests/gh-pages/sparql11/data-r2/i18n/")
@@ -883,7 +883,7 @@ class SPARQLParserTests: XCTestCase {
             XCTAssertEqual(balanced, balancedString)
         }
     }
-
+    
     func testLexerBalancedDelimiter() throws {
         let tests : [(leftOffset: Int?, rightOffset: Int, leftString: String, rightString: String)] = [
             (245, 261, "(", ")"),
@@ -1089,12 +1089,98 @@ class SPARQLParserTests: XCTestCase {
         } catch let e {
             XCTFail("\(e)")
         }
-
+        
     }
     
     func testInvalidDuplicateSelectExpression() throws {
         let sparql = "SELECT (1 AS ?X) (1 AS ?X) {}"
         guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
         XCTAssertThrowsError(try p.parseAlgebra(), "Expected failure of a duplicate select expression variable binding")
+    }
+    
+    func testTruncatedQueryParseError() throws {
+        let sparql = "SELECT ?x { ?x ?p "
+        guard var p = SPARQLParser(string: sparql) else { XCTFail(); return }
+        do {
+            _ = try p.parseAlgebra()
+            XCTFail()
+        } catch SPARQLSyntaxError.parsingError(let message) {
+            XCTAssertEqual(message, "Unexpected EOF at 1:19 near '...'")
+        } catch {
+            XCTFail()
+        }
+    }
+    
+    func testTruncatedUnicodeEscape_4() throws {
+        let sparql = "SELECT ?s { ?s ?p '\\u12"
+        let data = sparql.data(using: .utf8)!
+        let stream = InputStream(data: data)
+        stream.open()
+        do {
+            _ = try SPARQLLexer(source: stream, includeComments: false)
+            XCTFail()
+        } catch SPARQLSyntaxError.lexicalError(let message) {
+            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:21 near '12...'") // TODO: not the right line:column
+        } catch {
+            XCTFail()
+        }
+    }
+    
+    
+    func testTruncatedUnicodeEscape_4a() throws {
+        // Same as testTruncatedUnicodeEscape_4, but looping over a growing query size so that eventually we will encounter
+        // the unicode escape right in the middle of a 256b block used in lexing, causing the error to occur on a different
+        // codepath
+        for extraLen in 1..<500 {
+            let extra = String(repeating: "0", count: extraLen)
+            let sparql = "PREFIX extra: <http://example.org/\(extra)>\nSELECT ?s { ?s ?p '\\u12"
+            let data = sparql.data(using: .utf8)!
+            let stream = InputStream(data: data)
+            stream.open()
+            do {
+                _ = try SPARQLLexer(source: stream, includeComments: false)
+                XCTFail()
+            } catch SPARQLSyntaxError.lexicalError(let message) {
+                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:21 near '12...'") // TODO: not the right line:column
+            } catch {
+                XCTFail()
+            }
+        }
+    }
+
+    func testTruncatedUnicodeEscape_8() throws {
+        let sparql = "SELECT ?s { ?subj ?pred '\\U12"
+        let data = sparql.data(using: .utf8)!
+        let stream = InputStream(data: data)
+        stream.open()
+        do {
+            _ = try SPARQLLexer(source: stream, includeComments: false)
+            XCTFail()
+        } catch SPARQLSyntaxError.lexicalError(let message) {
+            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:27 near '12...'") // TODO: not the right line:column
+        } catch {
+            XCTFail()
+        }
+    }
+    
+    func testTruncatedUnicodeEscape_8a() throws {
+        // Same as testTruncatedUnicodeEscape_8, but looping over a growing query size so that eventually we will encounter
+        // the unicode escape right in the middle of a 256b block used in lexing, causing the error to occur on a different
+        // codepath
+        for extraLen in 1..<500 {
+            let extra = String(repeating: "0", count: extraLen)
+            let sparql = "PREFIX extra: <http://example.org/\(extra)>\nSELECT ?s { ?subj ?pred '\\U12"
+            let data = sparql.data(using: .utf8)!
+            let stream = InputStream(data: data)
+            stream.open()
+            do {
+                _ = try SPARQLLexer(source: stream, includeComments: false)
+                XCTFail()
+            } catch SPARQLSyntaxError.lexicalError(let message) {
+                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:27 near '12...'") // TODO: not the right line:column
+            } catch {
+                XCTFail()
+            }
+        }
     }
 }
