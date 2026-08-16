@@ -41,7 +41,7 @@ public struct Namespace : Sendable {
     }
 }
 
-public class IRI : Codable {
+public final class IRI : Codable, Sendable {
     public let absoluteString: String
 
     convenience public init?(string: String) {
