@@ -62,7 +62,7 @@ func usage() {
 }
 
 func reformat(_ sparql: String, config: Config) -> String {
-    var s = SPARQLSerializer(prettyPrint: config.pretty)
+    let s = SPARQLSerializer(prettyPrint: config.pretty)
     return s.reformat(sparql)
 }
 
