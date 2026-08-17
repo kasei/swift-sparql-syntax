@@ -718,7 +718,7 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
     private static func unescapeInput(from source: InputStream) throws -> Substring {
         let blockSize = 1024 // must be at least 8
         var readbuffer = [UInt8](repeatElement(0, count: blockSize))
-        var escapedBytes: [UInt8] = []
+        var unescapedBytes: [UInt8] = []
 
         var line = 1
         var column = 1
@@ -801,17 +801,17 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
                     }
                 }
             }
-            escapedBytes.append(contentsOf: bytes)
+            unescapedBytes.append(contentsOf: bytes)
             return bytes.count
         }
 
         LOOP: while true {
             let read = try fillBytes()
             guard read > 0 else { break }
-            guard escapedBytes.count > 0 else { return "" }
+            guard unescapedBytes.count > 0 else { return "" }
         }
 
-        guard let s = String(bytes: escapedBytes, encoding: .utf8) else {
+        guard let s = String(bytes: unescapedBytes, encoding: .utf8) else {
             throw SPARQLSyntaxError.parsingError("Failed to decode input string as utf8")
         }
 
