@@ -1069,7 +1069,7 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
     mutating func getVariableOrQuestion() throws -> SPARQLToken? {
         dropChar()
         if let length = buffer.variableRegexMatchLength {
-            let name = try readutf16(count: length)
+            let name = try readCharacters(count: length)
             return ._var(name)
         } else {
             return .question
@@ -1512,40 +1512,14 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
     }
     
     @discardableResult
-    mutating func readutf16(count length: Int) throws -> String {
-        let utf16 = buffer.utf16
-        if utf16.count < length {
-            throw lexError("Expecting \(length) characters but not enough read-ahead data available")
-        }
-        
-        let index = utf16.index(utf16.startIndex, offsetBy: length)
-        let s = utf16[..<index]
-        self.character += UInt(length)
-        for c in s {
-            if c == 0x0A { // "\n"
-                self.line += 1
-                self.column = 1
-            } else {
-                self.column += 1
-            }
-        }
-        guard let str = String(s) else {
-            throw lexError("Invalid utf16 sequence found while reading \(length) bytes")
-        }
-        buffer.removeFirst(s.count)
-        return str
-    }
-    
-    @discardableResult
     mutating func readCharacters(count: Int) throws -> String {
-        guard !buffer.isEmpty else {
+        guard buffer.count >= count else {
             throw lexError("Expecting \(count) characters but not enough data available")
         }
         
-        let word = String(buffer.prefix(count))
-        buffer.removeFirst(count)
+        let str = String(buffer.prefix(count))
         self.character += UInt(count)
-        for c in word {
+        for c in str {
             if c == "\n" {
                 self.line += 1
                 self.column = 1
@@ -1553,7 +1527,8 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
                 self.column += 1
             }
         }
-        return word
+        buffer.removeFirst(count)
+        return str
     }
     
     public static func matchingDelimiterRange(for origRange: Range<String.Index>, in string: String) throws -> Range<String.Index>? {
