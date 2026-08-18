@@ -47,7 +47,16 @@ extension SPARQLParserTests {
             ("testSubSelectAggregationAcceptableProjection", testSubSelectAggregationAcceptableProjection),
             ("testSubSelectAggregationProjection", testSubSelectAggregationProjection),
             ("testi18n", testi18n),
-            ("testi18nNormalization", testi18nNormalization)
+            ("testi18nNormalization", testi18nNormalization),
+            ("testSPARQLParserEmoji_wikidata", testSPARQLParserEmoji_wikidata),
+            ("testSPARQLParser_adjacentCollectionTriples_wikidata", testSPARQLParser_adjacentCollectionTriples_wikidata),
+            ("testSPARQLParser_aggregateInSort", testSPARQLParser_aggregateInSort),
+            ("testInvalidDuplicateSelectExpression", testInvalidDuplicateSelectExpression),
+            ("testTruncatedQueryParseError", testTruncatedQueryParseError),
+            ("testTruncatedUnicodeEscape_4", testTruncatedUnicodeEscape_4),
+            ("testTruncatedUnicodeEscape_4a", testTruncatedUnicodeEscape_4a),
+            ("testTruncatedUnicodeEscape_8", testTruncatedUnicodeEscape_8),
+            ("testTruncatedUnicodeEscape_8a", testTruncatedUnicodeEscape_8a)
         ]
     }
 }
@@ -1120,7 +1129,7 @@ class SPARQLParserTests: XCTestCase {
             _ = try SPARQLLexer(source: stream, includeComments: false)
             XCTFail()
         } catch SPARQLSyntaxError.lexicalError(let message) {
-            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:21 near '12...'") // TODO: not the right line:column
+            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:21 near '\\u12...'") // TODO: not the right line:column
         } catch {
             XCTFail()
         }
@@ -1129,9 +1138,9 @@ class SPARQLParserTests: XCTestCase {
     
     func testTruncatedUnicodeEscape_4a() throws {
         // Same as testTruncatedUnicodeEscape_4, but looping over a growing query size so that eventually we will encounter
-        // the unicode escape right in the middle of a 256b block used in lexing, causing the error to occur on a different
-        // codepath
-        for extraLen in 1..<500 {
+        // the unicode escape right in the middle of a 1024b block used in lexing, causing the error to occur on a different
+        // codepath (block size defined in SPARQLLexer.unescapeInput).
+        for extraLen in 1..<1024 {
             let extra = String(repeating: "0", count: extraLen)
             let sparql = "PREFIX extra: <http://example.org/\(extra)>\nSELECT ?s { ?s ?p '\\u12"
             let data = sparql.data(using: .utf8)!
@@ -1141,7 +1150,7 @@ class SPARQLParserTests: XCTestCase {
                 _ = try SPARQLLexer(source: stream, includeComments: false)
                 XCTFail()
             } catch SPARQLSyntaxError.lexicalError(let message) {
-                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:21 near '12...'") // TODO: not the right line:column
+                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:21 near '\\u12...'") // TODO: not the right line:column
             } catch {
                 XCTFail()
             }
@@ -1157,7 +1166,7 @@ class SPARQLParserTests: XCTestCase {
             _ = try SPARQLLexer(source: stream, includeComments: false)
             XCTFail()
         } catch SPARQLSyntaxError.lexicalError(let message) {
-            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:27 near '12...'") // TODO: not the right line:column
+            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:27 near '\\U12...'") // TODO: not the right line:column
         } catch {
             XCTFail()
         }
@@ -1165,9 +1174,9 @@ class SPARQLParserTests: XCTestCase {
     
     func testTruncatedUnicodeEscape_8a() throws {
         // Same as testTruncatedUnicodeEscape_8, but looping over a growing query size so that eventually we will encounter
-        // the unicode escape right in the middle of a 256b block used in lexing, causing the error to occur on a different
-        // codepath
-        for extraLen in 1..<500 {
+        // the unicode escape right in the middle of a 1024b block used in lexing, causing the error to occur on a different
+        // codepath (block size defined in SPARQLLexer.unescapeInput).
+        for extraLen in 1..<2000 {
             let extra = String(repeating: "0", count: extraLen)
             let sparql = "PREFIX extra: <http://example.org/\(extra)>\nSELECT ?s { ?subj ?pred '\\U12"
             let data = sparql.data(using: .utf8)!
@@ -1177,7 +1186,7 @@ class SPARQLParserTests: XCTestCase {
                 _ = try SPARQLLexer(source: stream, includeComments: false)
                 XCTFail()
             } catch SPARQLSyntaxError.lexicalError(let message) {
-                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:27 near '12...'") // TODO: not the right line:column
+                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:27 near '\\U12...'") // TODO: not the right line:column
             } catch {
                 XCTFail()
             }

@@ -284,8 +284,8 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
     private(set) public var tokenNumber: Int
 
     private func lexError(_ message: String) -> SPARQLSyntaxError {
-        let rest = buffer
-        return SPARQLSyntaxError.lexicalError("\(message) at \(line):\(column) near '\(rest)...'")
+        let near = buffer
+        return SPARQLSyntaxError.lexicalError("\(message) at \(line):\(column) near '\(near)...'")
     }
     
     private static func lexError(_ message: String, line: Int, column: Int, near bytes: ArraySlice<UInt8>) -> SPARQLSyntaxError {
@@ -749,6 +749,7 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
                     }
                     
                     if byte == 0x5c {
+                        let escapeIndex = index-1
                         // backslash; check for \u or \U escapes
 
                         if index == prefix.endIndex {
@@ -765,30 +766,22 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
 
                         switch type {
                         case 0x75: // \u
-                            if prefix.index(index, offsetBy: 4, limitedBy: prefix.endIndex) == prefix.endIndex {
-                                let read = source.read(&readbuffer, maxLength: blockSize)
-                                guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
-                                guard read > 0 else {
-                                    throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
-                                }
-                                prefix.append(contentsOf: readbuffer.prefix(read))
-                            }
+                            let read = source.read(&readbuffer, maxLength: 4) // ensure there are at least 4 digits available
+                            guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
+                            prefix.append(contentsOf: readbuffer.prefix(read))
+
                             guard prefix.distance(from: index, to: prefix.endIndex) >= 4 else {
-                                throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
+                                throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[escapeIndex...])
                             }
                             let unescapedBytes = try parseUnicodeEscape(length: 4, escapedBytes: prefix, index: &index, line: line, column: column)
                             bytes.append(contentsOf: unescapedBytes)
                         case 0x55: // \U
-                            if prefix.index(index, offsetBy: 8, limitedBy: prefix.endIndex) == prefix.endIndex {
-                                let read = source.read(&readbuffer, maxLength: blockSize)
-                                guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
-                                guard read > 0 else {
-                                    throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
-                                }
-                                prefix.append(contentsOf: readbuffer.prefix(read))
-                            }
+                            let read = source.read(&readbuffer, maxLength: 8) // ensure there are at least 8 digits available
+                            guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
+                            prefix.append(contentsOf: readbuffer.prefix(read))
+
                             guard prefix.distance(from: index, to: prefix.endIndex) >= 8 else {
-                                throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[index...])
+                                throw lexError("Input is not long enough to decode escape", line: line, column: column, near: prefix[escapeIndex...])
                             }
                             let unescapedBytes = try parseUnicodeEscape(length: 8, escapedBytes: prefix, index: &index, line: line, column: column)
                             bytes.append(contentsOf: unescapedBytes)
