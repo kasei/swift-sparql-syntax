@@ -177,8 +177,9 @@ if let op = args.next() {
             let stream = InputStream(data: sparql)
             stream.open()
             var lexer = try SPARQLLexer(source: stream, includeComments: true)
-            while let t = lexer.next() {
-                print("\(t)")
+            while let pt = lexer.nextPositionedToken() {
+                let t = pt.token
+                print("[\(pt.startLine):\(pt.startColumn)]\t\(t)")
             }
         } catch let e {
             warn("*** Failed to tokenize query: \(e)")

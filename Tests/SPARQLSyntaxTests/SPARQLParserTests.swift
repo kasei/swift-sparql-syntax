@@ -1129,7 +1129,7 @@ class SPARQLParserTests: XCTestCase {
             _ = try SPARQLLexer(source: stream, includeComments: false)
             XCTFail()
         } catch SPARQLSyntaxError.lexicalError(let message) {
-            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:21 near '\\u12...'") // TODO: not the right line:column
+            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:22 near '\\u12...'") // TODO: not the right line:column
         } catch {
             XCTFail()
         }
@@ -1150,7 +1150,7 @@ class SPARQLParserTests: XCTestCase {
                 _ = try SPARQLLexer(source: stream, includeComments: false)
                 XCTFail()
             } catch SPARQLSyntaxError.lexicalError(let message) {
-                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:21 near '\\u12...'") // TODO: not the right line:column
+                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:22 near '\\u12...'") // TODO: not the right line:column
             } catch {
                 XCTFail()
             }
@@ -1166,7 +1166,7 @@ class SPARQLParserTests: XCTestCase {
             _ = try SPARQLLexer(source: stream, includeComments: false)
             XCTFail()
         } catch SPARQLSyntaxError.lexicalError(let message) {
-            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:27 near '\\U12...'") // TODO: not the right line:column
+            XCTAssertEqual(message, "Input is not long enough to decode escape at 1:28 near '\\U12...'") // TODO: not the right line:column
         } catch {
             XCTFail()
         }
@@ -1186,10 +1186,29 @@ class SPARQLParserTests: XCTestCase {
                 _ = try SPARQLLexer(source: stream, includeComments: false)
                 XCTFail()
             } catch SPARQLSyntaxError.lexicalError(let message) {
-                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:27 near '\\U12...'") // TODO: not the right line:column
+                XCTAssertEqual(message, "Input is not long enough to decode escape at 2:28 near '\\U12...'") // TODO: not the right line:column
             } catch {
                 XCTFail()
             }
+        }
+    }
+    
+    func testUnicodeEscapeLineNumbering() throws {
+        for extraLines in 0..<10 {
+            let extra = String(repeating: "\\u000A", count: extraLines)
+            let sparql = "\(extra)\\u0020ASK {}"
+            let data = sparql.data(using: .utf8)!
+            let stream = InputStream(data: data)
+            stream.open()
+            var lexer = try SPARQLLexer(source: stream, includeComments: false)
+            let ptoken = lexer.nextPositionedToken()
+            XCTAssertNotNil(ptoken)
+            let t = ptoken!
+            
+            let expectedStartColumn = 1 + (6 * (1 + extraLines)) // starting at 1, adding 6 for the escaped space, and 6 again for each of the extra escaped newlines
+            
+            XCTAssertEqual(t.startLine, 1)
+            XCTAssertEqual(t.startColumn, expectedStartColumn)
         }
     }
 }

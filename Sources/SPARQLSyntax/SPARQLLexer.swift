@@ -272,6 +272,7 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
     var includeComments: Bool
     var string: String
     var stringPos: UInt
+    var positionOffsets: [UInt: (Int, Int)] // at each offset, an adjustment (line:column) to keep line and column correct for the original escaped content
     var line: Int
     var column: Int
     private(set) public var character: UInt
@@ -662,7 +663,7 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
         self.lookahead = nil
         self.tokenNumber = 0
 
-        self.buffer = try SPARQLLexer.unescapeInput(from: source)
+        (self.buffer, self.positionOffsets) = try SPARQLLexer.unescapeInput(from: source)
     }
 
     public mutating func nextPositionedToken() -> PositionedSPARQLToken? {
@@ -715,14 +716,16 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
 
     // Read content from the InputStream, processing SPARQL \u and \U unicode escapes,
     // and return the unescaped content as a string.
-    private static func unescapeInput(from source: InputStream) throws -> Substring {
+    private static func unescapeInput(from source: InputStream) throws -> (Substring, [UInt: (Int, Int)]) {
         let blockSize = 1024 // must be at least 8
         var readbuffer = [UInt8](repeatElement(0, count: blockSize))
         var unescapedBytes: [UInt8] = []
 
+        var offsets = [UInt: (Int, Int)]()
+        
         var line = 1
         var column = 1
-        var character = 0
+        var character : UInt = 0
         
         func fillBytes() throws -> Int {
             guard source.hasBytesAvailable else { return 0 }
@@ -763,6 +766,7 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
 
                         let type = prefix[index]
                         index += 1
+                        column += 1
 
                         switch type {
                         case 0x75: // \u
@@ -775,6 +779,10 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
                             }
                             let unescapedBytes = try parseUnicodeEscape(length: 4, escapedBytes: prefix, index: &index, line: line, column: column)
                             bytes.append(contentsOf: unescapedBytes)
+                            
+                            column += 4
+                            offsets[character] = (line, column)
+                            
                         case 0x55: // \U
                             let read = source.read(&readbuffer, maxLength: 8) // ensure there are at least 8 digits available
                             guard read != -1 else { print("\(source.streamError.debugDescription)"); break }
@@ -785,6 +793,9 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
                             }
                             let unescapedBytes = try parseUnicodeEscape(length: 8, escapedBytes: prefix, index: &index, line: line, column: column)
                             bytes.append(contentsOf: unescapedBytes)
+
+                            column += 8
+                            offsets[character] = (line, column)
                         default:
                             bytes.append(0x5c)
                             bytes.append(type)
@@ -801,14 +812,14 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
         LOOP: while true {
             let read = try fillBytes()
             guard read > 0 else { break }
-            guard unescapedBytes.count > 0 else { return "" }
+            guard unescapedBytes.count > 0 else { return ("", [:]) }
         }
 
         guard let s = String(bytes: unescapedBytes, encoding: .utf8) else {
             throw SPARQLSyntaxError.parsingError("Failed to decode input string as utf8")
         }
 
-        return s[s.startIndex..<s.endIndex]
+        return (s[s.startIndex..<s.endIndex], offsets)
     }
 
     mutating func peekToken() throws -> PositionedSPARQLToken? {
@@ -1397,17 +1408,38 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
         }
     }
     
+    private mutating func adjustColumn(column: Int) {
+        self.column += column
+        self.character += 1
+
+        let c = self.character
+        if let (adj_line, adj_column) = positionOffsets[c] {
+            self.line = adj_line
+            self.column = adj_column
+        }
+    }
+    
+    private mutating func adjustNewline() {
+        self.line += 1
+        self.column = 1
+        self.character += 1
+
+        let c = self.character
+        if let (adj_line, adj_column) = positionOffsets[c] {
+            self.line = adj_line
+            self.column = adj_column
+        }
+    }
+    
     @discardableResult
     mutating func dropAndPeekChar() -> Character? {
         let c = buffer.first!
         buffer.removeFirst()
         
-        self.character += 1
         if c == "\n" {
-            self.line += 1
-            self.column = 1
+            adjustNewline()
         } else {
-            self.column += 1
+            adjustColumn(column: 1)
         }
         return buffer.first
     }
@@ -1416,12 +1448,10 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
         let c = buffer.first!
         buffer.removeFirst()
 
-        self.character += 1
         if c == "\n" {
-            self.line += 1
-            self.column = 1
+            adjustNewline()
         } else {
-            self.column += 1
+            adjustColumn(column: 1)
         }
     }
     
@@ -1430,12 +1460,10 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
         let c = buffer.first!
         buffer.removeFirst()
         
-        self.character += 1
         if c == "\n" {
-            self.line += 1
-            self.column = 1
+            adjustNewline()
         } else {
-            self.column += 1
+            adjustColumn(column: 1)
         }
         return c
     }
@@ -1446,12 +1474,10 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
             throw lexError("Unexpected EOF")
         }
         buffer.removeFirst()
-        self.character += 1
         if c == "\n" {
-            self.line += 1
-            self.column = 1
+            adjustNewline()
         } else {
-            self.column += 1
+            adjustColumn(column: 1)
         }
         return c
     }
@@ -1492,13 +1518,13 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
         }
         
         buffer.removeFirst(wc)
-        self.character += UInt(wc)
+
+
         for c in word {
             if c == "\n" {
-                self.line += 1
-                self.column = 1
+                adjustNewline()
             } else {
-                self.column += 1
+                adjustColumn(column: 1)
             }
         }
         return bc - wc
@@ -1511,13 +1537,11 @@ public struct SPARQLLexer: IteratorProtocol, Sendable {
         }
         
         let str = String(buffer.prefix(count))
-        self.character += UInt(count)
         for c in str {
             if c == "\n" {
-                self.line += 1
-                self.column = 1
+                adjustNewline()
             } else {
-                self.column += 1
+                adjustColumn(column: 1)
             }
         }
         buffer.removeFirst(count)
